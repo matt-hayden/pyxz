@@ -2,10 +2,17 @@
 # -*- coding: utf-8 -*-
 import calendar
 import os
-import pywapi as weather
 import sys
+import urllib2
+
 from console_size import get_terminal_size
 
+try:
+	import pywapi as weather
+except ImportError:
+	print >>sys.stderr, "Error: No pywapi module"
+	sys.exit(-1)
+	
 # parameters:
 metric = True
 location = '80302'
@@ -50,7 +57,12 @@ def get_forecast(google_result, forecast_number = 0, weekend_only = False):
 	return forecast['day_of_week']+": "+low+"-"+high+degree_unit_symbol+" and "+forecast['condition']
 #
 rows, columns = get_terminal_size(default = (40, 80))
-google_result = weather.get_weather_from_google(location)
+try:
+	google_result = weather.get_weather_from_google(location)
+except urllib2.HTTPError, e:
+	print >>sys.stderr, "Error loading weather URL from Google"
+	sys.exit(-2)
+	
 #
 this_line, last_line = "Now: "+get_current(google_result), "No weather"
 forecast_number = 0
