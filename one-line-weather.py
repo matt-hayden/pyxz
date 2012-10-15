@@ -1,5 +1,7 @@
 ﻿# http://code.google.com/p/python-weather-api/
 # -*- coding: utf-8 -*-
+### Note that Google has killed their weather API
+
 import calendar
 import os
 import sys
@@ -20,8 +22,10 @@ sep = '/'
 weekend_only = False
 #
 if metric:
+	units = 'metric'
 	degree_unit="C"
 else:
+	units = None
 	degree_unit="F"
 degree_unit_symbol="*"+degree_unit
 #degree_unit_symbol="\xB0"+degree_unit
