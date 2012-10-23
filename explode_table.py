@@ -18,7 +18,13 @@ class FileArgument: # abstract
 				self.load_file(f)
 		except:
 			self.fileobj = f
-class TableExploder(FileArgument): # abstract
+class TableExploder: # abstract
+	def get_elements(self):
+		for toplabel, elements in self.get_rows():
+			for sidelabel, val in elements:
+				yield (toplabel+sidelabel, self.parser(val))
+	__iter__ = get_elements
+class CSVTableExploder(FileArgument, TableExploder): # abstract, should be subclassed
 	def get_rows(self):
 		with self.fileobj as fi:
 			cr = csv.reader(fi, delimiter=self.delimiter)
@@ -28,13 +34,8 @@ class TableExploder(FileArgument): # abstract
 				if row:
 					sidelabel = row.pop(0)
 					yield (sidelabel, zip(cheader, row))
-	def get_elements(self):
-		for toplabel, elements in self.get_rows():
-			for sidelabel, val in elements:
-				yield (toplabel+sidelabel, self.parser(val))
-	__iter__ = get_elements
 
-class explode_table(TableExploder):
+class explode_table(CSVTableExploder):
 	delimiter='\t'
 	formatter=parse_number_formatter
 	def parser(self, s):
