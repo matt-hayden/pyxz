@@ -15,7 +15,7 @@ def localtime(tz=None):
 #
 # Globals:
 quietfile=os.path.expanduser("~/.quiet")
-soundsdirectory=os.path.expanduser('~/Dropbox/sounds/24')
+soundsdirectory=os.path.expanduser('~/sounds/24')
 #
 if __name__=='__main__':
 	quiet=os.path.exists(quietfile)
