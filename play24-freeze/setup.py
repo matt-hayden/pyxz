@@ -1,3 +1,7 @@
+# Commands to repeat:
+# schtasks /create /tn "Agent Jack Bauer" /tr "%ProgramFiles%\Agent Jack Bauer\play24.exe" /sc HOURLY 
+# schtasks /create /tn "Agent Jack Bauer" /tr "%ProgramFiles%\Agent Jack Bauer\play24.exe" /sc ONLOGON
+#
 import os.path
 import sys
 
