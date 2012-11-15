@@ -7,8 +7,13 @@ import sys
 from playMP3 import playMP3
 
 # Globals:
+dirname=os.path.dirname(sys.argv[0])
 quietfiles=[ '.quiet', os.path.expanduser("~/.quiet") ]
-soundsdirectories=[ 'sounds/24', '', os.path.expanduser('~/sounds/24') ]
+soundsdirectories=[ 'sounds/24', 
+					os.path.join(dirname, 'sounds/24'), 
+					'', 
+					os.path.expanduser('~/sounds/24')
+					]
 tz=None
 """
 # To specify a timezone:
