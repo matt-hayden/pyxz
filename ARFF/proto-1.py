@@ -1,6 +1,8 @@
 #! env python
+from collections import deque
 import csv
 from datetime import datetime, timedelta
+from itertools import groupby
 import re
 from cStringIO import StringIO
 
@@ -134,7 +136,8 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 		ARFF relations. Make sure this hard-coded list jives with the parsing
 		logic.
 		"""
-		ps = []
+		#ps = []
+		ps = deque()
 		if self.has_fixture_profile_section:
 			ps.append(self.fixture_profile_section_regex.match)
 		if self.has_log_attribute_section:
@@ -162,18 +165,66 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 			print len(self.flows), "data points"
 			print self.flows[0], " - ", self.flows[-1]
 	#
+	TraceWizard4_events_header = ['eventid',
+								  'class',
+								  'starttime',
+								  'endtime',
+								  'duration',
+								  'volume',
+								  'peak',
+								  'mode'
+								  ]
 	@property
 	def events_header(self):
 		return [a[0] for a in self.attributes]
-	flows_header = 'EventID', 'StartTime', 'Duration', 'FlowRate'
+	flows_header = 'eventid', 'starttime', 'duration', 'rate'
+	flows_units = self.log_attributes['Unit']+"/minute"
 	def parse_flow_line(self, line, float_t=float):
 		return (int(line[0]),
 				datetime.strptime(line[1], self.flow_timestamp_format),
 				float_t(line[2]),
 				float_t(line[3])
 				)
+	def get_TraceWizard4_events(self, 
+								first_cycle_classes=['Clotheswasher', 'Dishwasher', 'Shower'],
+								first_cycler=lambda s: s+"@"):
+		fields = [ self.events_header.index(s) for s in self.TraceWizard4_events_header ]
+		first_cycle_index = self.events_header.index('firstcycle')
+		i_name_index = self.events_header.index('class')
+		o_name_index = self.TraceWizard4_events_header.index('class')
+		for e in self.events:
+			name = e[i_name_index]
+			row = [e[i] for i in fields]
+			if e[first_cycle_index] and first_cycler and (name in first_cycle_classes):
+				name=first_cycler(name)
+				row[o_name_index] = name
+			yield row
+	def get_events_and_flows(self, field_name = 'eventid'):
+		"""
+		Returns an iterable of the following structure:
+			[ event, [flow_0, ..., flow_n]]
+		To discern the fields in event or flows, use the flows_header and 
+		events_header members.
+		"""
+		assert self.has_flow_section
+		key_field = self.flows_header.index(field_name)
+		for k, g in groupby(self.flows, lambda e: e[key_field]):
+			yield (self.events[k],list(g))
+	def get_events_and_rates(self, flow_field_name = 'rate'):
+		"""
+		Returns an iterable of the following structure:
+			[ event, [rate_0, ..., rate_n]]
+		To discern the fields in event, use events_header. The units of flow
+		rate are available in the flows_units member.
+		"""
+		rate_field = self.flows_header.index(flow_field_name)
+		for e, g in self.get_events_and_flows():
+			yield (e, tuple([f[rate_field] for f in g]) )
 	#
 	def parse_header(self, parseme):
+		"""
+		Read the TraceWizard5-specific header after sniffing the version.
+		"""
 		self.format, self.version, line_number = self.sniff_version(parseme)
 		# Relation attributes (mandatory)
 		next_section=self._parse_sectioner.pop()
@@ -219,20 +270,25 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 	#
 	def define_log_attributes(self, attributes):
 		"""
-		Extended checks on the MeterMaster attributes.
+		Extended checks on the MeterMaster attributes, taking a list of
+		2-tuples.
 		"""
 		self.log_attributes = dict([format_log_attribute(k,v) for k,v in attributes])
 		timestamp_delta = self.log_attributes['LogEndTime'] - self.log_attributes['LogStartTime']
 		storage_interval_delta = timedelta(seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval'])
 		assert timestamp_delta == storage_interval_delta
 	#
-	def parse_TraceWizard5_ARFF(self, parseme):
-		line_number = self.parse_header(parseme)
+	def parse_TraceWizard5_ARFF(self, iterable):
+		"""
+		Parsing an input file beyond sniffing the version and reading the
+		header.
+		"""
+		line_number = self.parse_header(iterable)
 		# Data points (mandatory)
 		sio=StringIO()
 		if len(self._parse_sectioner): # there's a comment section following
 			next_section=self._parse_sectioner.pop()
-			for line_number, line in enumerate(parseme, start=line_number+1):
+			for line_number, line in enumerate(iterable, start=line_number+1):
 				n = next_section(line)
 				if n:
 					break
@@ -241,7 +297,7 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 					sio.write(line)
 		else:
 			next_section = None
-			for line_number, line in enumerate(parseme, start=line_number+1):
+			for line_number, line in enumerate(iterable, start=line_number+1):
 				sio.write(line)
 		print "Events parsing produced", sio.tell(), "characters"
 		sio.seek(0)
@@ -252,7 +308,7 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 		if self.has_flow_section:
 			sio=StringIO()
 			next_section = None
-			for line_number, line in enumerate(parseme, start=line_number+1):
+			for line_number, line in enumerate(iterable, start=line_number+1):
 				m = self.comment_regex.match(line) # TODO
 				if m:
 					sio.write(m.group('comment'))
@@ -312,6 +368,8 @@ if __name__ == '__main__':
 					  '09_22oct2011_append_21dec2011.twdb',
 					  '12S704.twdb'
 					  ]
-	fn = os.path.join(tempdir, example_traces[0])
+	fn = os.path.join(tempdir, example_traces[-1])
 	t = TraceWizard5_File(fn)
+	#t4 = list(t.get_TraceWizard4_events())
+	fbe = list(t.get_events_and_rates())
 	t.print_summary()
