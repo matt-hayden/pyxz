@@ -2,6 +2,7 @@ from collections import deque, namedtuple
 import csv
 from datetime import datetime, timedelta
 from itertools import groupby
+import os.path
 import re
 from cStringIO import StringIO
 
@@ -47,27 +48,21 @@ def format_log_attribute(key, value, float_t=float):
 			return key, td
 	# else:
 	return key, value
-
-class dummy_storage1:
-	def __init__(self):
-		self.events = []
-		self.flows = []
-	def append_event(self, data):
-		if data.strip():
-			self.events.append(data)
-	def append_flow(self, data):
-		if data.strip():
-			self.flows.append(data)
-class dummy_storage2(dummy_storage1):
-	def __init__(self):
-		#dummy_storage1.__init__(self)
-		self.log_attributes = {}
-	def append_log_attribute(self,key,value):
-		self.log_attributes[key] = value # mysterious error here
-
-
+respell = {
+	'eventid':		'EventID',
+	'starttime':	'StartTime',
+	'endtime':		'EndTime',
+	'firstcycle':	'FirstCycle',
+	'class':		'Class',
+	'classifiedusingfixturelist':	'ClassifiedUsingFixtureList',
+	'manuallyapproved':				'ManuallyApproved',
+	'manuallyclassifiedfirstcycle':	'ManuallyClassifiedFirstCycle'
+	}
+TraceWizard4_EventRow = namedtuple('TraceWizard4_EventRow',
+	"EventID Class StartTime EndTime Duration Volume Peak Mode"
+	)
 #
-class TraceWizard5_parser(ARFF_header, dummy_storage1):
+class TraceWizard5_parser(ARFF_header):
 	### Custom comment statements not standard in ARFF
 	event_timestamp_format = log_attribute_timestamp_format # '%Y-%m-%d %H:%M:%S'
 	#
@@ -109,6 +104,16 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 		ps.reverse() # Hmm
 		self._parse_sectioner = ps
 	#
+	def _build_EventRow(self):
+		"""
+		Events are reported as namedtuple objects. This means you can refer to
+		row.starttime rather than row[3], row[4], or row[5] if that field moves
+		places between formats.
+		"""
+		self.EventRow = namedtuple('EventRow', self.events_header)
+	def _build_FlowRow(self):
+		self.FlowRow = namedtuple('FlowRow', self.flows_header)
+	#
 	def print_summary(self):
 		print "<", self.__class__, ">", self.format, "format, version", self.version
 		print "Attributes:"
@@ -126,47 +131,46 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 			print len(self.flows), "data points"
 			print self.flows[0], " - ", self.flows[-1]
 	#
-	TraceWizard4_events_header = ['eventid',
-								  'class',
-								  'starttime',
-								  'endtime',
-								  'duration',
-								  'volume',
-								  'peak',
-								  'mode'
-								  ]
-	#
 	@property
 	def events_header(self):
 		return [a[0] for a in self.attributes]
 	events_units = 'Gallons'
 	#
-	flows_header = 'eventid', 'starttime', 'duration', 'rate'
+	flows_header = 'EventID', 'StartTime', 'Duration', 'Rate'
 	@property
 	def flows_units(self):
 		return self.log_attributes['Unit']+"/minute"
 	#
-	def parse_flow_line(self, line, float_t=float):
-		return (int(line[0]),
-				datetime.strptime(line[1], self.flow_timestamp_format),
-				float_t(line[2]),
-				float_t(line[3])
-				)
+	def parse_flow_line(self, line, float_t=float, row_factory = None):
+		row_factory = row_factory or self.FlowRow
+		return row_factory(
+			int(line[0]),
+			datetime.strptime(line[1], self.flow_timestamp_format),
+			timedelta(seconds=float(line[2])),
+			float_t(line[3])
+			)
 	def get_TraceWizard4_events(self, 
 								first_cycle_classes=['Clotheswasher', 'Dishwasher', 'Shower'],
-								first_cycler=lambda s: s+"@"):
-		fields = [ self.events_header.index(s) for s in self.TraceWizard4_events_header ]
-		first_cycle_index = self.events_header.index('firstcycle')
-		i_name_index = self.events_header.index('class')
-		o_name_index = self.TraceWizard4_events_header.index('class')
+								first_cycler=lambda s: s+"@",
+								row_factory = None):
+		"EventID Class StartTime EndTime Duration Volume Peak Mode"
+		#
+		row_factory = row_factory or TraceWizard4_EventRow
 		for e in self.events:
-			name = e[i_name_index]
-			row = [e[i] for i in fields]
-			if e[first_cycle_index] and first_cycler and (name in first_cycle_classes):
-				name=first_cycler(name)
-				row[o_name_index] = name
-			yield row
-	def get_events_and_flows(self, field_name = 'eventid'):
+			myClass = e.Class
+			if e.FirstCycle and (myClass in first_cycle_classes) and first_cycler:
+				myClass = first_cycler(myClass)
+			yield row_factory(
+					e.EventID,
+					myClass,
+					e.StartTime,
+					e.EndTime,
+					e.Duration,
+					e.Volume,
+					e.Peak,
+					e.Mode
+				)
+	def get_events_and_flows(self):
 		"""
 		Returns an iterable of the following structure:
 			[ event, [flow_0, ..., flow_n]]
@@ -174,45 +178,68 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 		events_header members.
 		"""
 		assert self.has_flow_section
-		key_field = self.flows_header.index(field_name)
-		for k, g in groupby(self.flows, lambda e: e[key_field]):
+		for k, g in groupby(self.flows, lambda e: e.EventID):
 			yield (self.events[k],list(g))
-	def get_events_and_rates(self, flow_field_name = 'rate'):
+	def get_events_and_rates(self):
 		"""
 		Returns an iterable of the following structure:
 			[ event, [rate_0, ..., rate_n]]
 		To discern the fields in event, use events_header. The units of flow
 		rate are available in the flows_units member.
 		"""
-		rate_field = self.flows_header.index(flow_field_name)
 		for e, g in self.get_events_and_flows():
-			yield (e, tuple([f[rate_field] for f in g]) )
+			yield (e, tuple([f.Rate for f in g]) )
+	@staticmethod
+	def EventRow_midpoint(e):
+		return e.StartTime+e.Duration/2
+	def get_events_by_day(self, day_decider=None):
+		"""
+		Returns all events broken into 24-hour periods. Events spanning
+		midnight are, by default, not broken across days. Flows for events
+		spanning midnight are all assigned to a single day, the same day as
+		that event. Returns:
+			[ date, [event_0, [flow_00, ..., flow_0j]], ...,
+					[event_n, [flow_n0, ..., flow_nk]] ]
+		"""
+		if not day_decider:
+			def day_decider(t):
+				return self.EventRow_midpoint(t[0]).date()
+		for k, g in groupby(self.get_events_and_rates(), key=day_decider):
+			yield (k, list(g))
 	#
-	def parse_header(self, parseme):
+	def parse_header(self,
+					 iterable,
+					 forbidden_attribute_names = ['class']
+					 ):
 		"""
 		Read the TraceWizard5-specific header after sniffing the version.
 		"""
-		self.format, self.version, line_number = self.sniff_version(parseme)
+		self.format, self.version, line_number = self.sniff_version(iterable)
 		# Relation attributes (mandatory)
 		next_section=self._parse_sectioner.pop()
 		a = []
-		for line_number, line in enumerate(parseme, start=line_number+1):
+		for line_number, line in enumerate(iterable, start=line_number+1):
 			n=next_section(line)
 			if n:
 				break
 			# else:
-			m = self.relation_regex.match(line) # TODO
+			m = self.relation_regex.match(line)
 			if m:
-				a.append( (m.group('attribute_name'), m.group('attribute_parameters')) )
+				name = m.group('attribute_name')
+				if name in respell:
+					name = respell[name]
+				else:
+					name = name.title()
+				a.append( (name, m.group('attribute_parameters')) )
 		self.attributes = a
 		### EventRow is built at the earliest possible time
-		self.EventRow = namedtuple('EventRow', self.events_header, verbose=True)
+		self._build_EventRow()
 		# Fixture list (optional)
 		self.fixture_profiles = []
 		if self.has_fixture_profile_section:
 			next_section=self._parse_sectioner.pop()
 			fp = []
-			for line_number, line in enumerate(parseme, start=line_number+1):
+			for line_number, line in enumerate(iterable, start=line_number+1):
 				n=next_section(line)
 				if n:
 					break
@@ -226,7 +253,7 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 		if self.has_log_attribute_section:
 			next_section=self._parse_sectioner.pop()
 			la = []
-			for line_number, line in enumerate(parseme, start=line_number+1):
+			for line_number, line in enumerate(iterable, start=line_number+1):
 				n=next_section(line)
 				if n:
 					break
@@ -287,6 +314,9 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 		# Flows
 		self.flows = []
 		if self.has_flow_section:
+			###
+			self._build_FlowRow()
+			###
 			sio=StringIO()
 			next_section = None
 			for line_number, line in enumerate(iterable, start=line_number+1):

@@ -1,8 +1,12 @@
 #! env python
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from TraceWizard5_parser import TraceWizard5_parser
 
+"""
+These subclasses define the different TraceWizard5 file formats. There are at
+least 4.
+"""
 class TraceWizard5000_parser(TraceWizard5_parser):
 	minimum_version = (5,1,0,0)
 	number_of_event_fields = 11
@@ -15,7 +19,7 @@ class TraceWizard5000_parser(TraceWizard5_parser):
 			int(line[0]),
 			datetime.strptime(line[1], self.event_timestamp_format),
 			datetime.strptime(line[2], self.event_timestamp_format),
-			float_t(line[3]),
+			timedelta(seconds=float(line[3])),
 			bool(line[4]),
 			bool(line[5]),
 			line[6],
@@ -34,7 +38,7 @@ class TraceWizard5100_parser(TraceWizard5000_parser):
 			int(line[0]),
 			datetime.strptime(line[1], self.event_timestamp_format),
 			datetime.strptime(line[2], self.event_timestamp_format),
-			float_t(line[3]),
+			timedelta(seconds=float(line[3])),
 			bool(line[4]),
 			bool(line[5]),
 			line[6],
@@ -59,7 +63,7 @@ class TraceWizard51021_parser(TraceWizard5100_parser):
 			int(line[0]),
 			datetime.strptime(line[1], self.event_timestamp_format),
 			datetime.strptime(line[2], self.event_timestamp_format),
-			float_t(line[3]),
+			timedelta(seconds=float(line[3])),
 			bool(line[4]),
 			bool(line[5]),
 			line[6],
@@ -99,7 +103,7 @@ if __name__ == '__main__':
 					  '09_22oct2011_append_21dec2011.twdb',
 					  '12S704.twdb'
 					  ]
-	fn = os.path.join(tempdir, example_traces[0])
+	fn = os.path.join(tempdir, example_traces[-1])
 	t = TraceWizard5_File(fn)
 	#t4 = list(t.get_TraceWizard4_events())
 	fbe = list(t.get_events_and_rates())
