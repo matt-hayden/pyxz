@@ -5,9 +5,11 @@ import re
 from cStringIO import StringIO
 
 """
-Read several versions of TraceWizard5 files.
+Read several versions of TraceWizard5 files. Should be refactored into several
+files for clarity.
 """
 
+dequote_regex=re.compile('\\s*(["\'])(.*)\\1\\s*')
 
 log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S'
 log_attribute_duration_regex = re.compile('(?P<days>\d+) days [+] (?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?')
@@ -16,8 +18,8 @@ log_attribute_float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolu
 log_attribute_int_fields = 'NumberOfIntervals',
 log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
 def dequote(text):
-	if text.startswith('"') and text.endswith('"'):
-		return text[1:-1]
+	m = dequote_regex.match(text)
+	return m.groups()[-1] if m else text
 def format_log_attribute(key, value, float_t=float):
 	if key in log_attribute_float_fields:
 		return key, float_t(value)
