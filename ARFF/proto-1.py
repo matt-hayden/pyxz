@@ -174,11 +174,17 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 								  'peak',
 								  'mode'
 								  ]
+	#
 	@property
 	def events_header(self):
 		return [a[0] for a in self.attributes]
+	events_units = 'Gallons'
+	#
 	flows_header = 'eventid', 'starttime', 'duration', 'rate'
-	flows_units = self.log_attributes['Unit']+"/minute"
+	@property
+	def flows_units(self):
+		return self.log_attributes['Unit']+"/minute"
+	#
 	def parse_flow_line(self, line, float_t=float):
 		return (int(line[0]),
 				datetime.strptime(line[1], self.flow_timestamp_format),
@@ -321,11 +327,28 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 			self.from_iterable(fi)
 	def from_iterable(self, iterable):
 		self.parse_TraceWizard5_ARFF(iterable)
-class TraceWizard5100_parser(TraceWizard5_parser):
+class TraceWizard5000_parser(TraceWizard5_parser):
 	minimum_version = (5,1,0,0)
-	number_of_event_fields = 12
+	number_of_event_fields = 11
 	has_fixture_profile_section=False
 	has_log_attribute_section=False
+	#
+	def parse_event_line(self, line, float_t=float):
+		return (int(line[0]),
+				datetime.strptime(line[1], self.event_timestamp_format),
+				datetime.strptime(line[2], self.event_timestamp_format),
+				float_t(line[3]),
+				bool(line[4]),
+				bool(line[5]),
+				line[6],
+				float_t(line[7]),
+				float_t(line[8]),
+				float_t(line[9]),
+				line[10]
+				)
+class TraceWizard5100_parser(TraceWizard5000_parser):
+	minimum_version = (5,1,0,0)
+	number_of_event_fields = 12
 	#
 	def parse_event_line(self, line, float_t=float):
 		return (int(line[0]),
@@ -343,18 +366,43 @@ class TraceWizard5100_parser(TraceWizard5_parser):
 				)
 				
 class TraceWizard51021_parser(TraceWizard5100_parser):
-	minimum_version = (5,1,0,21)
+	"""
+	The minor version is likely wrong here.
+	"""
+	minimum_version = (5,1,0,9)
+	number_of_event_fields = 15
 	has_fixture_profile_section=True
+	#
+	def parse_event_line(self, line, float_t=float):
+		return (int(line[0]),
+				datetime.strptime(line[1], self.event_timestamp_format),
+				datetime.strptime(line[2], self.event_timestamp_format),
+				float_t(line[3]),
+				bool(line[4]),
+				bool(line[5]),
+				line[6],
+				float_t(line[7]),
+				float_t(line[8]),
+				float_t(line[9]),
+				line[10].strip(),
+				line[11],
+				bool(line[12]),
+				bool(line[13]),
+				bool(line[14])
+				)
 class TraceWizard51030_parser(TraceWizard51021_parser):
+	"""
+	The minor version is likely wrong here.
+	"""
 	minimum_version = (5,1,0,30)
 	has_log_attribute_section=True
-TraceWizard5_classes = [ TraceWizard51030_parser, TraceWizard51021_parser, TraceWizard5100_parser ]
-def TraceWizard5_File(filename, parent=TraceWizard5_parser):
+TraceWizard5_classes = [ TraceWizard51030_parser, TraceWizard51021_parser, TraceWizard5100_parser, TraceWizard5000_parser ]
+def TraceWizard5_File(filename, sniffer=TraceWizard5_parser.sniff_version):
 	"""
 	Convenience function to return the correct parser for an ARFF file.
 	"""
 	with open(filename) as fi:
-		format, version, line_number = parent.sniff_version(fi)
+		format, version, line_number = sniffer(fi)
 		t = None
 		for vclass in TraceWizard5_classes:
 			if version >= vclass.minimum_version:
