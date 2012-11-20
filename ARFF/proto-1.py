@@ -1,6 +1,8 @@
 #! env python
-from datetime import datetime
+import csv
+from datetime import datetime, timedelta
 import re
+from cStringIO import StringIO
 
 """
 Read several versions of TraceWizard5 files.
@@ -8,25 +10,38 @@ Read several versions of TraceWizard5 files.
 
 
 log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S'
-log_attribute_duration_format = '%d days + %H:%M:%S'
+log_attribute_duration_regex = re.compile('(?P<days>\d+) days [+] (?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?')
+log_attribute_duration_fields = 'TotalTime',
 log_attribute_float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume', 'StorageInterval'
 log_attribute_int_fields = 'NumberOfIntervals',
-log_attribute_timestamp_formats = 'LogEndTime', 'LogStartTime'
+log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
 def dequote(text):
 	if text.startswith('"') and text.endswith('"'):
 		return text[1:-1]
-def format_log_attribute(key, value):
+def format_log_attribute(key, value, float_t=float):
 	if key in log_attribute_float_fields:
-		return key, float(value)
+		return key, float_t(value)
 	if key in log_attribute_int_fields:
 		return key, int(value)
-	if key in log_attribute_timestamp_formats:
+	if key in log_attribute_timestamp_fields:
 		try:
 			return key, datetime.strptime(value, log_attribute_timestamp_format)
 		except:
 			return format_log_attribute(key, dequote(value))
-	else:
-		return key, value
+	if key in log_attribute_duration_fields:
+		m = log_attribute_duration_regex.match(value)
+		if m:
+			try:
+				td = timedelta(days=int(m.group('days')),
+							   hours=int(m.group('hours')),
+							   minutes=int(m.group('minutes')),
+							   seconds=int(m.group('seconds') or 0)
+							   )
+			except:
+				td = value
+			return key, td
+	# else:
+	return key, value
 
 class dummy_storage1:
 	def __init__(self):
@@ -46,7 +61,7 @@ class dummy_storage2(dummy_storage1):
 		self.log_attributes[key] = value # mysterious error here
 
 class ARFF_format:
-	comment_regex=re.compile('%(?P<comment>.*)')
+	comment_regex=re.compile('%\s*(?P<comment>.*)')
 	#
 	relation_section_regex=re.compile('@RELATION\s+(?P<relation_name>.*)')
 	relation_regex=re.compile('@ATTRIBUTE\s+(?P<attribute_name>\w+)\s+(?P<attribute_parameters>.*)')
@@ -91,16 +106,17 @@ class ARFF_header(ARFF_format):
 #
 class TraceWizard5_parser(ARFF_header, dummy_storage1):
 	### Custom comment statements not standard in ARFF
-	#has_fixture_profile_section=True
+	event_timestamp_format = log_attribute_timestamp_format # '%Y-%m-%d %H:%M:%S'
+	#
 	fixture_profile_section_regex=re.compile('% @FIXTURE PROFILES')
 	fixture_profile_header_regex=re.compile('% FixtureClass,MinVolume,MaxVolume,MinPeak,MaxPeak,MinDuration,MaxDuration,MinMode,MaxMode')
 	# right now, each fixture profile is simply a comment
-	#has_log_attribute_section=True
 	log_attribute_section_regex=re.compile('% @LOG')
 	log_attribute_regex=re.compile('%\s+(?P<attribute_name>\w+)\s*[,]\s*(?P<attribute_value>.*)')
 	# right now, each logged attribute is simply a comment
 	has_flow_section=True
 	flow_section_regex=re.compile('% @FLOW')
+	flow_timestamp_format = event_timestamp_format
 	#
 	def __init__(self, data = None):
 		self._build_parse_sectioner()
@@ -144,6 +160,17 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 			print len(self.flows), "data points"
 			print self.flows[0], " - ", self.flows[-1]
 	#
+	@property
+	def events_header(self):
+		return [a[0] for a in self.attributes]
+	flows_header = 'EventID', 'StartTime', 'Duration', 'FlowRate'
+	def parse_flow_line(self, line, float_t=float):
+		return (int(line[0]),
+				datetime.strptime(line[1], self.flow_timestamp_format),
+				float_t(line[2]),
+				float_t(line[3])
+				)
+	#
 	def parse_header(self, parseme):
 		self.format, self.version, line_number = self.sniff_version(parseme)
 		# Relation attributes (mandatory)
@@ -184,18 +211,23 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 				# else:
 				m = self.log_attribute_regex.match(line)
 				if m:
-		#			self.append_log_attribute(m.group('attribute_name'),
-		#									  m.group('attribute_value'))
-		#			la[m.group('attribute_name')] = m.group('attribute_value')
-					la.append(format_log_attribute(m.group('attribute_name'), m.group('attribute_value')))
-			print la
-			self.log_attributes = dict(la)
+					la.append((m.group('attribute_name'), m.group('attribute_value')))
+			self.define_log_attributes(la)
 		return line_number
+	#
+	def define_log_attributes(self, attributes):
+		"""
+		Extended checks on the MeterMaster attributes.
+		"""
+		self.log_attributes = dict([format_log_attribute(k,v) for k,v in attributes])
+		timestamp_delta = self.log_attributes['LogEndTime'] - self.log_attributes['LogStartTime']
+		storage_interval_delta = timedelta(seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval'])
+		assert timestamp_delta == storage_interval_delta
 	#
 	def parse_TraceWizard5_ARFF(self, parseme):
 		line_number = self.parse_header(parseme)
 		# Data points (mandatory)
-		self.events=[]
+		sio=StringIO()
 		if len(self._parse_sectioner): # there's a comment section following
 			next_section=self._parse_sectioner.pop()
 			for line_number, line in enumerate(parseme, start=line_number+1):
@@ -203,23 +235,29 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 				if n:
 					break
 				# else:
-				#self.events.append(line)
-				self.append_event(line)
+				if line.strip():
+					sio.write(line)
 		else:
 			next_section = None
 			for line_number, line in enumerate(parseme, start=line_number+1):
-				#self.events.append(line)
-				self.append_event(line)
+				sio.write(line)
+		print "Events parsing produced", sio.tell(), "characters"
+		sio.seek(0)
+		self.events = [ self.parse_event_line(l) for l in csv.reader(sio) ]
+		sio.close()
 		# Flows
 		self.flows = []
 		if self.has_flow_section:
+			sio=StringIO()
 			next_section = None
 			for line_number, line in enumerate(parseme, start=line_number+1):
-				#line_number += 1
 				m = self.comment_regex.match(line) # TODO
 				if m:
-					#self.flows.append(line)
-					self.append_flow(line)
+					sio.write(m.group('comment'))
+					sio.write('\n')
+			sio.seek(0)
+			self.flows = [ self.parse_flow_line(l) for l in csv.reader(sio) ]
+			sio.close()
 	def from_file(self, filename):
 		with open(filename) as fi:
 			self.from_iterable(fi)
@@ -227,8 +265,25 @@ class TraceWizard5_parser(ARFF_header, dummy_storage1):
 		self.parse_TraceWizard5_ARFF(iterable)
 class TraceWizard5100_parser(TraceWizard5_parser):
 	minimum_version = (5,1,0,0)
+	number_of_event_fields = 12
 	has_fixture_profile_section=False
 	has_log_attribute_section=False
+	#
+	def parse_event_line(self, line, float_t=float):
+		return (int(line[0]),
+				datetime.strptime(line[1], self.event_timestamp_format),
+				datetime.strptime(line[2], self.event_timestamp_format),
+				float_t(line[3]),
+				bool(line[4]),
+				bool(line[5]),
+				line[6],
+				float_t(line[7]),
+				float_t(line[8]),
+				float_t(line[9]),
+				line[10].strip(),
+				line[11]
+				)
+				
 class TraceWizard51021_parser(TraceWizard5100_parser):
 	minimum_version = (5,1,0,21)
 	has_fixture_profile_section=True
@@ -249,11 +304,12 @@ def TraceWizard5_File(filename, parent=TraceWizard5_parser):
 	return vclass(filename)
 if __name__ == '__main__':
 	import os.path
-	desktop=os.path.expandvars('%UserProfile%\Desktop')
-	for fn in ['01_07nov2011_16nov2011.twdb',
-			   '09_22oct2011_append_21dec2011.twdb',
-			   '12S704.twdb'
-			   ]:
-		fn = os.path.join(desktop, 'example-traces', fn)
-		t = TraceWizard5_File(fn)
-		t.print_summary()
+	#desktop=os.path.expandvars('%UserProfile%\Desktop')
+	tempdir=os.path.expandvars('%TEMP%\example-traces')
+	example_traces = ['01_07nov2011_16nov2011.twdb',
+					  '09_22oct2011_append_21dec2011.twdb',
+					  '12S704.twdb'
+					  ]
+	fn = os.path.join(tempdir, example_traces[0])
+	t = TraceWizard5_File(fn)
+	t.print_summary()
