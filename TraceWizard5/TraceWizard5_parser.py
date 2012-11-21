@@ -114,23 +114,6 @@ class TraceWizard5_parser(ARFF_header):
 	def _build_FlowRow(self):
 		self.FlowRow = namedtuple('FlowRow', self.flows_header)
 	#
-	def print_summary(self):
-		print "<", self.__class__, ">", self.format, "format, version", self.version
-		print "Attributes:"
-		for n, l in enumerate(self.attributes):
-			print '\t', n, l
-		if self.has_fixture_profile_section:
-			print "Fixture profiles:"
-			for n, l in enumerate(self.fixture_profiles):
-				print '\t', n, l
-		if self.has_log_attribute_section:
-			print "Logging attributes:", self.log_attributes
-		print len(self.events), "events"
-		print self.events[0], " - ", self.events[-1]
-		if self.has_flow_section:
-			print len(self.flows), "data points"
-			print self.flows[0], " - ", self.flows[-1]
-	#
 	@property
 	def events_header(self):
 		return [a[0] for a in self.attributes]
@@ -332,3 +315,24 @@ class TraceWizard5_parser(ARFF_header):
 			self.from_iterable(fi)
 	def from_iterable(self, iterable):
 		self.parse_TraceWizard5_ARFF(iterable)
+	#
+	def print_summary(self):
+		print "<", self.__class__, ">", self.format, "format, version", self.version
+		print "Attributes:"
+		for n, l in enumerate(self.attributes):
+			print '\t', n, l
+		if self.has_fixture_profile_section:
+			print "Fixture profiles:"
+			for n, l in enumerate(self.fixture_profiles):
+				print '\t', n, l
+		if self.has_log_attribute_section:
+			print "Logging attributes:", self.log_attributes
+		print len(self.events), "events"
+		print self.events[0], " - ", self.events[-1]
+		if self.has_flow_section:
+			print len(self.flows), "data points"
+			print self.flows[0], " - ", self.flows[-1]
+		print "Volume by day:"
+		for d, ef in self.get_events_by_day():
+			daily_total = sum(e.Volume for (e, f) in ef)
+			print d, " = ", daily_total, self.events_units
