@@ -1,4 +1,5 @@
 from collections import deque, namedtuple
+from contextlib import closing
 import csv
 from datetime import datetime, timedelta
 from itertools import groupby
@@ -7,20 +8,22 @@ import re
 from cStringIO import StringIO
 
 from ARFF_header import ARFF_header
-
+from MeterMaster4_parser import duration_regex as log_attribute_duration_regex
+#from MeterMaster4_parser import format_log_attribute
 """
 Read several versions of TraceWizard5 files. Should be refactored into several
 files for clarity.
 """
 
-dequote_regex=re.compile('\\s*(["\'])(.*)\\1\\s*')
+log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
+log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
 
-log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S'
-log_attribute_duration_regex = re.compile('(?P<days>\d+) days [+] (?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?')
 log_attribute_duration_fields = 'TotalTime',
 log_attribute_float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume', 'StorageInterval'
 log_attribute_int_fields = 'NumberOfIntervals',
-log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
+
+dequote_regex=re.compile('\\s*(["\'])(.*)\\1\\s*')
+
 def dequote(text):
 	m = dequote_regex.match(text)
 	return m.groups()[-1] if m else text
@@ -76,15 +79,21 @@ class TraceWizard5_parser(ARFF_header):
 	flow_section_regex=re.compile('% @FLOW')
 	flow_timestamp_format = event_timestamp_format
 	#
-	def __init__(self, data = None):
+	def __init__(self, data = None, load = True):
+		self.filename = None
 		self._build_parse_sectioner()
 		if data:
 			if type(data) == str:
-				self.from_file(data)
-				self.filename = data
+				if os.path.exists(data):
+					if load:
+						self.from_file(data)
+				elif os.path.exists(os.path.split(data)[0]): # stub for write implementation
+					self.filename = data
+				else:
+					if load:
+						self.from_iterable(data)
 			else:
 				self.from_iterable(data)
-				self.filename = None
 	#
 	def _build_parse_sectioner(self):
 		"""
@@ -119,18 +128,18 @@ class TraceWizard5_parser(ARFF_header):
 		return [a[0] for a in self.attributes]
 	events_units = 'Gallons'
 	#
-	flows_header = 'EventID', 'StartTime', 'Duration', 'Rate'
+	flows_header = 'EventID', 'DateTimeStamp', 'Duration', 'RateData'
 	@property
 	def flows_units(self):
 		return self.log_attributes['Unit']+"/minute"
 	#
-	def parse_flow_line(self, line, float_t=float, row_factory = None):
+	def parse_flow_line(self, line, ratedata_t=float, row_factory = None):
 		row_factory = row_factory or self.FlowRow
 		return row_factory(
 			int(line[0]),
 			datetime.strptime(line[1], self.flow_timestamp_format),
 			timedelta(seconds=float(line[2])),
-			float_t(line[3])
+			ratedata_t(line[3])
 			)
 	def get_TraceWizard4_events(self, 
 								first_cycle_classes=['Clotheswasher', 'Dishwasher', 'Shower'],
@@ -171,7 +180,7 @@ class TraceWizard5_parser(ARFF_header):
 		rate are available in the flows_units member.
 		"""
 		for e, g in self.get_events_and_flows():
-			yield (e, tuple([f.Rate for f in g]) )
+			yield (e, tuple([f.RateData for f in g]) )
 	@staticmethod
 	def EventRow_midpoint(e):
 		return e.StartTime+e.Duration/2
@@ -190,13 +199,14 @@ class TraceWizard5_parser(ARFF_header):
 		for k, g in groupby(self.get_events_and_rates(), key=day_decider):
 			yield (k, list(g))
 	#
-	def parse_header(self,
-					 iterable,
+	def parse_ARFF_header(self,
+					 iterable = None,
 					 forbidden_attribute_names = ['class']
 					 ):
 		"""
 		Read the TraceWizard5-specific header after sniffing the version.
 		"""
+		iterable = iterable or open(self.filename)
 		self.format, self.version, line_number = self.sniff_version(iterable)
 		# Relation attributes (mandatory)
 		next_section=self._parse_sectioner.pop()
@@ -245,14 +255,15 @@ class TraceWizard5_parser(ARFF_header):
 				if m:
 					la.append((m.group('attribute_name'), m.group('attribute_value')))
 			self.define_log_attributes(la)
+		self.has_header = True
 		return line_number
 	#
-	def define_log_attributes(self, attributes):
+	def define_log_attributes(self, pairs):
 		"""
 		Extended checks on the MeterMaster attributes, taking a list of
 		2-tuples.
 		"""
-		self.log_attributes = dict([format_log_attribute(k,v) for k,v in attributes])
+		self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
 		#
 		timestamp_delta = self.log_attributes['LogEndTime'] - self.log_attributes['LogStartTime']
 		storage_interval_delta = timedelta(seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval'])
@@ -269,52 +280,56 @@ class TraceWizard5_parser(ARFF_header):
 					relative_log_file = log_filename
 				print "Original log file", relative_log_file, "exists"
 	#
-	def parse_TraceWizard5_ARFF(self, iterable):
+	def parse_ARFF(self,
+				   iterable = None):
 		"""
 		Parsing an input file beyond sniffing the version and reading the
 		header.
 		"""
-		line_number = self.parse_header(iterable)
+		iterable = iterable or open(self.filename)
+		line_number = self.parse_ARFF_header(iterable)
 		# Data points (mandatory)
-		sio=StringIO()
-		if len(self._parse_sectioner): # there's a comment section following
-			next_section=self._parse_sectioner.pop()
-			for line_number, line in enumerate(iterable, start=line_number+1):
-				n = next_section(line)
-				if n:
-					break
-				# else:
-				if line.strip():
+		with closing(StringIO()) as sio:
+			if len(self._parse_sectioner): # there's a comment section following
+				next_section=self._parse_sectioner.pop()
+				for line_number, line in enumerate(iterable, start=line_number+1):
+					n = next_section(line)
+					if n:
+						break
+					# else:
+					if line.strip():
+						sio.write(line)
+			else:
+				next_section = None
+				for line_number, line in enumerate(iterable, start=line_number+1):
 					sio.write(line)
-		else:
-			next_section = None
-			for line_number, line in enumerate(iterable, start=line_number+1):
-				sio.write(line)
-		print "Events parsing produced", sio.tell(), "characters"
-		sio.seek(0)
-		self.events = [ self.parse_event_line(l) for l in csv.reader(sio) ]
-		sio.close()
+			print "Events parsing produced", sio.tell(), "characters"
+			sio.seek(0)
+			self.events = [ self.parse_event_line(l) for l in csv.reader(sio) ]
+			#sio.close()
 		# Flows
 		self.flows = []
 		if self.has_flow_section:
 			###
 			self._build_FlowRow()
 			###
-			sio=StringIO()
-			next_section = None
-			for line_number, line in enumerate(iterable, start=line_number+1):
-				m = self.comment_regex.match(line) # TODO
-				if m:
-					sio.write(m.group('comment'))
-					sio.write('\n')
-			sio.seek(0)
-			self.flows = [ self.parse_flow_line(l) for l in csv.reader(sio) ]
-			sio.close()
+			with closing(StringIO()) as sio:
+				next_section = None
+				for line_number, line in enumerate(iterable, start=line_number+1):
+					m = self.comment_regex.match(line) # TODO
+					if m:
+						sio.write(m.group('comment'))
+						sio.write('\n')
+				sio.seek(0)
+				self.flows = [ self.parse_flow_line(l) for l in csv.reader(sio) ]
+				#sio.close()
 	def from_file(self, filename):
 		with open(filename) as fi:
 			self.from_iterable(fi)
+		self.filename = filename
 	def from_iterable(self, iterable):
-		self.parse_TraceWizard5_ARFF(iterable)
+		self.parse_ARFF(iterable)
+		self.filename = None
 	#
 	def print_summary(self):
 		print "<", self.__class__, ">", self.format, "format, version", self.version

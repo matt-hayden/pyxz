@@ -13,7 +13,7 @@ class TraceWizard5000_parser(TraceWizard5_parser):
 	has_fixture_profile_section=False
 	has_log_attribute_section=False
 	#
-	def parse_event_line(self, line, float_t=float, row_factory=None):
+	def parse_event_line(self, line, volume_t=float, ratedata_t=float, row_factory=None):
 		row_factory = row_factory or self.EventRow
 		return row_factory(
 			int(line[0]),
@@ -23,16 +23,16 @@ class TraceWizard5000_parser(TraceWizard5_parser):
 			bool(line[4]),
 			bool(line[5]),
 			line[6],
-			float_t(line[7]),
-			float_t(line[8]),
-			float_t(line[9]),
+			volume_t(line[7]),
+			ratedata_t(line[8]),
+			ratedata_t(line[9]),
 			line[10]
 			)
 class TraceWizard5100_parser(TraceWizard5000_parser):
 	minimum_version = (5,1,0,0)
 	number_of_event_fields = 12
 	#
-	def parse_event_line(self, line, float_t=float, row_factory=None):
+	def parse_event_line(self, line, volume_t=float, ratedata_t=float, row_factory=None):
 		row_factory = row_factory or self.EventRow
 		return row_factory(
 			int(line[0]),
@@ -42,9 +42,9 @@ class TraceWizard5100_parser(TraceWizard5000_parser):
 			bool(line[4]),
 			bool(line[5]),
 			line[6],
-			float_t(line[7]),
-			float_t(line[8]),
-			float_t(line[9]),
+			volume_t(line[7]),
+			ratedata_t(line[8]),
+			ratedata_t(line[9]),
 			line[10].strip(),
 			line[11]
 			)
@@ -57,7 +57,7 @@ class TraceWizard51021_parser(TraceWizard5100_parser):
 	number_of_event_fields = 15
 	has_fixture_profile_section=True
 	#
-	def parse_event_line(self, line, float_t=float, row_factory=None):
+	def parse_event_line(self, line, volume_t=float, ratedata_t=float, row_factory=None):
 		row_factory = row_factory or self.EventRow
 		return row_factory(
 			int(line[0]),
@@ -67,9 +67,9 @@ class TraceWizard51021_parser(TraceWizard5100_parser):
 			bool(line[4]),
 			bool(line[5]),
 			line[6],
-			float_t(line[7]),
-			float_t(line[8]),
-			float_t(line[9]),
+			volume_t(line[7]),
+			ratedata_t(line[8]),
+			ratedata_t(line[9]),
 			line[10].strip(),
 			line[11],
 			bool(line[12]),
@@ -84,7 +84,9 @@ class TraceWizard51030_parser(TraceWizard51021_parser):
 	has_log_attribute_section=True
 #
 TraceWizard5_classes = [ TraceWizard51030_parser, TraceWizard51021_parser, TraceWizard5100_parser, TraceWizard5000_parser ]
-def TraceWizard5_File(filename, sniffer=TraceWizard5_parser.sniff_version):
+def TraceWizard5_File(filename,
+					  load = True,
+					  sniffer=TraceWizard5_parser.sniff_version):
 	"""
 	Convenience function to return the correct parser for an ARFF file.
 	"""
@@ -94,7 +96,7 @@ def TraceWizard5_File(filename, sniffer=TraceWizard5_parser.sniff_version):
 		for vclass in TraceWizard5_classes:
 			if version >= vclass.minimum_version:
 				break
-	return vclass(filename)
+	return vclass(filename, load = load)
 if __name__ == '__main__':
 	import os.path
 	#desktop=os.path.expandvars('%UserProfile%\Desktop')

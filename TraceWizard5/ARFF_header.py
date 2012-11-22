@@ -18,13 +18,12 @@ class ARFF_header(ARFF_format):
 		except:
 			return None
 	@staticmethod
-	def sniff_version(parseme, max_lines = 30, start_line = 0):
+	def sniff_version(parseme, max_lines = 30, start_line = 1):
 		"""
 		Returns a tuple like ('File format', Format version(), Number of header lines)
 		"""
-		#line_number=0
 		next_section=ARFF_header.relation_section_regex.match
-		for line_number, line in enumerate(parseme, start=start_line+1):
+		for line_number, line in enumerate(parseme, start=start_line):
 			if line_number > max_lines:
 				return None, None, line_number
 			n=next_section(line)
