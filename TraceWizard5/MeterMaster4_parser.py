@@ -8,6 +8,7 @@ import re
 
 from CSV_with_header import CSV_with_header
 
+version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
 # Attribute field stuff:
 duration_regex = re.compile('(?P<days>\d+) days [+] (?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?')
 duration_fields = 'TotalTime',
@@ -67,8 +68,13 @@ class MeterMaster4_CSV(CSV_with_header):
 		self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
 		#
 		try:
-			self.version = self.log_attributes['MM100 Data Export']
+			vs = self.log_attributes['MM100 Data Export']
 			self.format = 'MM100 Data Export'
+			try:
+				m = version_regex.match(vs)
+				self.version = tuple(m.group('version_string').split('.'))
+			except:
+				self.version = vs
 		except:
 			self.version = None
 		#
