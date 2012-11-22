@@ -108,7 +108,3 @@ if __name__ == '__main__':
 	fn = os.path.join(tempdir, example_traces[-1])
 	t = TraceWizard5_File(fn)
 	t.print_summary()
-	for d, ef in t.get_events_by_day():
-		daily_total = sum(e.Volume for (e, f) in ef)
-		print d, " = ", daily_total, t.events_units
-	

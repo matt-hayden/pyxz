@@ -1,6 +1,7 @@
 from collections import namedtuple
 import csv
 from datetime import datetime, timedelta
+from itertools import groupby
 import os.path
 from cStringIO import StringIO
 import re
@@ -13,21 +14,11 @@ duration_fields = 'TotalTime',
 float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume', 'StorageInterval'
 int_fields = 'NumberOfIntervals',
 
-dequote_regex=re.compile('\\s*(["\'])(.*)\\1\\s*')
-
-def dequote(text):
-	m = dequote_regex.match(text)
-	return m.groups()[-1] if m else text
 def format_log_attribute(key, value, float_t=float):
 	if key in float_fields:
 		return key, float_t(value)
 	if key in int_fields:
 		return key, int(value)
-#	if key in log_attribute_timestamp_fields:
-#		try:
-#			return key, datetime.strptime(value, log_attribute_timestamp_format)
-#		except:
-#			return format_log_attribute(key, dequote(value))
 	if key in duration_fields:
 		m = duration_regex.match(value)
 		if m:
@@ -42,12 +33,6 @@ def format_log_attribute(key, value, float_t=float):
 			return key, td
 	# else:
 	return key, value
-# Datapoint stuff:
-
-#Unused?
-#timestamp_regex = re.compile('[0-1]?\d/\d{1,2}/\d{2,4} [0-2]\d:\d{2}(:\d{2}) (am|AM|pm|PM)?')
-
-
 #
 class MeterMaster4_CSV(CSV_with_header):
 	data_table_name = 'flows'
@@ -55,18 +40,15 @@ class MeterMaster4_CSV(CSV_with_header):
 	#
 	flows_header = ['DateTimeStamp', 'RateData']
 	ratedata_t = float
-	timestamp_format = '%m/%d/%Y %I:%M:%S %p'
+	flow_timestamp_format = '%m/%d/%Y %I:%M:%S %p'
 	#
 	def _build_FlowRow(self):
 		self.FlowRow = namedtuple('FlowRow', self.flows_header)
 	#
-	@property
-	def log_attributes(self):
-		return self.attributes
-	def parse_flow_line(self, line, float_t=float):
+	def parse_flow_line(self, line):
 		return self.FlowRow(
-			datetime.strptime(line[0], self.timestamp_format),
-			float_t(line[1])
+			datetime.strptime(line[0], self.flow_timestamp_format),
+			self.ratedata_t(line[1])
 			)
 	def parse_CSV(self, iterable = None):
 		iterable = iterable or open(self.filename)
@@ -84,9 +66,34 @@ class MeterMaster4_CSV(CSV_with_header):
 		"""
 		self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
 		#
+		try:
+			self.version = self.log_attributes['MM100 Data Export']
+			self.format = 'MM100 Data Export'
+		except:
+			self.version = None
+		#
 		storage_interval_delta = timedelta(seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval'])
 		assert storage_interval_delta == self.log_attributes['TotalTime']
 	#
+	@property
+	def flow_multiplier(self):
+		return self.log_attributes['StorageInterval']/60.0
+	@property
+	def units(self):
+		return self.log_attributes['Unit']
+	@property
+	def logged_volume(self):
+		return sum(f.RateData for f in self.flows)*self.flow_multiplier
+	def get_flows_by_day(self):
+		FlowDay = namedtuple('FlowDay', 'day flows')
+		for d, f in groupby(self.flows, key=lambda f: f.DateTimeStamp.date()):
+			yield FlowDay(d, tuple(f))
+	#
+	def print_summary(self):
+		print "Volume by day:"
+		for d, fa in self.get_flows_by_day():
+			daily_total = sum(f.RateData for f in fa)*self.flow_multiplier
+			print d, " = ", daily_total, self.units
 #
 if __name__ == '__main__':
 	import os.path
@@ -95,4 +102,4 @@ if __name__ == '__main__':
 	fn = os.path.join(tempdir, '12S704.csv')
 	print fn, "found:", os.path.exists(fn)
 	m = MeterMaster4_CSV(fn)
-	
+	m.print_summary()

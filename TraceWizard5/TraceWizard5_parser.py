@@ -8,49 +8,28 @@ import re
 from cStringIO import StringIO
 
 from ARFF_header import ARFF_header
-from MeterMaster4_parser import duration_regex as log_attribute_duration_regex
-#from MeterMaster4_parser import format_log_attribute
-"""
-Read several versions of TraceWizard5 files. Should be refactored into several
-files for clarity.
-"""
+import MeterMaster4_parser
 
 log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
 log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
-
-log_attribute_duration_fields = 'TotalTime',
-log_attribute_float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume', 'StorageInterval'
-log_attribute_int_fields = 'NumberOfIntervals',
-
 dequote_regex=re.compile('\\s*(["\'])(.*)\\1\\s*')
 
 def dequote(text):
 	m = dequote_regex.match(text)
 	return m.groups()[-1] if m else text
-def format_log_attribute(key, value, float_t=float):
-	if key in log_attribute_float_fields:
-		return key, float_t(value)
-	if key in log_attribute_int_fields:
-		return key, int(value)
+def format_log_attribute(key, value):
+	"""
+	Wrapper around the identical function in MeterMaster4_parser. There are a
+	few added fields.
+	"""
 	if key in log_attribute_timestamp_fields:
 		try:
 			return key, datetime.strptime(value, log_attribute_timestamp_format)
 		except:
 			return format_log_attribute(key, dequote(value))
-	if key in log_attribute_duration_fields:
-		m = log_attribute_duration_regex.match(value)
-		if m:
-			try:
-				td = timedelta(days=int(m.group('days')),
-							   hours=int(m.group('hours')),
-							   minutes=int(m.group('minutes')),
-							   seconds=int(m.group('seconds') or 0)
-							   )
-			except:
-				td = value
-			return key, td
 	# else:
-	return key, value
+	return MeterMaster4_parser.format_log_attribute(key, value)
+#
 respell = {
 	'eventid':		'EventID',
 	'starttime':	'StartTime',
@@ -67,7 +46,7 @@ TraceWizard4_EventRow = namedtuple('TraceWizard4_EventRow',
 #
 class TraceWizard5_parser(ARFF_header):
 	### Custom comment statements not standard in ARFF
-	event_timestamp_format = log_attribute_timestamp_format # '%Y-%m-%d %H:%M:%S'
+	event_timestamp_format = log_attribute_timestamp_format
 	#
 	fixture_profile_section_regex=re.compile('% @FIXTURE PROFILES')
 	fixture_profile_header_regex=re.compile('% FixtureClass,MinVolume,MaxVolume,MinPeak,MaxPeak,MinDuration,MaxDuration,MinMode,MaxMode')
@@ -169,9 +148,10 @@ class TraceWizard5_parser(ARFF_header):
 		To discern the fields in event or flows, use the flows_header and 
 		events_header members.
 		"""
+		EventFlows = namedtuple('EventFlows', 'event flows')
 		assert self.has_flow_section
 		for k, g in groupby(self.flows, lambda e: e.EventID):
-			yield (self.events[k],list(g))
+			yield EventFlows(self.events[k],tuple(g))
 	def get_events_and_rates(self):
 		"""
 		Returns an iterable of the following structure:
@@ -196,8 +176,8 @@ class TraceWizard5_parser(ARFF_header):
 		if not day_decider:
 			def day_decider(t):
 				return self.EventRow_midpoint(t[0]).date()
-		for k, g in groupby(self.get_events_and_rates(), key=day_decider):
-			yield (k, list(g))
+		for k, ef in groupby(self.get_events_and_flows(), key=day_decider):
+			yield (k, tuple(ef))
 	#
 	def parse_ARFF_header(self,
 					 iterable = None,
@@ -330,6 +310,12 @@ class TraceWizard5_parser(ARFF_header):
 	def from_iterable(self, iterable):
 		self.parse_ARFF(iterable)
 		self.filename = None
+	#
+	@property
+	def logged_volume(self):
+		return self.get_total_volume(ignored_classes=None)
+	def get_total_volume(self, ignored_classes=['Noise', 'Duplicate', 'Unclassified']):
+		return sum(e.Volume for e in self.events if e.Class not in ignored_classes)
 	#
 	def print_summary(self):
 		print "<", self.__class__, ">", self.format, "format, version", self.version

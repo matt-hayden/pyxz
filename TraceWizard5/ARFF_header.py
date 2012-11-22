@@ -13,7 +13,7 @@ class ARFF_header(ARFF_format):
 	@staticmethod
 	def header_version_parser(match):
 		try:
-			version_tuple = tuple([ int(d) for d in match.group('header_version').split('.') ])
+			version_tuple = tuple(int(d) for d in match.group('header_version').split('.'))
 			return version_tuple
 		except:
 			return None
