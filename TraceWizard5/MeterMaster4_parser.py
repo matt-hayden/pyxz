@@ -12,7 +12,8 @@ version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
 # Attribute field stuff:
 duration_regex = re.compile('(?P<days>\d+) days [+] (?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?')
 duration_fields = 'TotalTime',
-float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume', 'StorageInterval'
+float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume'
+seconds_fields = 'StorageInterval',
 int_fields = 'NumberOfIntervals',
 
 def format_log_attribute(key, value, float_t=float):
@@ -20,6 +21,12 @@ def format_log_attribute(key, value, float_t=float):
 		return key, float_t(value)
 	if key in int_fields:
 		return key, int(value)
+	if key in seconds_fields:
+		try:
+			td = timedelta(seconds=float(value))
+		except:
+			td = value
+		return key, td
 	if key in duration_fields:
 		m = duration_regex.match(value)
 		if m:
@@ -37,11 +44,12 @@ def format_log_attribute(key, value, float_t=float):
 #
 class MeterMaster4_CSV(CSV_with_header):
 	data_table_name = 'flows'
-	end_of_header = 'DateTimeStamp,RateData\n'
+	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
 	#
+	default_flow_multiplier = 10.0/60.0
 	flows_header = ['DateTimeStamp', 'RateData']
-	ratedata_t = float
 	flow_timestamp_format = '%m/%d/%Y %I:%M:%S %p'
+	ratedata_t = float
 	#
 	def _build_FlowRow(self):
 		self.FlowRow = namedtuple('FlowRow', self.flows_header)
@@ -78,12 +86,19 @@ class MeterMaster4_CSV(CSV_with_header):
 		except:
 			self.version = None
 		#
-		storage_interval_delta = timedelta(seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval'])
+		#storage_interval_delta = timedelta(seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval'])
+		storage_interval_delta = seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
 		assert storage_interval_delta == self.log_attributes['TotalTime']
 	#
 	@property
 	def flow_multiplier(self):
-		return self.log_attributes['StorageInterval']/60.0
+		try:
+			m = self.log_attributes['StorageInterval'].seconds/60.0
+			if m > 0:
+				return m
+		except:
+			print "Error"
+		return self.default_flow_multiplier
 	@property
 	def units(self):
 		return self.log_attributes['Unit']
