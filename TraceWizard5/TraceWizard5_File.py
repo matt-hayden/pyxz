@@ -110,5 +110,5 @@ if __name__ == '__main__':
 					  '12S704.twdb'
 					  ]
 	fn = os.path.join(tempdir, example_traces[-1])
-	t = TraceWizard5_File(fn)
+	t = TraceWizard5_File(fn, load=False)
 	t.print_summary()

@@ -1,21 +1,45 @@
 from contextlib import closing
 import csv
-import os.path
+import os, os.path
 from cStringIO import StringIO
 
 class CSV_with_header:
-	data_table_name = 'data'
-	end_of_header = ''
-	max_header_rows=25 # stop if too many header rows are encountered
+	"""
+	Reads a CSV file that contains a special header section, separated from an
+	arbitrary body. The seperator can be a string, or a fixed number of rows:
+	
+	>>> CSV_with_header(filename, "#EOH")
+	would read in the file up to #EOH, possibly erroring if reaching an
+	unreasonable number of rows without #EOH.
+	
+	>>> CSV_with_header(filename, rows = 3)
+	would read the first 3 rows, or up to the first blank line.
+	
+	The easiest use is to subclass CSV_with_header and implement a parse_CSV()
+	function, which takes an iterable. If you don't subclass, the body of the
+	parsed file is available in the list of rows in the member body.
+	"""
+	eoh = os.linesep					#
+	error_when_max_rows_reached = True	#
+	max_header_rows=25					#
 	#
-	def __init__(self, data = None, eoh = None, load = True):
+	def __init__(self, 
+				 data = None, 
+				 eoh = None, 
+				 rows = None,
+				 load = True):
 		if eoh is not None:
 			self.end_of_header = eoh
+		elif rows:
+			# mode should be 'quiet when maxrows reached'
+			self.error_when_max_rows_reached = False
+			self.max_header_rows = rows
+		#
 		if data:
 			if type(data) == str:
 				if load and os.path.exists(data):
 					self.from_file(data)
-				elif os.path.exists(os.path.split(data)[0]): # stub
+				elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
 					self.filename = data
 				else:
 					self.from_iterable(data)
@@ -32,24 +56,25 @@ class CSV_with_header:
 		iterable = iterable or open(self.filename)
 		with closing(StringIO()) as sio:
 			for line_number, line in enumerate(iterable, start=1):
-				#line = line.strip()
-				if line == self.end_of_header:
-					#self.header_rows = line_number+1
+				if (line_number > self.max_header_rows):
+					if self.error_when_max_rows_reached:
+						raise ValueError("parsing header stopped: more than %d rows encountered" % self.max_header_rows)
+				elif line == self.end_of_header:
 					break
-				elif line_number > self.max_header_rows:
-					raise ValueError("parsing header stopped: more than %d rows encountered" % self.max_header_rows)
 				else:
 					sio.write(line)
 			sio.seek(0)
 			self.header = list(csv.reader(sio))
-		return line_number #+1?
-	def parse_CSV(self, iterable = None):
+			self.header_lines = line_number
+		return line_number
+	def parse_CSV(self, iterable = None, data_table_name = 'body'):
 		"""
-		Use this as a pattern to be overridden in subclasses.
+		Use this as a pattern to be overridden in subclasses. The member name
+		specified in data_table_name is used only for example.
 		"""
 		iterable = iterable or open(self.filename)
-		line_number = self.header_lines = self.parse_CSV_header(iterable)
-		self.__dict__[self.data_table_name] = list(csv.reader(iterable))
+		line_number = self.parse_CSV_header(iterable)
+		self.__dict__[data_table_name] = list(csv.reader(iterable))
 #
 if __name__ == '__main__':
 	import os.path
@@ -57,5 +82,11 @@ if __name__ == '__main__':
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '12S704.csv')
 	print fn, "found:", os.path.exists(fn)
-	m = CSV_with_header(fn, eoh='DateTimeStamp,RateData\n')
+	# Example 1: read the whole file
+	# m = CSV_with_header(fn, eoh='DateTimeStamp,RateData\n')
+	# Example 2: read only the headers
+	m = CSV_with_header(fn, eoh='DateTimeStamp,RateData\n', load=False)
+	print "Parsing header:"
+	m.parse_CSV_header()
+	print m.header_lines, "rows in header"
 	

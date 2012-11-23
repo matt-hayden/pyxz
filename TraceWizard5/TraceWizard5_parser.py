@@ -67,7 +67,7 @@ class TraceWizard5_parser(ARFF_header):
 				if os.path.exists(data):
 					if load:
 						self.from_file(data)
-				elif os.path.exists(os.path.split(data)[0]): # stub for write implementation
+				elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
 					self.filename = data
 				else:
 					if load:
@@ -202,14 +202,18 @@ class TraceWizard5_parser(ARFF_header):
 			if n:
 				break
 			# else:
-			m = self.relation_regex.match(line)
-			if m:
-				name = m.group('attribute_name')
-				if name in respell:
-					name = respell[name]
+			if line.strip():
+				m = self.relation_regex.match(line)
+				if m:
+					name = m.group('attribute_name')
+					if name in respell:
+						name = respell[name]
+					else:
+						name = name.title()
+					a.append( (name, m.group('attribute_parameters')) )
 				else:
-					name = name.title()
-				a.append( (name, m.group('attribute_parameters')) )
+					error("Relation row '%s' not recognized",
+						  line)
 		self.attributes = a
 		debug("%d ARFF attributes",
 			  len(self.attributes))
@@ -223,9 +227,13 @@ class TraceWizard5_parser(ARFF_header):
 				if n:
 					break
 				# else:
-				m = self.comment_regex.match(line)
-				if m:
-					fp.append(m.group('comment'))
+				if line.strip():
+					m = self.comment_regex.match(line)
+					if m:
+						fp.append(m.group('comment'))
+					else:
+						error("Fixture profile row '%s' not recognized",
+							  line)
 			self.fixture_profiles = fp
 		else:
 			info("No fixture profiles")
@@ -239,9 +247,13 @@ class TraceWizard5_parser(ARFF_header):
 				if n:
 					break
 				# else:
-				m = self.log_attribute_regex.match(line)
-				if m:
-					la.append((m.group('attribute_name'), m.group('attribute_value')))
+				if line.strip():
+					m = self.log_attribute_regex.match(line)
+					if m:
+						la.append((m.group('attribute_name'), m.group('attribute_value')))
+					else:
+						error("Datalogger attribute row '%s' not recognized",
+							  line)
 			self.define_log_attributes(la)
 		else:
 			info("No datalogger attributes")

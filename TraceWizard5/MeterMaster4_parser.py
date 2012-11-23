@@ -48,7 +48,6 @@ def format_log_attribute(key, value, float_t=float):
 	return key, value
 #
 class MeterMaster4_CSV(CSV_with_header):
-	data_table_name = 'flows'
 	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
 	#
 	default_flow_multiplier = 10.0/60.0
@@ -64,17 +63,19 @@ class MeterMaster4_CSV(CSV_with_header):
 			datetime.strptime(line[0], self.flow_timestamp_format),
 			self.ratedata_t(line[1])
 			)
+	def parse_CSV_header(self, iterable = None):
+		CSV_with_header.parse_CSV_header(self, iterable)
+		self.define_log_attributes(self.header)
 	def parse_CSV(self, iterable = None):
 		if iterable is None:
 			info("Reading CSV format from '%s'",
 				 self.filename)
 			iterable = open(self.filename)
 		#
-		line_number = self.header_lines = self.parse_CSV_header(iterable)
-		self.define_log_attributes(self.header)
+		line_number = self.parse_CSV_header(iterable)
 		#
 		self._build_FlowRow()
-		self.__dict__[self.data_table_name] = [ self.parse_flow_line(l) for l in csv.reader(iterable) ]
+		self.flows = [ self.parse_flow_line(l) for l in csv.reader(iterable) ]
 	#
 	def define_log_attributes(self, pairs):
 		"""
@@ -131,6 +132,7 @@ class MeterMaster4_CSV(CSV_with_header):
 			yield FlowDay(d, tuple(f))
 	#
 	def print_summary(self):
+		print "Logging attributes:", self.log_attributes
 		print "Volume by day:"
 		for d, fa in self.get_flows_by_day():
 			daily_total = sum(f.RateData for f in fa)*self.flow_multiplier
@@ -146,5 +148,6 @@ if __name__ == '__main__':
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '12S704.csv')
 	print fn, "found:", os.path.exists(fn)
-	m = MeterMaster4_CSV(fn)
+	m = MeterMaster4_CSV(fn, load=False)
+	m.parse_CSV_header()
 	m.print_summary()
