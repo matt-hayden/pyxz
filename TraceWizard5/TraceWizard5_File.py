@@ -110,5 +110,9 @@ if __name__ == '__main__':
 					  '12S704.twdb'
 					  ]
 	fn = os.path.join(tempdir, example_traces[-1])
+	# Example 1: read a whole file:
+	#t = TraceWizard5_File(fn)
+	# Example 2: read only the header:
 	t = TraceWizard5_File(fn, load=False)
+	t.parse_ARFF_header()
 	t.print_summary()

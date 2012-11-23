@@ -8,7 +8,7 @@ import os.path
 import re
 from cStringIO import StringIO
 
-from ARFF_header import ARFF_header
+from ARFF_format import ARFF_format_with_version
 import MeterMaster4_parser
 
 log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
@@ -45,7 +45,7 @@ TraceWizard4_EventRow = namedtuple('TraceWizard4_EventRow',
 	"EventID Class StartTime EndTime Duration Volume Peak Mode"
 	)
 #
-class TraceWizard5_parser(ARFF_header):
+class TraceWizard5_parser(ARFF_format_with_version):
 	### Custom comment statements not standard in ARFF
 	event_timestamp_format = log_attribute_timestamp_format
 	#
@@ -205,7 +205,7 @@ class TraceWizard5_parser(ARFF_header):
 				break
 			# else:
 			if line.strip():
-				m = self.relation_regex.match(line)
+				m = self.attribute_regex.match(line)
 				if m:
 					name = m.group('attribute_name')
 					if name in respell:
@@ -214,7 +214,7 @@ class TraceWizard5_parser(ARFF_header):
 						name = name.title()
 					a.append( (name, m.group('attribute_parameters')) )
 				else:
-					error("Relation row '%s' not recognized",
+					error("Attribute row '%s' not recognized",
 						  line)
 		self.attributes = a
 		debug("%d ARFF attributes",
