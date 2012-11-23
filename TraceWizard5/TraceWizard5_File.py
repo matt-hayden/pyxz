@@ -92,10 +92,9 @@ def TraceWizard5_File(filename,
 	"""
 	with open(filename) as fi:
 		format, version, line_number = sniffer(fi)
-		t = None
-		for vclass in TraceWizard5_classes:
-			if version >= vclass.minimum_version:
-				break
+	for vclass in TraceWizard5_classes:
+		if version >= vclass.minimum_version:
+			break
 	return vclass(filename, load = load)
 if __name__ == '__main__':
 	import logging
@@ -114,5 +113,6 @@ if __name__ == '__main__':
 	#t = TraceWizard5_File(fn)
 	# Example 2: read only the header:
 	t = TraceWizard5_File(fn, load=False)
+	
 	t.parse_ARFF_header()
 	t.print_summary()

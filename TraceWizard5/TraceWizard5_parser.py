@@ -8,16 +8,12 @@ import os.path
 import re
 from cStringIO import StringIO
 
-from ARFF_format import ARFF_format_with_version
+from ARFF_format import ARFF_format_with_version, dequote
 import MeterMaster4_parser
 
 log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
 log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
-dequote_regex=re.compile('\\s*(["\'])(.*)\\1\\s*')
 
-def dequote(text):
-	m = dequote_regex.match(text)
-	return m.groups()[-1] if m else text
 def format_log_attribute(key, value):
 	"""
 	Wrapper around the identical function in MeterMaster4_parser. There are a
@@ -46,9 +42,15 @@ TraceWizard4_EventRow = namedtuple('TraceWizard4_EventRow',
 	)
 #
 class TraceWizard5_parser(ARFF_format_with_version):
-	### Custom comment statements not standard in ARFF
+	# Custom comment statements are otherwise ignored in ARFF
 	event_timestamp_format = log_attribute_timestamp_format
 	#
+	@staticmethod
+	def attribute_name_formatter(s):
+		if s in respell:
+			return respell[s]
+		else:
+			return s.title()
 	fixture_profile_section_regex=re.compile('% @FIXTURE PROFILES')
 	fixture_profile_header_regex=re.compile('% FixtureClass,MinVolume,MaxVolume,MinPeak,MaxPeak,MinDuration,MaxDuration,MinMode,MaxMode')
 	# right now, each fixture profile is simply a comment
@@ -198,13 +200,14 @@ class TraceWizard5_parser(ARFF_format_with_version):
 			 self.format, self.version)
 		# Relation attributes (mandatory)
 		next_section=self._parse_sectioner.pop()
-		a = []
+		r = []
 		for line_number, line in enumerate(iterable, start=line_number+1):
 			n=next_section(line)
 			if n:
 				break
 			# else:
 			if line.strip():
+				"""
 				m = self.attribute_regex.match(line)
 				if m:
 					name = m.group('attribute_name')
@@ -212,11 +215,15 @@ class TraceWizard5_parser(ARFF_format_with_version):
 						name = respell[name]
 					else:
 						name = name.title()
-					a.append( (name, m.group('attribute_parameters')) )
+					r.append( (name, m.group('attribute_parameters')) )
+				"""
+				a = self.parse_attribute_line(line)
+				if a:
+					r.append(a)
 				else:
 					error("Attribute row '%s' not recognized",
 						  line)
-		self.attributes = a
+		self.attributes = r
 		debug("%d ARFF attributes",
 			  len(self.attributes))
 		# Fixture list (optional)
