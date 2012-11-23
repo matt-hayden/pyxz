@@ -67,6 +67,8 @@ class TraceWizard5_parser(ARFF_header):
 				if os.path.exists(data):
 					if load:
 						self.from_file(data)
+					else:
+						self.filename = data
 				elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
 					self.filename = data
 				else:
