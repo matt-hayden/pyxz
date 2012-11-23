@@ -98,7 +98,11 @@ def TraceWizard5_File(filename,
 				break
 	return vclass(filename, load = load)
 if __name__ == '__main__':
+	import logging
 	import os.path
+	#
+	logging.basicConfig(level=logging.DEBUG)
+	#
 	#desktop=os.path.expandvars('%UserProfile%\Desktop')
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	example_traces = ['01_07nov2011_16nov2011.twdb',

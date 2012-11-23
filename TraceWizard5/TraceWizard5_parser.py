@@ -3,6 +3,7 @@ from contextlib import closing
 import csv
 from datetime import datetime, timedelta
 from itertools import groupby
+from logging import debug, info, warning, error, critical
 import os.path
 import re
 from cStringIO import StringIO
@@ -186,8 +187,13 @@ class TraceWizard5_parser(ARFF_header):
 		"""
 		Read the TraceWizard5-specific header after sniffing the version.
 		"""
-		iterable = iterable or open(self.filename)
+		if iterable is None:
+			info("Reading ARFF header from '%s'",
+				 self.filename)
+			iterable = open(self.filename)
 		self.format, self.version, line_number = self.sniff_version(iterable)
+		info("Opening %s file version %s",
+			 self.format, self.version)
 		# Relation attributes (mandatory)
 		next_section=self._parse_sectioner.pop()
 		a = []
@@ -205,8 +211,8 @@ class TraceWizard5_parser(ARFF_header):
 					name = name.title()
 				a.append( (name, m.group('attribute_parameters')) )
 		self.attributes = a
-		### EventRow is built at the earliest possible time
-		self._build_EventRow()
+		debug("%d ARFF attributes",
+			  len(self.attributes))
 		# Fixture list (optional)
 		self.fixture_profiles = []
 		if self.has_fixture_profile_section:
@@ -221,6 +227,8 @@ class TraceWizard5_parser(ARFF_header):
 				if m:
 					fp.append(m.group('comment'))
 			self.fixture_profiles = fp
+		else:
+			info("No fixture profiles")
 		# Datalogger attributes (optional)
 		self.log_attributes = {}
 		if self.has_log_attribute_section:
@@ -235,6 +243,8 @@ class TraceWizard5_parser(ARFF_header):
 				if m:
 					la.append((m.group('attribute_name'), m.group('attribute_value')))
 			self.define_log_attributes(la)
+		else:
+			info("No datalogger attributes")
 		self.has_header = True
 		return line_number
 	#
@@ -244,31 +254,49 @@ class TraceWizard5_parser(ARFF_header):
 		2-tuples.
 		"""
 		self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
+		debug("%d datalogger attributes",
+			  len(self.log_attributes))
 		#
+		# These checks are similar to MeterMaster4_CSV:
+		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
+		d = self.log_attributes['TotalTime'] - storage_interval_delta
+		if d:
+			warning("Difference of %s between TotalTime and NumberOfIntervals",
+					d)
+		# also check against LogStartTime and LogEndTime, which are not in MeterMaster4_CSV:
 		timestamp_delta = self.log_attributes['LogEndTime'] - self.log_attributes['LogStartTime']
-		storage_interval_delta = timedelta(seconds = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval'])
-		assert timestamp_delta == storage_interval_delta
+		d = timestamp_delta - storage_interval_delta
+		if d:
+			warning("Difference of %s between LogEndTime and NumberOfIntervals",
+					d)
 		#
-		log_filename = self.log_attributes['LogFileName']
-		if log_filename:
-			original_log_exists = os.path.exists(log_filename)
-			if original_log_exists:
-				c = os.path.commonprefix([t.filename, self.log_attributes['LogFileName'] ])
-				if c:
-					relative_log_file = self.log_attributes['LogFileName'].replace(c, "")
-				else:
-					relative_log_file = log_filename
-				print "Original log file", relative_log_file, "exists"
+	def get_original_MeterMaster4(self, log_filename = None, make_relative = True):
+		if log_filename is None:
+			log_filename = self.log_attributes['LogFileName']
+		if not os.path.exists(log_filename):
+			raise IOError("'%s' not found" % log_filename)
+		#
+		mm_log_filename = log_filename
+		if make_relative:
+			c = os.path.commonprefix([self.filename, log_filename])
+			if c:
+				mm_log_filename = log_filename.replace(c, "", count=1)
+		return MeterMaster4_parser.MeterMaster4_CSV(mm_log_filename)
 	#
-	def parse_ARFF(self,
-				   iterable = None):
+	def parse_ARFF(self, iterable = None):
 		"""
 		Parsing an input file beyond sniffing the version and reading the
 		header.
 		"""
-		iterable = iterable or open(self.filename)
+		if iterable is None:
+			info("Reading ARFF format from '%s'",
+				 self.filename)
+			iterable = open(self.filename)
 		line_number = self.parse_ARFF_header(iterable)
 		# Data points (mandatory)
+		###
+		self._build_EventRow()
+		###
 		with closing(StringIO()) as sio:
 			if len(self._parse_sectioner): # there's a comment section following
 				next_section=self._parse_sectioner.pop()
@@ -283,10 +311,13 @@ class TraceWizard5_parser(ARFF_header):
 				next_section = None
 				for line_number, line in enumerate(iterable, start=line_number+1):
 					sio.write(line)
-			print "Events parsing produced", sio.tell(), "characters"
+			debug("Events parsing produced %d characters",
+				  sio.tell())
 			sio.seek(0)
 			self.events = [ self.parse_event_line(l) for l in csv.reader(sio) ]
 			#sio.close()
+		debug("%d events",
+			  len(self.events))
 		# Flows
 		self.flows = []
 		if self.has_flow_section:
@@ -300,9 +331,15 @@ class TraceWizard5_parser(ARFF_header):
 					if m:
 						sio.write(m.group('comment'))
 						sio.write('\n')
+				debug("Flows parsing produced %d characters",
+					  sio.tell())
 				sio.seek(0)
 				self.flows = [ self.parse_flow_line(l) for l in csv.reader(sio) ]
 				#sio.close()
+			debug("%d flows",
+				  len(self.flows))
+		else:
+			warning("No flows")
 	def from_file(self, filename):
 		with open(filename) as fi:
 			self.from_iterable(fi)
