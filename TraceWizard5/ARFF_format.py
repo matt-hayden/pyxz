@@ -81,6 +81,7 @@ class ARFF_format:
 					continue
 			a.append(self.parse_attribute_line(line))
 		self.attributes = a
+		return line_number
 	def parse_attribute_line(self,
 							 line,
 							 row_factory = None
@@ -110,8 +111,8 @@ class ARFF_format:
 				elif t == 'DATE':
 					# note that format comes in as a Java date format string
 					f = m2.group('format') or '''yyyy-MM-dd'T'HH:mm:ss'''	# default Java date format string from ARFF specification
-					#formatter = lambda s: datetime.strptime(s, f)
-					formatter = lambda s: datetime.strptime(s, '%Y-%m-%d %H:%M:%S') # TODO
+					formatter = lambda s: datetime.strptime(s, f)
+					#formatter = lambda s: datetime.strptime(s, '%Y-%m-%d %H:%M:%S') # This works
 				elif t == 'RELATIONAL':
 					raise NotImplementedException("%s datatype not implemented" % t)
 				else: # assume nominal
@@ -154,9 +155,10 @@ class ARFF_format:
 	def _build_ARFF_Row(self):
 		self.ARFF_Row = namedtuple('ARFF_Row', self.body_header)
 	def parse_ARFF_body(self,
-						iterable,			# iterable is possibly an open file
-						line_number = 1,	# starting line number
-						next_section = None	# returns null while still in the attribute section
+						iterable,				# iterable is possibly an open file
+						line_number = 1,		# starting line number
+						member_name = 'body',	# name of object member to refer to this table
+						next_section = None		# returns null while still in the attribute section
 						):
 		###
 		parse_body_line = self._get_parse_body_line()
@@ -176,7 +178,7 @@ class ARFF_format:
 					if line.strip() and (self.comment_regex.match(line) is None):
 						sio.write(line)
 			sio.seek(0)
-			self.body = [ parse_body_line(l) for l in csv.reader(sio) ]
+			self.__dict__[member_name] = [ parse_body_line(l) for l in csv.reader(sio) ]
 		return line_number
 	def parse_ARFF(self, iterable):
 		line_number = self.parse_ARFF_header(iterable)

@@ -44,9 +44,13 @@ TraceWizard4_EventRow = namedtuple('TraceWizard4_EventRow',
 class TraceWizard5_parser(ARFF_format_with_version):
 	# Custom comment statements are otherwise ignored in ARFF
 	event_timestamp_format = log_attribute_timestamp_format
+	event_table_name = 'events'
 	#
 	@staticmethod
 	def attribute_name_formatter(s):
+		"""
+		Called in ARFF_format_with_version
+		"""
 		if s in respell:
 			return respell[s]
 		else:
@@ -184,10 +188,7 @@ class TraceWizard5_parser(ARFF_format_with_version):
 		for k, ef in groupby(self.get_events_and_flows(), key=day_decider):
 			yield (k, tuple(ef))
 	#
-	def parse_ARFF_header(self,
-					 iterable = None,
-					 forbidden_attribute_names = ['class']
-					 ):
+	def parse_ARFF_header(self, iterable = None):
 		"""
 		Read the TraceWizard5-specific header after sniffing the version.
 		"""
@@ -199,9 +200,10 @@ class TraceWizard5_parser(ARFF_format_with_version):
 		info("Opening %s file version %s",
 			 self.format, self.version)
 		# Relation attributes (mandatory)
-		self.define_attributes(iterable, 
-							   line_number = line_number,
-							   next_section = self._parse_sectioner.pop())
+		line_number = self.define_attributes(iterable,
+											 line_number = line_number,
+											 next_section = self._parse_sectioner.pop()
+											 )
 		debug("%d ARFF attributes",
 			  len(self.attributes))
 		# Fixture list (optional)
@@ -222,7 +224,6 @@ class TraceWizard5_parser(ARFF_format_with_version):
 				if line.strip():
 					m = self.comment_regex.match(line)
 					if m:
-						#fp.append(m.group('comment'))
 						fp.append(self.parse_fixture_profile_line(m.group('comment')))
 					else:
 						error("Fixture profile row '%s' not recognized",
@@ -300,30 +301,15 @@ class TraceWizard5_parser(ARFF_format_with_version):
 				 self.filename)
 			iterable = open(self.filename)
 		line_number = self.parse_ARFF_header(iterable)
-		# Data points (mandatory)
-		###
-		self._build_EventRow()
-		###
-		with closing(StringIO()) as sio:
-			if len(self._parse_sectioner): # there's a comment section following
-				next_section=self._parse_sectioner.pop()
-				for line_number, line in enumerate(iterable, start=line_number+1):
-					n = next_section(line)
-					if n:
-						break
-					# else:
-					if line.strip():
-						sio.write(line)
-			else:
-				next_section = None
-				for line_number, line in enumerate(iterable, start=line_number+1):
-					# if line.strip(): # like above
-					sio.write(line)
-			debug("Events parsing produced %d characters",
-				  sio.tell())
-			sio.seek(0)
-			self.events = [ self.parse_event_line(l) for l in csv.reader(sio) ]
-			#sio.close()
+		debug("Header ends on on line %d",
+			  line_number)
+		
+		# DATA body (mandatory)
+		line_number = self.parse_ARFF_body(iterable,
+										   line_number=line_number,
+										   member_name=self.event_table_name,
+										   next_section=self._parse_sectioner.pop()
+										   )
 		debug("%d events",
 			  len(self.events))
 		# Flows
