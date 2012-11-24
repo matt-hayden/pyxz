@@ -109,7 +109,7 @@ class TraceWizard5_parser(ARFF_format_with_version):
 	#
 	@property
 	def events_header(self):
-		return [a[0] for a in self.attributes]
+		return [a.Name for a in self.attributes]
 	events_units = 'Gallons'
 	#
 	flows_header = 'EventID', 'DateTimeStamp', 'Duration', 'RateData'
@@ -199,31 +199,9 @@ class TraceWizard5_parser(ARFF_format_with_version):
 		info("Opening %s file version %s",
 			 self.format, self.version)
 		# Relation attributes (mandatory)
-		next_section=self._parse_sectioner.pop()
-		r = []
-		for line_number, line in enumerate(iterable, start=line_number+1):
-			n=next_section(line)
-			if n:
-				break
-			# else:
-			if line.strip():
-				"""
-				m = self.attribute_regex.match(line)
-				if m:
-					name = m.group('attribute_name')
-					if name in respell:
-						name = respell[name]
-					else:
-						name = name.title()
-					r.append( (name, m.group('attribute_parameters')) )
-				"""
-				a = self.parse_attribute_line(line)
-				if a:
-					r.append(a)
-				else:
-					error("Attribute row '%s' not recognized",
-						  line)
-		self.attributes = r
+		self.define_attributes(iterable, 
+							   line_number = line_number,
+							   next_section = self._parse_sectioner.pop())
 		debug("%d ARFF attributes",
 			  len(self.attributes))
 		# Fixture list (optional)
@@ -231,6 +209,11 @@ class TraceWizard5_parser(ARFF_format_with_version):
 		if self.has_fixture_profile_section:
 			next_section=self._parse_sectioner.pop()
 			fp = []
+			h = iterable.next()
+			if h != "% {}\n".format(','.join(self.fixture_profile_header)):
+				error("Unexpected fixture profile header '%s'",
+					  h)
+				iterable.insert(0, h)
 			for line_number, line in enumerate(iterable, start=line_number+1):
 				n=next_section(line)
 				if n:
@@ -239,11 +222,14 @@ class TraceWizard5_parser(ARFF_format_with_version):
 				if line.strip():
 					m = self.comment_regex.match(line)
 					if m:
-						fp.append(m.group('comment'))
+						#fp.append(m.group('comment'))
+						fp.append(self.parse_fixture_profile_line(m.group('comment')))
 					else:
 						error("Fixture profile row '%s' not recognized",
 							  line)
 			self.fixture_profiles = fp
+			debug("%d fixture profiles",
+				  len(self.fixture_profiles))
 		else:
 			info("No fixture profiles")
 		# Datalogger attributes (optional)
@@ -331,6 +317,7 @@ class TraceWizard5_parser(ARFF_format_with_version):
 			else:
 				next_section = None
 				for line_number, line in enumerate(iterable, start=line_number+1):
+					# if line.strip(): # like above
 					sio.write(line)
 			debug("Events parsing produced %d characters",
 				  sio.tell())

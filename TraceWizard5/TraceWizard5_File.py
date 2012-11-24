@@ -1,8 +1,10 @@
 #! env python
+from collections import namedtuple
 from datetime import datetime, timedelta
 
 from TraceWizard5_parser import TraceWizard5_parser
 
+Interval = namedtuple('Interval', 'min max')
 """
 These subclasses define the different TraceWizard5 file formats. There are at
 least 4.
@@ -57,6 +59,15 @@ class TraceWizard51021_parser(TraceWizard5100_parser):
 	number_of_event_fields = 15
 	has_fixture_profile_section=True
 	#
+	fixture_profile_header = ['FixtureClass', 'MinVolume', 'MaxVolume', 'MinPeak', 'MaxPeak', 'MinDuration','MaxDuration', 'MinMode', 'MaxMode']
+	Fixture_Profile = namedtuple('Fixture_Profile', 'FixtureClass Volume Peak Duration Mode')
+	def parse_fixture_profile_line(self, line, row_factory = None, flow_t=float):
+		row_factory = row_factory or self.Fixture_Profile
+		fa = line.split(',')
+		fv = [ flow_t(v or 0) for v in fa[1:] ]
+		fp = [fa[0],]+[ Interval(x,y) for x,y in zip(fv[0::2], fv[1::2]) ]
+		return row_factory(*fp)
+	#
 	def parse_event_line(self, line, volume_t=float, ratedata_t=float, row_factory=None):
 		row_factory = row_factory or self.EventRow
 		return row_factory(
@@ -110,9 +121,9 @@ if __name__ == '__main__':
 					  ]
 	fn = os.path.join(tempdir, example_traces[-1])
 	# Example 1: read a whole file:
-	#t = TraceWizard5_File(fn)
+	t = TraceWizard5_File(fn)
 	# Example 2: read only the header:
-	t = TraceWizard5_File(fn, load=False)
+	#t = TraceWizard5_File(fn, load=False)
+	#t.parse_ARFF_header()
 	
-	t.parse_ARFF_header()
 	t.print_summary()

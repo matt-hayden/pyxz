@@ -1,6 +1,9 @@
 from collections import namedtuple
+from contextlib import closing
+import csv
 from datetime import datetime
 import re
+from cStringIO import StringIO
 
 dequote_regex=re.compile('\\s*(["\'])(.*)\\1\\s*')
 def dequote(text):
@@ -18,6 +21,8 @@ class ARFF_format:
 	data_section_regex=re.compile('@DATA', re.IGNORECASE)
 	#
 	ARFF_Attribute = namedtuple('ARFF_Attribute', 'Name Type Formatter Values')
+	class AttributeError(Exception):
+		pass
 	@staticmethod
 	def attribute_name_formatter(s):
 		return s.title()
@@ -27,7 +32,11 @@ class ARFF_format:
 	#
 	index_nominals = False
 	#
-	def parse_header(self, iterable, line_number = 1, max_lines = 25):
+	def parse_ARFF_header(self,
+						  iterable,
+						  line_number = 1,
+						  max_lines = 25
+						  ):
 		"""
 		Really just a stub for testing
 		"""
@@ -43,15 +52,23 @@ class ARFF_format:
 				print "Relation=", mr.group('relation_name')
 				break
 		self.define_attributes(iterable, line_number)
-	def define_attributes(self, iterable, line_number = 1, max_lines = 255):
+		return line_number
+	def define_attributes(self, 
+						  iterable,				# iterable is possibly an open file
+						  line_number = 1,		# starting line number
+						  max_lines = 255, 		# exits if more than max_lines read
+						  next_section = None	# returns null while still in the attribute section
+						  ):
 		"""
 		"""
+		if next_section is None:
+			next_section = self.data_section_regex.match
 		a = []
 		max_line_number = line_number+max_lines
 		for line_number, line in enumerate(iterable, start=line_number):
 			if line_number > max_line_number:
 				raise ValueError("More than %d lines encountered" % max_line_number)
-			md = self.data_section_regex.match(line)
+			md = next_section(line)
 			if md:
 				break
 			#
@@ -68,10 +85,10 @@ class ARFF_format:
 							 line,
 							 row_factory = None
 							 ):
-		if not row_factory:
-			row_factory = self.ARFF_Attribute
 		allowed_values = None
 		formatter = None
+		if not row_factory:
+			row_factory = self.ARFF_Attribute
 		#
 		m1 = self.attribute_regex.match(line)
 		if m1:
@@ -91,9 +108,10 @@ class ARFF_format:
 				elif t == 'STRING':
 					formatter = lambda s: s.strip()
 				elif t == 'DATE':
-					# note that format is a Java date format string
+					# note that format comes in as a Java date format string
 					f = m2.group('format') or '''yyyy-MM-dd'T'HH:mm:ss'''	# default Java date format string from ARFF specification
-					formatter = lambda s: datetime.strptime(s, f)
+					#formatter = lambda s: datetime.strptime(s, f)
+					formatter = lambda s: datetime.strptime(s, '%Y-%m-%d %H:%M:%S') # TODO
 				elif t == 'RELATIONAL':
 					raise NotImplementedException("%s datatype not implemented" % t)
 				else: # assume nominal
@@ -115,9 +133,55 @@ class ARFF_format:
 				#
 				return row_factory(name, t, formatter, allowed_values)
 			else:
-				print "*** rest of line", p, "not understood"
+				raise AttributeError("'%s' parsed from '%s' not recognized" % (p, line.strip()) )
 		else:
-			print "'%s' not recognized" % line.strip()
+			raise AttributeError("'%s' not recognized" % line.strip())
+	# Body parts
+	def _get_body_formatters(self, null_function = lambda z:z):
+		formatters = [ a.Formatter for a in self.attributes ]
+		formatters = [ f if f else null_function for f in formatters ]
+		return formatters
+	def _get_parse_body_line(self, row_factory = None):
+		self._build_ARFF_Row()
+		row_factory = self.ARFF_Row
+		#
+		def p(iterable):
+			return row_factory(*[ f(a) for f, a in zip(self._get_body_formatters(), iterable) ])
+		return p
+	@property
+	def body_header(self):
+		return [a.Name for a in self.attributes]
+	def _build_ARFF_Row(self):
+		self.ARFF_Row = namedtuple('ARFF_Row', self.body_header)
+	def parse_ARFF_body(self,
+						iterable,			# iterable is possibly an open file
+						line_number = 1,	# starting line number
+						next_section = None	# returns null while still in the attribute section
+						):
+		###
+		parse_body_line = self._get_parse_body_line()
+		###
+		with closing(StringIO()) as sio:
+			if next_section:
+				for line_number, line in enumerate(iterable, start=line_number+1):
+					# This section has some logic that should be copied below
+					n = next_section(line)
+					if n:
+						break
+					# else: #
+					if line.strip() and (self.comment_regex.match(line) is None):
+						sio.write(line)
+			else:
+				for line_number, line in enumerate(iterable, start=line_number+1):
+					if line.strip() and (self.comment_regex.match(line) is None):
+						sio.write(line)
+			sio.seek(0)
+			self.body = [ parse_body_line(l) for l in csv.reader(sio) ]
+		return line_number
+	def parse_ARFF(self, iterable):
+		line_number = self.parse_ARFF_header(iterable)
+		line_number = self.parse_ARFF_body(iterable, line_number = line_number)
+		
 class ARFF_format_with_version(ARFF_format):
 	header_format_regex=re.compile('%\s*Format:\s*(?P<header_format>.*)')
 	header_version_regex=re.compile('%\s?Version:\s*(?P<header_version>.*)')
@@ -160,9 +224,10 @@ if __name__ == '__main__':
 	#desktop=os.path.expandvars('%UserProfile%\Desktop')
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, 'arff-test.twdb')
+	fn = os.path.join(tempdir, '12S704.twdb')
 	a = ARFF_format()
 	#fi = open(fn).read().split('\n')
 	#a.define_attributes(fi[:50])
 	with open(fn) as fi:
 		#a.define_attributes(fi)
-		a.parse_header(fi)
+		a.parse_ARFF(fi)
