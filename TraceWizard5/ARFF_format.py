@@ -10,6 +10,11 @@ def dequote(text):
 	m = dequote_regex.match(text)
 	return m.groups()[-1] if m else text
 
+Java_time_format_lookup = {
+	'''yyyy-MM-dd'T'HH:mm:ss''':	'%Y-%m-%dT%H:%M:%S',
+	"yyyy-MM-dd HH:mm:ss":			'%Y-%m-%d %H:%M:%S'
+	}
+
 class ARFF_format:
 	"""
 	Missing values and relational attributes are not supported.
@@ -110,9 +115,13 @@ class ARFF_format:
 					formatter = lambda s: s.strip()
 				elif t == 'DATE':
 					# note that format comes in as a Java date format string
-					f = m2.group('format') or '''yyyy-MM-dd'T'HH:mm:ss'''	# default Java date format string from ARFF specification
+					f = m2.group('format')
+					try:
+						f = Java_time_format_lookup[dequote(f)]
+					except:
+						"Default Java date format string from ARFF specification is yyyy-MM-dd'T'HH:mm:ss"
+						f = '''yyyy-MM-dd'T'HH:mm:ss'''
 					formatter = lambda s: datetime.strptime(s, f)
-					#formatter = lambda s: datetime.strptime(s, '%Y-%m-%d %H:%M:%S') # This works
 				elif t == 'RELATIONAL':
 					raise NotImplementedException("%s datatype not implemented" % t)
 				else: # assume nominal
