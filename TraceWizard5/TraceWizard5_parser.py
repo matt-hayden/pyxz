@@ -261,11 +261,14 @@ class TraceWizard5_parser(ARFF_format_with_version):
 		Extended checks on the MeterMaster attributes, taking a list of
 		2-tuples.
 		"""
-		self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
+		if type(pairs) == dict:
+			self.log_attributes = pairs
+		else:
+			self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
 		debug("%d datalogger attributes",
 			  len(self.log_attributes))
 		#
-		# These checks are similar to MeterMaster4_CSV:
+		# These checks are similar to MeterMaster4:
 		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
 		d = self.log_attributes['TotalTime'] - storage_interval_delta
 		if d:

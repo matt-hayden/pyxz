@@ -82,7 +82,10 @@ class MeterMaster4_CSV(CSV_with_header):
 		Extended checks on the MeterMaster attributes, taking a list of
 		2-tuples.
 		"""
-		self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
+		if type(pairs) == dict:
+			self.log_attributes = pairs
+		else:
+			self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
 		debug("%d datalogger attributes",
 			  len(self.log_attributes))
 		# Try to set the Brainard version:
@@ -103,7 +106,7 @@ class MeterMaster4_CSV(CSV_with_header):
 					'MM100 Data Export')
 			self.version = None
 		#
-		# These checks are similar to TraceWizard4_parser:
+		# These checks are similar to TraceWizard5:
 		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
 		d = self.log_attributes['TotalTime'] - storage_interval_delta
 		if d:
