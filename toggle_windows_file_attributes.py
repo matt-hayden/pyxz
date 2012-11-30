@@ -40,3 +40,4 @@ if __name__ == '__main__':
 		else:
 			#ToggleAttributeBits(arg, FILE_ATTRIBUTE_ARCHIVE)
 			ClearAttributes(arg, FILE_ATTRIBUTE_ARCHIVE)
+#

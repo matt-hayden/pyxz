@@ -34,16 +34,20 @@ class MeterMaster3_File:
 		db = MDB_File(filename, driver_name)
 		if load_data:
 			self.flows = list(db.generate_table('MMData'))
-			assert len(self.flows) > 0
+			if len(self.flows) > 0:
+				info("%d flow data points" % len(self.flows))
+			else:
+				critical("No flow data points loaded")
 		if load_headers:
 			d = {}
-			t = list(db.generate_table('Customer'))
-			assert len(t) == 1
-			d.update(t[0]._asdict())
-			#
-			t = list(db.generate_table('MeterInfo'))
-			assert len(t) == 1
-			d.update(t[0]._asdict())
+			for table_name in ['Customer', 'MeterInfo']:
+				t = list(db.generate_table(table_name))
+				if len(t) == 1:
+					d.update(t[0]._asdict())
+				elif len(t):
+					error("More than 1 %s row!" % table_name)
+				else:
+					error("Failed to find %s row" % table_name)
 			#
 			self.define_log_attributes([(k,v) for k,v in d.iteritems()])
 	#
@@ -52,17 +56,19 @@ class MeterMaster3_File:
 			self.log_attributes = pairs
 		else:
 			self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
-		debug("%d datalogger attributes",
-			  len(self.log_attributes))
+		debug("%d datalogger attributes" % len(self.log_attributes))
 		# Not very similar to MeterMaster4:
-		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
-		t = self.timespan
-		if t:
-			flows_table_duration = t[-1] - t[0]
-			d = flows_table_duration - storage_interval_delta
-			if abs(d) > self.warning_flows_table_duration_tolerance:
-				warning("Difference of %s between MMData and NumberOfIntervals",
-						d)
+		try:
+			storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
+			t = self.timespan
+			if t:
+				flows_table_duration = t[-1] - t[0]
+				d = flows_table_duration - storage_interval_delta
+				if abs(d) > self.warning_flows_table_duration_tolerance:
+					warning("Difference of %s between MMData and NumberOfIntervals",
+							d)
+		except Exception as e:
+			error("Flows table error: %s" % e)
 	@property
 	def units(self):
 		return self.log_attributes['Unit']
@@ -102,6 +108,7 @@ if __name__ == '__main__':
 	#desktop=os.path.expandvars('%UserProfile%\Desktop')
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '67096.MDB')
+	print "Using", fn, "(%s)" % ("found" if os.path.exists(fn) else "not found")
 	m = MeterMaster3_File(fn)
 	for d, fs in m.get_flows_by_day():
 		print d, sum([ f.RateData for f in fs ])*m.flow_multiplier

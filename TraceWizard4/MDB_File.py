@@ -75,6 +75,7 @@ class MDB_Base:
 		"""
 		Generator
 		"""
+		# Cursor seems to be consumed by field_names step.
 		with closing(self.con.cursor()) as cur:
 			cur.execute("select * from %s" % table_name)
 			if not row_factory:
@@ -83,9 +84,10 @@ class MDB_Base:
 				except:
 					warning("Could not build a table row_factory for %s" % table_name)
 			if row_factory:
-				return ( row_factory(*r) for r in cur.fetchall() )
+				cur.execute("select * from %s" % table_name) ### ?
+				return [ row_factory(*r) for r in cur.fetchall() ]
 			else:
-				return cur.fetchall()
+				return list(cur.fetchall())
 class odbc_MDB(MDB_Base):
 	"""
 	"""
@@ -126,7 +128,7 @@ if __name__ == '__main__':
 	#
 	#desktop=os.path.expandvars('%UserProfile%\Desktop')
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
-	fn = os.path.join(tempdir, '67096.TDB')
+	fn = os.path.join(tempdir, '67096.MDB')
 	m = MDB_File(fn)
 	print "table_defs:", m.get_table_defs()
 	print "table_names:", m.table_names
