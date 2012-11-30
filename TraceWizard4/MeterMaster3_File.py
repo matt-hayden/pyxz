@@ -96,7 +96,8 @@ class MeterMaster3_File:
 		try:
 			return Interval(self.flows[0].DateTimeStamp,
 							self.flows[-1].DateTimeStamp+self.log_attributes['StorageInterval'])
-		except:
+		except Exception as e:
+			error("Timespan error: %s" % e)
 			return None
 	#
 if __name__ == '__main__':
