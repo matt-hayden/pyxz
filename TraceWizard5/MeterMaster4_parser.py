@@ -1,12 +1,12 @@
 from collections import namedtuple
 import csv
 from datetime import datetime, timedelta
-from itertools import groupby
 from logging import debug, info, warning, error, critical
 import os.path
 from cStringIO import StringIO
 import re
 
+from TraceWizard4.MeterMaster_Common import MeterMaster_Common
 from CSV_with_header import CSV_with_header
 
 version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
@@ -47,10 +47,10 @@ def format_log_attribute(key, value, float_t=float):
 	# else:
 	return key, value
 #
-class MeterMaster4_CSV(CSV_with_header):
+class MeterMaster4_CSV(CSV_with_header, MeterMaster_Common):
 	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
 	#
-	default_flow_multiplier = 10.0/60.0
+	#default_flow_multiplier = 10.0/60.0
 	flows_header = ['DateTimeStamp', 'RateData']
 	flow_timestamp_format = '%m/%d/%Y %I:%M:%S %p'
 	ratedata_t = float
@@ -89,22 +89,22 @@ class MeterMaster4_CSV(CSV_with_header):
 		debug("%d datalogger attributes",
 			  len(self.log_attributes))
 		# Try to set the Brainard version:
+		self.format = 'MM100 Data Export'
+		self.version = None
 		try:
-			vs = self.log_attributes['MM100 Data Export']
-			self.format = 'MM100 Data Export'
+			self.version = self.log_attributes[self.format]
+			info("Opening %s file version %s",
+				 self.format, self.version)
 			try:
-				m = version_regex.match(vs)
-				self.version = tuple(m.group('version_string').split('.'))
-				info("Opening %s file version %s",
-					 self.format, self.version)
+				m = version_regex.match(self.version)
+				if m:
+					self.version_tuple = tuple(m.group('version_string').split('.'))
 			except:
 				error("Version string '%s' not recognized",
-					  vs)
-				self.version = vs
+					  self.version)
 		except:
 			warning("No '%s' version string",
 					'MM100 Data Export')
-			self.version = None
 		#
 		# These checks are similar to TraceWizard5:
 		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
@@ -112,34 +112,12 @@ class MeterMaster4_CSV(CSV_with_header):
 		if d:
 			warning("Difference of %s between TotalTime and NumberOfIntervals",
 					d)
-	#
-	@property
-	def flow_multiplier(self):
-		try:
-			m = self.log_attributes['StorageInterval'].seconds/60.0
-			if m > 0:
-				return m
-		except:
-			warning("Bad storage interval; defaulting to %s.",
-					self.default_flow_multiplier)
-		return self.default_flow_multiplier
-	@property
-	def units(self):
-		return self.log_attributes['Unit']
-	@property
-	def logged_volume(self):
-		return sum(f.RateData for f in self.flows)*self.flow_multiplier
-	def get_flows_by_day(self):
-		FlowDay = namedtuple('FlowDay', 'day flows')
-		for d, f in groupby(self.flows, key=lambda f: f.DateTimeStamp.date()):
-			yield FlowDay(d, tuple(f))
-	#
 	def print_summary(self):
 		print "Logging attributes:", self.log_attributes
 		print "Volume by day:"
 		for d, fa in self.get_flows_by_day():
 			daily_total = sum(f.RateData for f in fa)*self.flow_multiplier
-			print d, " = ", daily_total, self.units
+			print d, " = ", daily_total, self.volume_units
 #
 if __name__ == '__main__':
 	import logging
@@ -151,6 +129,6 @@ if __name__ == '__main__':
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '12S704.csv')
 	print fn, "found:", os.path.exists(fn)
-	m = MeterMaster4_CSV(fn, load=False)
+	m = MeterMaster4_CSV(fn, load=True)
 	m.parse_CSV_header()
 	m.print_summary()

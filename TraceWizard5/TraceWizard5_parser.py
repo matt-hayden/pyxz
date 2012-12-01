@@ -10,6 +10,7 @@ from cStringIO import StringIO
 
 from ARFF_format import ARFF_format_with_version, dequote
 import MeterMaster4_parser
+from TraceWizard4.MeterMaster_Common import MeterMaster_Common
 
 log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
 log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
@@ -41,7 +42,7 @@ TraceWizard4_EventRow = namedtuple('TraceWizard4_EventRow',
 	"EventID Class StartTime EndTime Duration Volume Peak Mode"
 	)
 #
-class TraceWizard5_parser(ARFF_format_with_version):
+class TraceWizard5_parser(ARFF_format_with_version, MeterMaster_Common):
 	# Custom comment statements are otherwise ignored in ARFF
 	event_timestamp_format = log_attribute_timestamp_format
 	event_table_name = 'events'
@@ -65,23 +66,21 @@ class TraceWizard5_parser(ARFF_format_with_version):
 	flow_section_regex=re.compile('% @FLOW')
 	flow_timestamp_format = event_timestamp_format
 	#
-	def __init__(self, data = None, load = True):
+	def __init__(self, data, load = True):
 		self.filename = None
 		self._build_parse_sectioner()
-		if data:
-			if type(data) == str:
-				if os.path.exists(data):
-					if load:
-						self.from_file(data)
-					else:
-						self.filename = data
-				elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
-					self.filename = data
+		if type(data) == str:
+			if os.path.exists(data):
+				if load:
+					self.from_file(data)
 				else:
-					if load:
-						self.from_iterable(data)
-			else:
-				self.from_iterable(data)
+					self.filename = data
+			elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
+				self.filename = data
+			elif load:
+					self.from_iterable(data)
+		else:
+			self.from_iterable(data)
 	#
 	def _build_parse_sectioner(self):
 		"""
@@ -117,9 +116,11 @@ class TraceWizard5_parser(ARFF_format_with_version):
 	events_units = 'Gallons'
 	#
 	flows_header = 'EventID', 'DateTimeStamp', 'Duration', 'RateData'
+	"""
 	@property
 	def flows_units(self):
 		return self.log_attributes['Unit']+"/minute"
+	"""
 	#
 	def parse_flow_line(self, line, ratedata_t=float, row_factory = None):
 		row_factory = row_factory or self.FlowRow
@@ -345,9 +346,11 @@ class TraceWizard5_parser(ARFF_format_with_version):
 		self.parse_ARFF(iterable)
 		self.filename = None
 	#
+	"""
 	@property
 	def logged_volume(self):
 		return self.get_total_volume(ignored_classes=None)
+	"""
 	def get_total_volume(self, ignored_classes=['Noise', 'Duplicate', 'Unclassified']):
 		return sum(e.Volume for e in self.events if e.Class not in ignored_classes)
 	#

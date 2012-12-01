@@ -71,23 +71,12 @@ class MDB_Base:
 			return [ t.table_name for t in td ]
 		else:
 			return None
-	def generate_table(self, table_name, row_factory = None):
-		"""
-		Generator
-		"""
-		# Cursor seems to be consumed by field_names step.
+	def generate_table(self, table_name):
+		return self.generate_query(sql="select * from %s" % table_name)
+	def generate_query(self, sql):
 		with closing(self.con.cursor()) as cur:
-			cur.execute("select * from %s" % table_name)
-			if not row_factory:
-				try:
-					row_factory = namedtuple('Row', self.get_field_names_for_cursor(cur))
-				except:
-					warning("Could not build a table row_factory for %s" % table_name)
-			if row_factory:
-				cur.execute("select * from %s" % table_name) ### ?
-				return [ row_factory(*r) for r in cur.fetchall() ]
-			else:
-				return list(cur.fetchall())
+			cur.execute(sql)
+			return list(cur.fetchall())
 class odbc_MDB(MDB_Base):
 	"""
 	"""
