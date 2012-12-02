@@ -134,10 +134,9 @@ class ARFF_format:
 					if allowed_values:
 						if set(allowed_values) in self.bool_sets:
 							formatter = bool
-						elif self.index_nominals:
-							lookup_key = dict((k, i) for i,k in enumerate(allowed_values, start=1))
-							#lookup_label = dict(enumerate(allowed_values))
-							formatter = lookup_key.get
+						#elif self.index_nominals:
+						#	lookup_key = dict((k, i) for i,k in enumerate(allowed_values, start=1))
+						#	formatter = lookup_key.get
 						else:	
 							formatter = None
 				#
@@ -151,26 +150,22 @@ class ARFF_format:
 		formatters = [ a.Formatter for a in self.attributes ]
 		formatters = [ f if f else null_function for f in formatters ]
 		return formatters
-	def _get_parse_body_line(self, row_factory = None):
-		self._build_ARFF_Row()
-		row_factory = self.ARFF_Row
-		#
-		def p(iterable):
-			return row_factory(*[ f(a) for f, a in zip(self._get_body_formatters(), iterable) ])
-		return p
 	@property
 	def body_header(self):
 		return [a.Name for a in self.attributes]
-	def _build_ARFF_Row(self):
-		self.ARFF_Row = namedtuple('ARFF_Row', self.body_header)
 	def parse_ARFF_body(self,
 						iterable,				# iterable is possibly an open file
 						line_number = 1,		# starting line number
 						member_name = 'body',	# name of object member to refer to this table
-						next_section = None		# returns null while still in the attribute section
+						next_section = None,	# returns null while still in the attribute section
+						line_parser = None		# override the row factory return here
 						):
 		###
-		parse_body_line = self._get_parse_body_line()
+		if not line_parser:
+			row_factory = namedtuple('ARFF_Row', self.body_header)
+			def line_parser(iterable):
+				return row_factory(*[ f(a) for f, a in zip(self._get_body_formatters(), iterable) ])
+		#parse_body_line = self._get_parse_body_line()
 		###
 		with closing(StringIO()) as sio:
 			if next_section:
@@ -187,8 +182,15 @@ class ARFF_format:
 					if line.strip() and (self.comment_regex.match(line) is None):
 						sio.write(line)
 			sio.seek(0)
-			self.__dict__[member_name] = [ parse_body_line(l) for l in csv.reader(sio) ]
+			self.__dict__[member_name] = [ line_parser(l) for l in csv.reader(sio) ]
 		return line_number
+	def from_file(self, filename):
+		with open(filename) as fi:
+			self.from_iterable(fi)
+		self.filename = filename
+	def from_iterable(self, iterable):
+		self.parse_ARFF(iterable)
+		self.filename = None
 	def parse_ARFF(self, iterable):
 		line_number = self.parse_ARFF_header(iterable)
 		line_number = self.parse_ARFF_body(iterable, line_number = line_number)
@@ -198,16 +200,21 @@ class ARFF_format_with_version(ARFF_format):
 	header_version_regex=re.compile('%\s?Version:\s*(?P<header_version>.*)')
 	#
 	@staticmethod
-	def sniff_version(iterable, max_lines = 4, start_line = 1):
+	def sniff_version(iterable,
+					  max_lines = 4,
+					  start_line = 1,
+					  header_version_parser = None
+					  ):
 		"""
 		Returns a tuple like ('File format', (Format version), Number of header lines)
 		"""
-		def header_version_parser(match):
-			try:
-				version_tuple = tuple(int(d) for d in match.group('header_version').split('.'))
-				return version_tuple
-			except:
-				return None
+		if not header_version_parser:
+			def header_version_parser(match):
+				try:
+					version_tuple = tuple(int(d) for d in match.group('header_version').split('.'))
+					return version_tuple
+				except:
+					return None
 		#
 		next_section=ARFF_format_with_version.attribute_section_regex.match
 		for line_number, line in enumerate(iterable, start=start_line):
