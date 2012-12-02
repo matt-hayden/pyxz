@@ -90,17 +90,6 @@ class TraceWizard5_parser(ARFF_format_with_version):
 						self.from_iterable(data)
 			else:
 				self.from_iterable(data)
-	#
-	@property
-	def label(self):
-		n = self.log_attributes['CustomerID']
-		if not n:
-			try:
-				fn = os.path.split(self.filename)[-1]
-				n = os.path.splitext(fn)[0]
-			except: # TraceWizard would pick up LogFileName here
-				n = "<%s>" % self.__class__.__name__
-		return n
 	# maybe this goes into the common class:
 	def __repr__(self):
 		s = " ".join((self.__class__.__name__,
@@ -289,6 +278,17 @@ class TraceWizard5_parser(ARFF_format_with_version):
 		if d:
 			warning("Difference of %s between LogEndTime and NumberOfIntervals" % d)
 		#
+		n = self.log_attributes['CustomerID']
+		if not n:
+			try:
+				fn = os.path.split(self.filename)[-1]
+				n = os.path.splitext(fn)[0]
+				if not n:
+					fn = os.path.split(self.log_attributes['LogFileName'])[-1]
+					n = "(from %s)" % fn
+			except:
+				n = "<%s>" % self.__class__.__name__
+		self.label = n
 	def get_original_MeterMaster4(self, make_relative = True):
 		log_filename = self.log_attributes['LogFileName']
 		if not os.path.exists(log_filename):
