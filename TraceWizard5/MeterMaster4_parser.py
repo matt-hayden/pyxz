@@ -6,12 +6,12 @@ import os.path
 from cStringIO import StringIO
 import re
 
-from TraceWizard4.MeterMaster_Common import MeterMaster_Common
+from TraceWizard4.MeterMaster_Common import MeterMaster_Common, ratedata_t, volume_t
 from CSV_with_header import CSV_with_header
 
 version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
 # Attribute field stuff:
-duration_regex = re.compile('(?P<days>\d+) days [+] (?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?')
+duration_regex = re.compile('((?P<days>\d+) days)?[ +]*((?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?)?')
 duration_fields = 'TotalTime',
 float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume'
 seconds_fields = 'StorageInterval',
@@ -34,9 +34,9 @@ def format_log_attribute(key, value, float_t=float):
 		m = duration_regex.match(value)
 		if m:
 			try:
-				td = timedelta(days=int(m.group('days')),
-							   hours=int(m.group('hours')),
-							   minutes=int(m.group('minutes')),
+				td = timedelta(days=int(m.group('days') or 0),
+							   hours=int(m.group('hours') or 0),
+							   minutes=int(m.group('minutes') or 0),
 							   seconds=int(m.group('seconds') or 0)
 							   )
 			except:
@@ -53,20 +53,23 @@ class MeterMaster4_CSV(CSV_with_header, MeterMaster_Common):
 	#default_flow_multiplier = 10.0/60.0
 	flows_header = ['DateTimeStamp', 'RateData']
 	flow_timestamp_format = '%m/%d/%Y %I:%M:%S %p'
-	ratedata_t = float
+	format = 'MM100 Data Export'
 	#
-	def _build_FlowRow(self):
-		self.FlowRow = namedtuple('FlowRow', self.flows_header)
-	#
-	def parse_flow_line(self, line):
-		return self.FlowRow(
-			datetime.strptime(line[0], self.flow_timestamp_format),
-			self.ratedata_t(line[1])
-			)
 	def parse_CSV_header(self, iterable = None):
 		CSV_with_header.parse_CSV_header(self, iterable)
+		#super(MeterMaster4_CSV, self).parse_CSV_header(iterable) # ?
 		self.define_log_attributes(self.header)
-	def parse_CSV(self, iterable = None):
+	def parse_CSV(self,
+				  iterable = None,
+				  line_parser = None
+				  ):
+		if not line_parser:
+			row_factory = namedtuple('FlowRow', self.flows_header)
+			def line_parser(line):
+				return row_factory(
+					datetime.strptime(line[0], self.flow_timestamp_format),
+					ratedata_t(line[1])
+					)
 		if iterable is None:
 			info("Reading CSV format from '%s'",
 				 self.filename)
@@ -74,50 +77,33 @@ class MeterMaster4_CSV(CSV_with_header, MeterMaster_Common):
 		#
 		line_number = self.parse_CSV_header(iterable)
 		#
-		self._build_FlowRow()
-		self.flows = [ self.parse_flow_line(l) for l in csv.reader(iterable) ]
+		#self._build_FlowRow()
+		#self.flows = [ line_parser(l) for l in csv.reader(iterable) ]
+		self.flows = []
+		for l in csv.reader(iterable):
+			try:
+				self.flows.append(line_parser(l))
+			except Exception as e:
+				debug("error parsing array '%s'" % l)
+				raise e
 	#
-	def define_log_attributes(self, pairs):
-		"""
-		Extended checks on the MeterMaster attributes, taking a list of
-		2-tuples.
-		"""
-		if type(pairs) == dict:
-			self.log_attributes = pairs
-		else:
-			self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
-		debug("%d datalogger attributes",
-			  len(self.log_attributes))
+	def _check_log_attributes(self, format = 'MM100 Data Export'):
 		# Try to set the Brainard version:
-		self.format = 'MM100 Data Export'
-		self.version = None
+		self.format = format
 		try:
-			self.version = self.log_attributes[self.format]
-			info("Opening %s file version %s",
-				 self.format, self.version)
+			self.version = self.log_attributes[format]
+			info("Opening %s file version %s" %(self.format, self.version))
 			try:
 				m = version_regex.match(self.version)
 				if m:
 					self.version_tuple = tuple(m.group('version_string').split('.'))
+					del self.log_attributes[format]
 			except:
 				error("Version string '%s' not recognized",
 					  self.version)
 		except:
-			warning("No '%s' version string",
-					'MM100 Data Export')
-		#
-		# These checks are similar to TraceWizard5:
-		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.log_attributes['StorageInterval']
-		d = self.log_attributes['TotalTime'] - storage_interval_delta
-		if d:
-			warning("Difference of %s between TotalTime and NumberOfIntervals",
-					d)
-	def print_summary(self):
-		print "Logging attributes:", self.log_attributes
-		print "Volume by day:"
-		for d, fa in self.get_flows_by_day():
-			daily_total = sum(f.RateData for f in fa)*self.flow_multiplier
-			print d, " = ", daily_total, self.volume_units
+			warning("No '%s' version string" % format)
+			self.version = None
 #
 if __name__ == '__main__':
 	import logging
@@ -131,4 +117,11 @@ if __name__ == '__main__':
 	print fn, "found:", os.path.exists(fn)
 	m = MeterMaster4_CSV(fn, load=True)
 	m.parse_CSV_header()
+
+	print "m =", m
 	m.print_summary()
+	print "Volume by day:"
+	total = m.logged_volume
+	for d, fs in m.get_flows_by_day():
+		daily_total = sum([ f.RateData for f in fs ])*m.flow_multiplier
+		print d, daily_total, m.volume_units, "(%5.1f%%)" % (100*daily_total/total)

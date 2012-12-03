@@ -72,7 +72,7 @@ class MDB_Base:
 		else:
 			return None
 	def generate_table(self, table_name):
-		return self.generate_query(sql="select * from %s" % table_name)
+		return self.generate_query(sql="select * from [%s]" % table_name)
 	def generate_query(self, sql):
 		with closing(self.con.cursor()) as cur:
 			cur.execute(sql)
