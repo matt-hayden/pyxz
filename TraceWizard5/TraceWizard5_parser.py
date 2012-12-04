@@ -12,21 +12,22 @@ from ARFF_format import ARFF_format_with_version, ARFF_format_Error, dequote
 import MeterMaster4_parser
 from TraceWizard4.MeterMaster_Common import MeterMaster_Common, TraceWizard_Common, EventRow_midpoint, ratedata_t
 
-log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
-log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
+#log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
+#log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
 #
-def format_log_attribute(key, value):
-	"""
-	Wrapper around the identical function in MeterMaster_Common. There are a
-	few added fields.
-	"""
-	if key in log_attribute_timestamp_fields:
+def format_TraceWizard5_header(pairs):
+	log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
+	def timeconvert(s):
 		try:
-			return key, datetime.strptime(value, log_attribute_timestamp_format)
-		except:
-			return format_log_attribute(key, dequote(value))
-	# else:
-	return MeterMaster_Common.format_log_attribute(key, value)
+			return datetime.strptime(s, log_attribute_timestamp_format)
+		except ValueError:
+			return timeconvert(dequote(s))
+	di = dict(pairs)
+	do = MeterMaster4_parser.format_MeterMaster4_header(pairs)
+	do['LogStartTime'] = timeconvert(di['LogStartTime'])
+	do['LogEndTime'] = timeconvert(di['LogEndTime'])
+	do['LogFileName'] = di['LogFileName'].strip()
+	return do
 #
 respell = {
 	'eventid':		'EventID',
@@ -46,7 +47,7 @@ class TraceWizard5_parser_Error(ARFF_format_Error):
 	pass
 class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 	# Custom comment statements are otherwise ignored in ARFF
-	event_timestamp_format = log_attribute_timestamp_format
+	event_timestamp_format = '%Y-%m-%d %H:%M:%S'
 	event_table_name = 'events'
 	#
 	@staticmethod
@@ -58,6 +59,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 			return respell[s]
 		else:
 			return s.title()
+	#
 	fixture_profile_section_regex=re.compile('% @FIXTURE PROFILES')
 	fixture_profile_header_regex=re.compile('% FixtureClass,MinVolume,MaxVolume,MinPeak,MaxPeak,MinDuration,MaxDuration,MinMode,MaxMode')
 	# right now, each fixture profile is simply a comment
@@ -101,6 +103,25 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 			ps.append(self.flow_section_regex.match)
 		ps.reverse() # Hmm
 		self._parse_sectioner = ps
+	#
+	def define_log_attributes(self, pairs):
+		self.log_attributes = format_TraceWizard5_header(pairs)
+		#
+		self.storage_interval = self.log_attributes['StorageInterval']
+		#
+		n = self.log_attributes['CustomerID']
+		if not n:
+			try:
+				fn = os.path.split(self.filename)[-1]
+				n = os.path.splitext(fn)[0]
+				if not n:
+					# LogFileName found only in TW5
+					fn = os.path.split(self.log_attributes['LogFileName'])[-1]
+					n = "(from %s)" % fn
+			except:
+				n = "<%s>" % self.__class__.__name__
+		self.label = n
+	#
 	@property
 	def events_header(self):
 		return [a.Name for a in self.attributes]

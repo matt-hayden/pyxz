@@ -4,7 +4,7 @@ from itertools import groupby
 from logging import debug, info, warning, error, critical
 
 from MDB_File import MDB_File
-from MeterMaster_Common import MeterMaster_Common, Interval
+from MeterMaster_Common import MeterMaster_Common, Interval, ratedata_t, volume_t
 
 class MeterMaster3_Error(Exception):
 	pass
@@ -47,6 +47,43 @@ class MeterMaster3_MDB(MeterMaster_Common):
 			d.update(self.MeterInfoRowDict(t[0]))
 			#
 			self.define_log_attributes(d)
+	#
+	@staticmethod
+	def CustomerRowDict(row):
+		d = {}
+		d['Address'] = row.Address.strip()
+		d['City'] = row.City.strip()
+		d['CustomerID'] = row.CustomerID.strip()
+		d['CustomerName'] = row.CustomerName.strip()
+		d['Note'] = row.Note.strip()
+		d['PhoneNumber'] = row.PhoneNumber.strip()
+		d['PostalCode'] = row.PostalCode.strip()
+		d['State'] = row.State.strip()
+		return d
+	@staticmethod
+	def MeterInfoRowDict(row):
+		# member names are case-sensitive in adodbapi
+		d = {}
+		d['BeginReading'] = volume_t(row.BeginReading)
+		d['CombinedFile'] = row.CombinedFile
+		d['ConvFactor'] = float(row.ConvFactor)
+		d['ConvFactorType'] = row.ConvFactorType
+		d['DatabaseMultiplier'] = row.DatabaseMultiplier
+		d['EndReading'] = volume_t(row.EndReading)
+		d['LED'] = row.LED
+		d['Make'] = row.Make.strip()
+		d['MeterCode'] = row.MeterCode
+		d['MMVolume'] = volume_t(row.MMVolume)
+		d['Model'] = row.Model.strip()
+		d['NumberOfIntervals'] = int(row.NumberOfIntervals)
+		d['Nutation'] = row.Nutation
+		d['RegVolume'] = volume_t(row.RegVolume)
+		d['Size'] = row.Size.strip()
+		d['StorageInterval'] = timedelta(seconds=row.StorageInterval)
+		#d['StorageInterval'] = row.StorageInterval
+		d['TotalPulses'] = int(row.TotalPulses)
+		d['Unit'] = row.Unit.strip()
+		return d
 	#
 if __name__ == '__main__':
 	import logging

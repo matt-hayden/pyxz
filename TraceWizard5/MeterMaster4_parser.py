@@ -7,60 +7,72 @@ from cStringIO import StringIO
 import re
 
 from TraceWizard4.MeterMaster_Common import MeterMaster_Common, ratedata_t, volume_t
-from CSV_with_header import CSV_with_header
+from CSV_with_header import CSV_with_header_and_version
 
-version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
-# Attribute field stuff:
-duration_regex = re.compile('((?P<days>\d+) days)?[ +]*((?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?)?')
-duration_fields = 'TotalTime',
-float_fields = 'BeginReading', 'ConvFactor', 'EndReading', 'MMVolume', 'RegVolume'
-seconds_fields = 'StorageInterval',
-int_fields = 'NumberOfIntervals',
-
-def format_log_attribute(key, value, float_t=float):
-	if key in float_fields:
-		return key, float_t(value)
-	if key in int_fields:
-		return key, int(value)
-	if key in seconds_fields:
-		try:
-			td = timedelta(seconds=float(value))
-		except:
-			error("Interval %s not recognized",
-				  value)
-			td = value
-		return key, td
-	if key in duration_fields:
-		m = duration_regex.match(value)
-		if m:
-			try:
-				td = timedelta(days=int(m.group('days') or 0),
-							   hours=int(m.group('hours') or 0),
-							   minutes=int(m.group('minutes') or 0),
-							   seconds=int(m.group('seconds') or 0)
-							   )
-			except:
-				error("Duration %s not recognized",
-					  value)
-				td = value
-			return key, td
-	# else:
-	return key, value
-#
-class MeterMaster4_CSV(CSV_with_header, MeterMaster_Common):
-	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
+def format_MeterMaster4_header(pairs):
+	duration_regex = re.compile('((?P<days>\d+) days)?[ +]*((?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?)?')
 	#
-	#default_flow_multiplier = 10.0/60.0
+	if type(pairs) == dict:
+		row = pairs
+	else:
+		row = dict(pairs)
+	if not row:
+		return None
+	d = {}
+	d['CustomerID'] = row['CustomerID'].strip()
+	d['CustomerName'] = row['CustomerName'].strip()
+	d['Address'] = row['Address'].strip()
+	d['City'] = row['City'].strip()
+	d['State'] = row['State'].strip()
+	d['PostalCode'] = row['PostalCode'].strip()
+	d['PhoneNumber'] = row['PhoneNumber'].strip()
+	d['Note'] = row['Note'].strip()
+	# empty line in header would be here
+	d['Make'] = row['Make'].strip()
+	d['Model'] = row['Model'].strip()
+	d['Size'] = row['Size'].strip()
+	d['Unit'] = row['Unit'].strip()
+	d['StorageInterval'] = timedelta(seconds=float(row['StorageInterval']))
+	d['NumberOfIntervals'] = int(row['NumberOfIntervals'])
+	m = duration_regex.match(row['TotalTime'])
+	if m:
+		d['TotalTime'] = timedelta(days=int(m.group('days') or 0),
+								   hours=int(m.group('hours') or 0),
+								   minutes=int(m.group('minutes') or 0),
+								   seconds=int(m.group('seconds') or 0)
+								   )
+	else:
+		d['TotalTime'] = row.TotalTime
+	d['BeginReading'] = volume_t(row['BeginReading'])
+	d['EndReading'] = volume_t(row['EndReading'])
+	d['RegVolume'] = volume_t(row['RegVolume'])
+	d['MMVolume'] = volume_t(row['MMVolume'])
+	d['ConvFactor'] = float(row['ConvFactor'])
+	return d
+
+class MeterMaster4_CSV(CSV_with_header_and_version, MeterMaster_Common):
+	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
+	format = 'MM100 Data Export'	# key to the version tuple (beginning of CSV)
+	#
 	flows_header = ['DateTimeStamp', 'RateData']
 	flow_timestamp_format = '%m/%d/%Y %I:%M:%S %p'
-	format = 'MM100 Data Export'
 	#
-	def parse_CSV_header(self, iterable = None):
-		CSV_with_header.parse_CSV_header(self, iterable)
-		#super(MeterMaster4_CSV, self).parse_CSV_header(iterable) # ?
-		self.define_log_attributes(self.header)
+	def define_log_attributes(self, pairs):
+		self.log_attributes = format_MeterMaster4_header(pairs)
+		#
+		self.storage_interval = self.log_attributes['StorageInterval']
+		#
+		n = self.log_attributes['CustomerID']
+		if not n:
+			try:
+				fn = os.path.split(self.filename)[-1]
+				n = os.path.splitext(fn)[0]
+			except:
+				n = "<%s>" % self.__class__.__name__
+		self.label = n
 	def parse_CSV(self,
 				  iterable = None,
+				  data_table_name = 'flows',
 				  line_parser = None
 				  ):
 		if not line_parser:
@@ -76,34 +88,15 @@ class MeterMaster4_CSV(CSV_with_header, MeterMaster_Common):
 			iterable = open(self.filename)
 		#
 		line_number = self.parse_CSV_header(iterable)
-		#
-		#self._build_FlowRow()
-		#self.flows = [ line_parser(l) for l in csv.reader(iterable) ]
-		self.flows = []
+		self.define_log_attributes(self.header)
+		f = []
 		for l in csv.reader(iterable):
 			try:
-				self.flows.append(line_parser(l))
+				f.append(line_parser(l))
 			except Exception as e:
 				debug("error parsing array '%s'" % l)
 				raise e
-	#
-	def _check_log_attributes(self, format = 'MM100 Data Export'):
-		# Try to set the Brainard version:
-		self.format = format
-		try:
-			self.version = self.log_attributes[format]
-			info("Opening %s file version %s" %(self.format, self.version))
-			try:
-				m = version_regex.match(self.version)
-				if m:
-					self.version_tuple = tuple(m.group('version_string').split('.'))
-					del self.log_attributes[format]
-			except:
-				error("Version string '%s' not recognized",
-					  self.version)
-		except:
-			warning("No '%s' version string" % format)
-			self.version = None
+		self.__dict__[data_table_name] = f
 #
 if __name__ == '__main__':
 	import logging

@@ -1,6 +1,7 @@
 from contextlib import closing
 import csv
 import os, os.path
+import re
 from cStringIO import StringIO
 
 class CSV_with_header:
@@ -70,7 +71,10 @@ class CSV_with_header:
 			self.header = list(csv.reader(sio))
 			self.header_lines = line_number
 		return line_number
-	def parse_CSV(self, iterable = None, data_table_name = 'body'):
+	def parse_CSV(self,
+				  iterable = None,
+				  data_table_name = 'body'
+				  ):
 		"""
 		Use this as a pattern to be overridden in subclasses. The member name
 		specified in data_table_name is used only for example.
@@ -78,6 +82,24 @@ class CSV_with_header:
 		iterable = iterable or open(self.filename)
 		line_number = self.parse_CSV_header(iterable)
 		self.__dict__[data_table_name] = list(csv.reader(iterable))
+class CSV_with_header_and_version(CSV_with_header):
+	format = 'CSV' # subclasses should override this
+	version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
+	def parse_CSV_header(self, iterable = None):
+		line_number = CSV_with_header.parse_CSV_header(self, iterable) # yuck
+		if self.header[0][0] == self.format:
+			try:
+				self.version = self.header[0][1]
+				try:
+					m = self.version_regex.match(self.version)
+					if m:
+						self.version_tuple = tuple(m.group('version_string').split('.'))
+						self.header = self.header[1:]
+				except:
+					pass
+			except:
+				self.version = None
+		return line_number
 #
 if __name__ == '__main__':
 	import os.path
@@ -88,8 +110,9 @@ if __name__ == '__main__':
 	# Example 1: read the whole file
 	# m = CSV_with_header(fn, eoh='DateTimeStamp,RateData\n')
 	# Example 2: read only the headers
-	m = CSV_with_header(fn, eoh='DateTimeStamp,RateData\n', load=False)
+	m = CSV_with_header_and_version(fn, eoh='DateTimeStamp,RateData\n', load=False)
 	print "Parsing header:"
 	m.parse_CSV_header()
 	print m.header_lines, "rows in header"
-	
+	print m.header
+	print m.format, m.version

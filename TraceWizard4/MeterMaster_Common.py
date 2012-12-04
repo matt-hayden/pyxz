@@ -8,7 +8,7 @@ ratedata_t = float
 volume_t = float
 
 def EventRow_midpoint(e):
-	return e.StartTime+e.Duration*0.5
+	return e.StartTime+e.Duration/2
 Interval = namedtuple('Interval', 'min max')
 
 class MeterMaster_Common:
@@ -59,42 +59,6 @@ class MeterMaster_Common:
 				error("Difference of %f %s exceeds %f percent" %
 					  (vol_diff, self.flow_units, self.logged_volume_tolerance))
 	#
-	@staticmethod
-	def CustomerRowDict(row):
-		d = {}
-		d['Address'] = row.Address.strip()
-		d['City'] = row.City.strip()
-		d['CustomerID'] = row.CustomerID.strip()
-		d['CustomerName'] = row.CustomerName.strip()
-		d['Note'] = row.Note.strip()
-		d['PhoneNumber'] = row.PhoneNumber.strip()
-		d['PostalCode'] = row.PostalCode.strip()
-		d['State'] = row.State.strip()
-		return d
-	@staticmethod
-	def MeterInfoRowDict(row):
-		# member names are case-sensitive in adodbapi
-		d = {}
-		d['BeginReading'] = volume_t(row.BeginReading)
-		d['CombinedFile'] = row.CombinedFile
-		d['ConvFactor'] = row.ConvFactor
-		d['ConvFactorType'] = row.ConvFactorType
-		d['DatabaseMultiplier'] = row.DatabaseMultiplier
-		d['EndReading'] = volume_t(row.EndReading)
-		d['LED'] = row.LED
-		d['Make'] = row.Make.strip()
-		d['MeterCode'] = row.MeterCode
-		d['MMVolume'] = volume_t(row.MMVolume)
-		d['Model'] = row.Model.strip()
-		d['NumberOfIntervals'] = int(row.NumberOfIntervals)
-		d['Nutation'] = row.Nutation
-		d['RegVolume'] = volume_t(row.RegVolume)
-		d['Size'] = row.Size.strip()
-		d['StorageInterval'] = timedelta(seconds=row.StorageInterval)
-		#d['StorageInterval'] = row.StorageInterval
-		d['TotalPulses'] = int(row.TotalPulses)
-		d['Unit'] = row.Unit.strip()
-		return d
 	#
 	@property
 	def flow_multiplier(self):
