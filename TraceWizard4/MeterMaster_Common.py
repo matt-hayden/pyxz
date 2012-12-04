@@ -15,34 +15,6 @@ class MeterMaster_Common:
 	logged_volume_tolerance = 0.025 # percent diff
 	warning_flows_table_duration_tolerance = timedelta(hours=1)
 	#
-	def define_log_attributes(self, pairs):
-		if type(pairs) == dict:
-			self.log_attributes = pairs
-		else:
-			#self.log_attributes = dict([format_log_attribute(k,v) for k,v in pairs if k not in (None,'')])
-			self.log_attributes = dict(pairs)
-		debug("%d datalogger attributes" % len(self.log_attributes))
-		#
-		n = self.log_attributes['CustomerID']
-		if not n:
-			try:
-				fn = os.path.split(self.filename)[-1]
-				n = os.path.splitext(fn)[0]
-				if not n:
-					# LogFileName found only in TW5
-					fn = os.path.split(self.log_attributes['LogFileName'])[-1]
-					n = "(from %s)" % fn
-			except:
-				n = "<%s>" % self.__class__.__name__
-		self.label = n
-		#
-		try:
-			self.storage_interval = timedelta(seconds=float(self.log_attributes['StorageInterval']))
-		except:
-			warning("Bad storage interval")
-			self.storage_interval = default_storage_interval
-		#
-		#self._check_log_attributes()
 	def _check_log_attributes(self, check_volume = False):
 		print self.log_attributes
 		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.storage_interval
@@ -58,7 +30,6 @@ class MeterMaster_Common:
 			if abs(1-pct_diff) > self.logged_volume_tolerance:
 				error("Difference of %f %s exceeds %f percent" %
 					  (vol_diff, self.flow_units, self.logged_volume_tolerance))
-	#
 	#
 	@property
 	def flow_multiplier(self):
@@ -123,7 +94,6 @@ class MeterMaster_Common:
 		print "%d flows between %s and %s" % (len(self.flows), self.begins, self.ends)
 class TraceWizard_Common(MeterMaster_Common):
 	event_table_name = 'events'
-	event_volume_units = 'Gallons'
 	#
 	def _check_log_attributes(self):
 		MeterMaster_Common._check_log_attributes(self) # yuck
@@ -137,4 +107,38 @@ class TraceWizard_Common(MeterMaster_Common):
 		d = timestamp_delta - storage_interval_delta
 		if d:
 			warning("Difference of %s between LogEndTime and NumberOfIntervals" % d)
-		#
+	#
+	def get_events_and_flows(self):
+		"""
+		Returns an iterable of the following structure:
+			[ event, [flow_0, ..., flow_n]]
+		To discern the fields in event or flows, use the flows_header and 
+		events_header members.
+		"""
+		EventFlows = namedtuple('EventFlows', 'event flows')
+		assert self.has_flow_section
+		for k, g in groupby(self.flows, lambda e: e.EventID):
+			yield EventFlows(self.events[k],tuple(g))
+	def get_events_and_rates(self):
+		"""
+		Returns an iterable of the following structure:
+			[ event, [rate_0, ..., rate_n]]
+		To discern the fields in event, use events_header. The units of flow
+		rate are available in the flows_units member.
+		"""
+		for e, g in self.get_events_and_flows():
+			yield (e, tuple([f.RateData for f in g]) )
+	def get_events_by_day(self, day_decider=None):
+		"""
+		Returns all events broken into 24-hour periods. Events spanning
+		midnight are, by default, not broken across days. Flows for events
+		spanning midnight are all assigned to a single day, the same day as
+		that event. Returns:
+			[ date, [event_0, [flow_00, ..., flow_0j]], ...,
+					[event_n, [flow_n0, ..., flow_nk]] ]
+		"""
+		if not day_decider:
+			def day_decider(t):
+				return EventRow_midpoint(t[0]).date()
+		for k, ef in groupby(self.get_events_and_flows(), key=day_decider):
+			yield (k, tuple(ef))

@@ -52,9 +52,6 @@ respell = {
 	'manuallyapproved':				'ManuallyApproved',
 	'manuallyclassifiedfirstcycle':	'ManuallyClassifiedFirstCycle'
 	}
-TraceWizard4_EventRow = namedtuple('TraceWizard4_EventRow',
-	"EventID Class StartTime EndTime Duration Volume Peak Mode"
-	)
 #
 class TraceWizard5_parser_Error(ARFF_format_Error):
 	pass
@@ -81,6 +78,8 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 	has_flow_section=True
 	flow_section_regex=re.compile('% @FLOW')
 	flow_timestamp_format = event_timestamp_format
+	#
+	default_file_extension = '.TWDB'
 	#
 	def __init__(self, data = None, load = True, **kwargs):
 		self.filename = None
@@ -133,7 +132,6 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 			except:
 				n = "<%s>" % self.__class__.__name__
 		self.label = n
-		self._check_log_attributes()
 	#
 	@property
 	def events_header(self):
@@ -146,8 +144,10 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 								first_cycler=lambda s: s+"@",
 								row_factory = None):
 		"EventID Class StartTime EndTime Duration Volume Peak Mode"
-		#
-		row_factory = row_factory or TraceWizard4_EventRow
+		if not row_factory:
+			row_factory = namedtuple('TraceWizard4_EventRow',
+				"EventID Class StartTime EndTime Duration Volume Peak Mode"
+				)
 		for e in self.events:
 			myClass = e.Class
 			if e.FirstCycle and (myClass in first_cycle_classes) and first_cycler:
@@ -162,40 +162,6 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 					e.Peak,
 					e.Mode
 				)
-	def get_events_and_flows(self):
-		"""
-		Returns an iterable of the following structure:
-			[ event, [flow_0, ..., flow_n]]
-		To discern the fields in event or flows, use the flows_header and 
-		events_header members.
-		"""
-		EventFlows = namedtuple('EventFlows', 'event flows')
-		assert self.has_flow_section
-		for k, g in groupby(self.flows, lambda e: e.EventID):
-			yield EventFlows(self.events[k],tuple(g))
-	def get_events_and_rates(self):
-		"""
-		Returns an iterable of the following structure:
-			[ event, [rate_0, ..., rate_n]]
-		To discern the fields in event, use events_header. The units of flow
-		rate are available in the flows_units member.
-		"""
-		for e, g in self.get_events_and_flows():
-			yield (e, tuple([f.RateData for f in g]) )
-	def get_events_by_day(self, day_decider=None):
-		"""
-		Returns all events broken into 24-hour periods. Events spanning
-		midnight are, by default, not broken across days. Flows for events
-		spanning midnight are all assigned to a single day, the same day as
-		that event. Returns:
-			[ date, [event_0, [flow_00, ..., flow_0j]], ...,
-					[event_n, [flow_n0, ..., flow_nk]] ]
-		"""
-		if not day_decider:
-			def day_decider(t):
-				return EventRow_midpoint(t[0]).date()
-		for k, ef in groupby(self.get_events_and_flows(), key=day_decider):
-			yield (k, tuple(ef))
 	#
 	def parse_ARFF_header(self, iterable = None):
 		"""
@@ -268,6 +234,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 						error("Datalogger attribute row '%s' not recognized",
 							  line)
 			self.define_log_attributes(la)
+			self._check_log_attributes()
 		else:
 			info("No datalogger attributes")
 		self.has_header = True
@@ -339,7 +306,9 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 						 ignored_classes=['Noise', 'Duplicate', 'Unclassified']):
 		return sum(e.Volume for e in self.events if e.Class not in ignored_classes)
 	#
-
+	def print_summary(self):
+		print "%d attributes, %d fixture profiles, %d log attributes" % (len(self.attributes), len(self.fixture_profiles), len(self.log_attributes))
+		print "%f %s, %d events, %d flows between %s and %s" % (self.get_total_volume(), self.volume_units, len(self.events), len(self.flows), self.begins, self.ends)
 	def print_long_summary(self):
 		self.print_summary()
 		print

@@ -14,14 +14,13 @@ class TraceWizard4_File_Error(Exception):
 class TraceWizard4_File(TraceWizard_Common):
 	format = "TraceWizard4" # default, could be tuned by detecting modifications to the file's template
 	storage_interval = timedelta(seconds=10.0)
-	#flow_multiplier = 10.0/60.0 # default, could be detected from flows table
+	volume_units = 'Gallons'
 	#
-	#default_storage_interval = timedelta(seconds=10)
-	flows_query = '''select EventID, StartTime as DateTimeStamp, Rate as RateData from Flows order by StartTime'''
-	events_query = '''SELECT Events.ID, Fixtures.Name, Events.StartTime as DateTimeStamp, Events.Duration, Events.Peak, Events.Volume, Events.Mode, Events.ModeFreq FROM Fixtures RIGHT JOIN (Events INNER JOIN EventFixtures ON Events.ID = EventFixtures.IDEvent) ON Fixtures.ID = EventFixtures.IDFixture order by StartTime'''
+	flows_query = '''select EventID, StartTime as DateTimeStamp, Rate as RateData from Flows order by Flows.ID'''
+	events_query = '''SELECT Events.ID as EventID, Fixtures.Name, Events.StartTime as DateTimeStamp, Events.Duration, Events.Peak, Events.Volume, Events.Mode, Events.ModeFreq FROM Fixtures RIGHT JOIN (Events INNER JOIN EventFixtures ON Events.ID = EventFixtures.IDEvent) ON Fixtures.ID = EventFixtures.IDFixture order by Events.ID'''
 	fixture_profiles_query = '''select * from Fixtures order by ID'''
 	#
-	default_file_extension = '.TWDB'
+	default_file_extension = '.TDB'
 	#
 	def __init__(self, data, load = True, **kwargs):
 		self.filename = None
@@ -37,6 +36,11 @@ class TraceWizard4_File(TraceWizard_Common):
 				self.from_query(data)
 		#else:
 		#	self.from_iterable(data)
+	#
+	def get_total_volume(self,
+						 ignored_classes=['Noise', 'Duplicate', 'Unclassified']):
+		return sum(e.Volume for e in self.events if e.Name not in ignored_classes)
+	#
 	def from_file(self,
 				  filename,
 				  load_flows = True,
@@ -80,16 +84,12 @@ class TraceWizard4_File(TraceWizard_Common):
 		try:
 			fn = os.path.split(self.filename)[-1]
 			n = os.path.splitext(fn)[0]
-			if not n:
-				# LogFileName found only in TW5
-				fn = os.path.split(self.log_attributes['LogFileName'])[-1]
-				n = "(from %s)" % fn
 			self.label = n
 		except:
 			self.label = ''
 	def print_summary(self):
 		print "%d fixture profiles" % (len(self.fixture_profiles))
-		print "%d events, %d flows between %s and %s" % (len(self.events), len(self.flows), self.begins, self.ends)
+		print "%f %s, %d events, %d flows between %s and %s" % (self.get_total_volume(), self.volume_units, len(self.events), len(self.flows), self.begins, self.ends)
 if __name__ == '__main__':
 	import logging
 	import os.path
@@ -103,5 +103,6 @@ if __name__ == '__main__':
 	t = TraceWizard4_File(fn, driver_name = 'adodbapi')
 	print t
 	t.print_summary()
-	for d, fs in t.get_flows_by_day():
-		print d, sum([ f.RateData for f in fs ])*t.flow_multiplier
+	#for d, fs in t.get_flows_by_day():
+	#	print d, sum([ f.RateData for f in fs ])*t.flow_multiplier
+	total = t.get_total_volume()
