@@ -22,11 +22,24 @@ def format_TraceWizard5_header(pairs):
 			return datetime.strptime(s, log_attribute_timestamp_format)
 		except ValueError:
 			return timeconvert(dequote(s))
+	debug("%d log attributes in file" % len(pairs))
+	#for n, (k, v) in enumerate(pairs):
+	#	print n, k, v
 	di = dict(pairs)
 	do = MeterMaster4_parser.format_MeterMaster4_header(pairs)
 	do['LogStartTime'] = timeconvert(di['LogStartTime'])
 	do['LogEndTime'] = timeconvert(di['LogEndTime'])
 	do['LogFileName'] = di['LogFileName'].strip()
+	#
+	do['Code'] = di['Code']
+	do['Nutation'] = di['Nutation']
+	do['LED'] = di['LED']
+	do['TotalPulses'] = di['TotalPulses']
+	do['ConvFactorType'] = di['ConvFactorType']
+	do['DatabaseMultiplier'] = di['DatabaseMultiplier']
+	do['CombinedFile'] = di['CombinedFile']
+	do['DoublePulse'] = di['DoublePulse']
+	debug("%d log attributes read" % len(do))
 	return do
 #
 respell = {
@@ -48,7 +61,6 @@ class TraceWizard5_parser_Error(ARFF_format_Error):
 class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 	# Custom comment statements are otherwise ignored in ARFF
 	event_timestamp_format = '%Y-%m-%d %H:%M:%S'
-	event_table_name = 'events'
 	#
 	@staticmethod
 	def attribute_name_formatter(s):
@@ -121,6 +133,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 			except:
 				n = "<%s>" % self.__class__.__name__
 		self.label = n
+		self._check_log_attributes()
 	#
 	@property
 	def events_header(self):

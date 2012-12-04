@@ -97,6 +97,7 @@ class MeterMaster4_CSV(CSV_with_header_and_version, MeterMaster_Common):
 				debug("error parsing array '%s'" % l)
 				raise e
 		self.__dict__[data_table_name] = f
+		self._check_log_attributes()
 #
 if __name__ == '__main__':
 	import logging

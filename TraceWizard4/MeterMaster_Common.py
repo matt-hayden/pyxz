@@ -42,7 +42,7 @@ class MeterMaster_Common:
 			warning("Bad storage interval")
 			self.storage_interval = default_storage_interval
 		#
-		self._check_log_attributes()
+		#self._check_log_attributes()
 	def _check_log_attributes(self, check_volume = False):
 		print self.log_attributes
 		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.storage_interval
@@ -107,8 +107,12 @@ class MeterMaster_Common:
 			return self.flows[-1].DateTimeStamp+self.storage_interval
 			#return self.flows[-1].DateTimeStamp+self.log_attributes['StorageInterval']
 			#return self.events[-1].StartTime+self.events[-1].Duration
+	@property
 	def timespan(self):
-		return self.begins, self.ends
+		return Interval(self.begins, self.ends)
+	@property
+	def readings(self):
+		return Interval(self.log_attributes['BeginReading'], self.log_attributes['EndReading']) 
 	def __repr__(self):
 		s = " ".join((self.__class__.__name__,
 					  "(format '%s')" % self.format if self.format else '',
@@ -118,6 +122,7 @@ class MeterMaster_Common:
 		print "%d log attributes" % (len(self.log_attributes))
 		print "%d flows between %s and %s" % (len(self.flows), self.begins, self.ends)
 class TraceWizard_Common(MeterMaster_Common):
+	event_table_name = 'events'
 	event_volume_units = 'Gallons'
 	#
 	def _check_log_attributes(self):
