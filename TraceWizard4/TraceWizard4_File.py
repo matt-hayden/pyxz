@@ -16,6 +16,8 @@ class TraceWizard4_File(TraceWizard_Common):
 	storage_interval = timedelta(seconds=10.0)
 	volume_units = 'Gallons'
 	#
+	has_flow_section = True
+	#
 	flows_query = '''select EventID, StartTime as DateTimeStamp, Rate as RateData from Flows order by Flows.ID'''
 	events_query = '''SELECT Events.ID as EventID, Fixtures.Name, Events.StartTime as DateTimeStamp, Events.Duration, Events.Peak, Events.Volume, Events.Mode, Events.ModeFreq FROM Fixtures RIGHT JOIN (Events INNER JOIN EventFixtures ON Events.ID = EventFixtures.IDEvent) ON Fixtures.ID = EventFixtures.IDFixture order by Events.ID'''
 	fixture_profiles_query = '''select * from Fixtures order by ID'''
@@ -106,3 +108,10 @@ if __name__ == '__main__':
 	#for d, fs in t.get_flows_by_day():
 	#	print d, sum([ f.RateData for f in fs ])*t.flow_multiplier
 	total = t.get_total_volume()
+	limit = 4
+	i = 0
+	for e, f in t.get_events_and_flows():
+		print e, f
+		i += 1
+		if i > limit:
+			break

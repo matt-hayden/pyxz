@@ -114,6 +114,7 @@ class TraceWizard_Common(MeterMaster_Common):
 			[ event, [flow_0, ..., flow_n]]
 		To discern the fields in event or flows, use the flows_header and 
 		events_header members.
+		TODO: make sure the EventID matches the FlowID (right now these are simply aligned)
 		"""
 		EventFlows = namedtuple('EventFlows', 'event flows')
 		assert self.has_flow_section
