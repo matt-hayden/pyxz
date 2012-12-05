@@ -15,8 +15,9 @@ class MeterMaster_Common:
 	logged_volume_tolerance = 0.025 # percent diff
 	warning_flows_table_duration_tolerance = timedelta(hours=1)
 	#
+	label = ''
+	#
 	def _check_log_attributes(self, check_volume = False):
-		print self.log_attributes
 		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.storage_interval
 		flows_table_duration = self.ends - self.begins
 		d = flows_table_duration - storage_interval_delta
@@ -40,11 +41,14 @@ class MeterMaster_Common:
 			if m > 0:
 				return m
 		except:
-			warning("Bad storage interval")
+			warning("Bad or unset storage interval")
 			return (10.0/60.0)
 	@property
 	def volume_units(self):
-		return self.log_attributes['Unit']
+		try:
+			return self.log_attributes['Unit']
+		except:
+			return 'Gallons'
 	@property
 	def flows_units(self):
 		return self.volume_units+"/minute"

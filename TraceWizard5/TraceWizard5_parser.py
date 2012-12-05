@@ -58,6 +58,7 @@ class TraceWizard5_parser_Error(ARFF_format_Error):
 class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 	# Custom comment statements are otherwise ignored in ARFF
 	event_timestamp_format = '%Y-%m-%d %H:%M:%S'
+	format = "TraceWizard5"
 	#
 	@staticmethod
 	def attribute_name_formatter(s):
@@ -81,7 +82,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 	#
 	default_file_extension = '.TWDB'
 	#
-	def __init__(self, data = None, load = True, **kwargs):
+	def __init__(self, data = None, load = True):
 		self.filename = None
 		self._build_parse_sectioner()
 		if type(data) == str:
@@ -114,24 +115,6 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 			ps.append(self.flow_section_regex.match)
 		ps.reverse() # Hmm
 		self._parse_sectioner = ps
-	#
-	def define_log_attributes(self, pairs):
-		self.log_attributes = format_TraceWizard5_header(pairs)
-		#
-		self.storage_interval = self.log_attributes['StorageInterval']
-		#
-		n = self.log_attributes['CustomerID']
-		if not n:
-			try:
-				fn = os.path.split(self.filename)[-1]
-				n = os.path.splitext(fn)[0]
-				if not n:
-					# LogFileName found only in TW5
-					fn = os.path.split(self.log_attributes['LogFileName'])[-1]
-					n = "(from %s)" % fn
-			except:
-				n = "<%s>" % self.__class__.__name__
-		self.label = n
 	#
 	@property
 	def events_header(self):
@@ -173,15 +156,13 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 				 self.filename)
 			iterable = open(self.filename)
 		self.format, self.version, line_number = self.sniff_version(iterable)
-		info("Opening %s file version %s",
-			 self.format, self.version)
+		info("Opening %s file version %s" % (self.format, self.version))
 		# Relation attributes (mandatory)
 		line_number = self.define_attributes(iterable,
 											 line_number = line_number,
 											 next_section = self._parse_sectioner.pop()
 											 )
-		debug("%d ARFF attributes",
-			  len(self.attributes))
+		debug("%d ARFF attributes" % len(self.attributes))
 		# Fixture list (optional)
 		self.fixture_profiles = []
 		if self.has_fixture_profile_section:
@@ -239,6 +220,15 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 			info("No datalogger attributes")
 		self.has_header = True
 		return line_number
+	#
+	def define_log_attributes(self, pairs):
+		"""
+		Should be subclassed for versions with different capabilites
+		"""
+		self.log_attributes = format_TraceWizard5_header(pairs)
+		#
+		self.storage_interval = self.log_attributes['StorageInterval']
+		#
 	#
 	def get_original_MeterMaster4(self, make_relative = True):
 		log_filename = self.log_attributes['LogFileName']
@@ -309,22 +299,4 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 	def print_summary(self):
 		print "%d attributes, %d fixture profiles, %d log attributes" % (len(self.attributes), len(self.fixture_profiles), len(self.log_attributes))
 		print "%f %s, %d events, %d flows between %s and %s" % (self.get_total_volume(), self.volume_units, len(self.events), len(self.flows), self.begins, self.ends)
-	def print_long_summary(self):
-		self.print_summary()
-		print
-		print "Attributes:"
-		for n, l in enumerate(self.attributes):
-			print '\t', n, l
-		if self.has_fixture_profile_section:
-			print "Fixture profiles:"
-			for n, l in enumerate(self.fixture_profiles):
-				print '\t', n, l
-		print "Log attributes:"
-		if self.has_log_attribute_section:
-			for k, v in sorted(self.log_attributes.iteritems()):
-				print '\t', k, v
-		print "Volume by day:"
-		total = self.logged_volume
-		for d, ef in self.get_events_by_day():
-			daily_total = sum(e.Volume for (e, f) in ef)
-			print d, daily_total, self.event_volume_units, "(%5.1f%%)" % (100*daily_total/total)
+#

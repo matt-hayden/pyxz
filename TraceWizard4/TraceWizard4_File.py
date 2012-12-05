@@ -2,6 +2,7 @@ from collections import namedtuple
 from datetime import timedelta
 from itertools import groupby
 from logging import debug, info, warning, error, critical
+import os.path
 
 from MDB_File import MDB_File
 from MeterMaster_Common import MeterMaster_Common, TraceWizard_Common, EventRow_midpoint
@@ -74,8 +75,18 @@ class TraceWizard4_File(TraceWizard_Common):
 				info("Loading table [%s]" % table_name)
 				self.extras[table_name] = list(db.generate_table(table_name))
 		# events:
+		"""
+		EventID can be sparse -- may have some gaps where events have been 
+		merged.
+		
+		eq = list(db.generate_query(self.events_query))
+		size = max([f.EventID for f in eq])+1
+		el = [None,]*size
+		for row in eq:
+			el[row.EventID] = row
+		self.events = el
+		"""
 		self.events = list(db.generate_query(self.events_query))
-		# maybe events_header should be set here
 		if len(self.events) > 0:
 			info("%d events" % len(self.events))
 		else:
@@ -94,13 +105,12 @@ class TraceWizard4_File(TraceWizard_Common):
 		print "%f %s, %d events, %d flows between %s and %s" % (self.get_total_volume(), self.volume_units, len(self.events), len(self.flows), self.begins, self.ends)
 if __name__ == '__main__':
 	import logging
-	import os.path
 	#
 	logging.basicConfig(level=logging.DEBUG)
 	#
 	#desktop=os.path.expandvars('%UserProfile%\Desktop')
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
-	fn = os.path.join(tempdir, '67096.TDB.MDB')
+	fn = os.path.join(tempdir, '67096.TDB')
 	print "Using", fn, "(%s)" % ("found" if os.path.exists(fn) else "not found")
 	t = TraceWizard4_File(fn, driver_name = 'adodbapi')
 	print t

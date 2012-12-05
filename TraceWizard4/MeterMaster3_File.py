@@ -2,10 +2,10 @@ from collections import namedtuple
 from datetime import timedelta
 from itertools import groupby
 from logging import debug, info, warning, error, critical
+import os.path
 
 from MDB_File import MDB_File
 from MeterMaster_Common import MeterMaster_Common, Interval, ratedata_t, volume_t
-
 
 def format_MeterMaster3_Customer_header(row):
 	d = {}
@@ -45,6 +45,8 @@ def format_MeterMaster3_MeterInfo_header(row):
 class MeterMaster3_Error(Exception):
 	pass
 class MeterMaster3_MDB(MeterMaster_Common):
+	#
+	storage_interval = timedelta(seconds=10)
 	#
 	def __init__(self, data, load = True, **kwargs):
 		self.filename = None
@@ -105,7 +107,6 @@ class MeterMaster3_MDB(MeterMaster_Common):
 	#
 if __name__ == '__main__':
 	import logging
-	import os.path
 	#
 	logging.basicConfig(level=logging.INFO)
 	#

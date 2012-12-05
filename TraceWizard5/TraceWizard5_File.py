@@ -1,6 +1,7 @@
 #! env python
 from collections import namedtuple
 from datetime import datetime, timedelta
+from logging import debug, info, warning, error, critical
 
 from TraceWizard4.MeterMaster_Common import Interval, ratedata_t
 from TraceWizard5_parser import TraceWizard5_parser
@@ -11,12 +12,24 @@ These subclasses define the different TraceWizard5 file formats. There are at
 least 4.
 """
 class TraceWizard5000_parser(TraceWizard5_parser):
+	format = "TraceWizard5 5.0.0.0"
 	minimum_version = (5,1,0,0)
 	number_of_event_fields = 11
 	has_fixture_profile_section=False
 	has_log_attribute_section=False
 	#	
 	flows_header = 'EventID', 'DateTimeStamp', 'Duration', 'RateData'
+	#
+	def define_log_attributes(self, pairs):
+		TraceWizard5_parser.define_log_attributes(self, pairs) # yuck
+		#
+		try:
+			fn = os.path.split(self.filename)[-1]
+			n = os.path.splitext(fn)[0]
+		except Exception as e:
+			debug("Error finding label for %s: %s" %(self.filename, e))
+			n = "<%s>" % self.__class__.__name__
+		self.label = n
 	#
 	def _get_body_formatters(self):
 		formatters = TraceWizard5_parser._get_body_formatters(self) # yuck
@@ -26,6 +39,7 @@ class TraceWizard5000_parser(TraceWizard5_parser):
 		formatters[3] = lambda t: timedelta(seconds=float(t))
 		return formatters
 class TraceWizard5100_parser(TraceWizard5000_parser):
+	format = "TraceWizard5 5.1.0.0"
 	minimum_version = (5,1,0,0)
 	number_of_event_fields = 12
 	#
@@ -33,6 +47,7 @@ class TraceWizard51021_parser(TraceWizard5100_parser):
 	"""
 	The minor version is likely wrong here.
 	"""
+	format = "TraceWizard5 5.1.0.21"
 	minimum_version = (5,1,0,9)
 	number_of_event_fields = 15
 	has_fixture_profile_section=True
@@ -52,8 +67,26 @@ class TraceWizard51030_parser(TraceWizard51021_parser):
 	"""
 	The minor version is likely wrong here.
 	"""
+	format = "TraceWizard5 5.1.0.30"
 	minimum_version = (5,1,0,30)
 	has_log_attribute_section=True
+	#
+	def define_log_attributes(self, pairs):
+		TraceWizard5_parser.define_log_attributes(self, pairs) # yuck
+		#
+		n = self.log_attributes['CustomerID']
+		if not n:
+			try:
+				fn = os.path.split(self.filename)[-1]
+				n = os.path.splitext(fn)[0]
+				if not n:
+					# LogFileName found only in later versions of TW5
+					fn = os.path.split(self.log_attributes['LogFileName'])[-1]
+					n = "(from %s)" % fn
+			except:
+				n = "<%s>" % self.__class__.__name__
+		self.label = n
+	#
 #
 TraceWizard5_classes = [ TraceWizard51030_parser, TraceWizard51021_parser, TraceWizard5100_parser, TraceWizard5000_parser ]
 def TraceWizard5_File(filename,
@@ -83,7 +116,7 @@ if __name__ == '__main__':
 					  '09_22oct2011_append_21dec2011.twdb',
 					  '12S704.twdb'
 					  ]
-	fn = os.path.join(tempdir, example_traces[-1])
+	fn = os.path.join(tempdir, example_traces[1])
 	# Example 1: read a whole file:
 	t = TraceWizard5_File(fn)
 	# Example 2: read only the header:
@@ -91,4 +124,4 @@ if __name__ == '__main__':
 	#t.parse_ARFF_header()
 	
 	print "t =", t
-	t.print_long_summary()
+	t.print_summary()
