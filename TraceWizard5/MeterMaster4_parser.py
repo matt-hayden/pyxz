@@ -52,7 +52,7 @@ def format_MeterMaster4_header(pairs):
 	d['ConvFactor'] = float(row['ConvFactor'])
 	return d
 
-class MeterMaster4_CSV(CSV_with_header_and_version, TraceWizard4.MeterMaster_Common):
+class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_version):
 	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
 	format = 'MM100 Data Export'	# key to the version tuple (beginning of CSV)
 	#
