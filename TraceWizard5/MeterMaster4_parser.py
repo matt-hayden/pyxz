@@ -6,11 +6,13 @@ import os.path
 from cStringIO import StringIO
 import re
 
-from TraceWizard4.MeterMaster_Common import MeterMaster_Common, ratedata_t, volume_t
+#from TraceWizard4.MeterMaster_Common import MeterMaster_Common, ratedata_t, volume_t
+import TraceWizard4
 from CSV_with_header import CSV_with_header_and_version
 
 def format_MeterMaster4_header(pairs):
 	duration_regex = re.compile('((?P<days>\d+) days)?[ +]*((?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?)?')
+	volume_t = TraceWizard4.volume_t
 	#
 	if type(pairs) == dict:
 		row = pairs
@@ -50,9 +52,12 @@ def format_MeterMaster4_header(pairs):
 	d['ConvFactor'] = float(row['ConvFactor'])
 	return d
 
-class MeterMaster4_CSV(CSV_with_header_and_version, MeterMaster_Common):
+class MeterMaster4_CSV(CSV_with_header_and_version, TraceWizard4.MeterMaster_Common):
 	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
 	format = 'MM100 Data Export'	# key to the version tuple (beginning of CSV)
+	#
+	has_log_attribute_section = True
+	has_flow_section = True
 	#
 	flows_header = ['DateTimeStamp', 'RateData']
 	flow_timestamp_format = '%m/%d/%Y %I:%M:%S %p'
@@ -76,6 +81,7 @@ class MeterMaster4_CSV(CSV_with_header_and_version, MeterMaster_Common):
 				  line_parser = None
 				  ):
 		if not line_parser:
+			ratedata_t = TraceWizard4.ratedata_t
 			row_factory = namedtuple('FlowRow', self.flows_header)
 			def line_parser(line):
 				return row_factory(
@@ -83,8 +89,7 @@ class MeterMaster4_CSV(CSV_with_header_and_version, MeterMaster_Common):
 					ratedata_t(line[1])
 					)
 		if iterable is None:
-			info("Reading CSV format from '%s'",
-				 self.filename)
+			info("Reading CSV format from '%s'" % self.filename)
 			iterable = open(self.filename)
 		#
 		line_number = self.parse_CSV_header(iterable)
@@ -109,8 +114,8 @@ if __name__ == '__main__':
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '12S704.csv')
 	print fn, "found:", os.path.exists(fn)
-	m = MeterMaster4_CSV(fn, load=True)
-	m.parse_CSV_header()
+	m = MeterMaster4_CSV(fn) # , load=True)
+	#m.parse_CSV_header()
 
 	print "m =", m
 	m.print_summary()

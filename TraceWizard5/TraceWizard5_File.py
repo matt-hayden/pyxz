@@ -17,7 +17,9 @@ class TraceWizard5000_parser(TraceWizard5_parser):
 	number_of_event_fields = 11
 	has_fixture_profile_section=False
 	has_log_attribute_section=False
-	#	
+	#
+	storage_interval = timedelta(seconds = 10)
+	#
 	flows_header = 'EventID', 'DateTimeStamp', 'Duration', 'RateData'
 	#
 	def define_log_attributes(self, pairs):
@@ -123,5 +125,11 @@ if __name__ == '__main__':
 	#t = TraceWizard5_File(fn, load=False)
 	#t.parse_ARFF_header()
 	
+	print fn, "(found)" if os.path.exists(fn) else "(not found)"
 	print "t =", t
 	t.print_summary()
+	#for d, es in t.get_events_by_day():
+	#	print d, sum([e.Volume for e in es])
+	for e, fs in t.get_events_and_flows():
+		print "Event:", e
+		print "Flows:", fs

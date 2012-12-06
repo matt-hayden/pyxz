@@ -46,7 +46,10 @@ class MeterMaster3_Error(Exception):
 	pass
 class MeterMaster3_MDB(MeterMaster_Common):
 	#
-	storage_interval = timedelta(seconds=10)
+	format = "MeterMaster v3 MDB"
+	has_meter_section = True
+	has_site_section = True
+	has_flow_section = True
 	#
 	def __init__(self, data, load = True, **kwargs):
 		self.filename = None
@@ -79,13 +82,18 @@ class MeterMaster3_MDB(MeterMaster_Common):
 				critical("No flow data points loaded")
 		if load_headers:
 			d = {}
-			t = db.generate_table('Customer')
-			d.update(format_MeterMaster3_Customer_header(t[0]))
-			t = db.generate_table('MeterInfo')
-			d.update(format_MeterMaster3_MeterInfo_header(t[0]))
+			if self.has_site_section:
+				t = db.generate_table('Customer')
+				d.update(format_MeterMaster3_Customer_header(t[0]))
+			if self.has_meter_section:
+				t = db.generate_table('MeterInfo')
+				d.update(format_MeterMaster3_MeterInfo_header(t[0]))
 			#
-			self.define_log_attributes(d)
-			self._check_log_attributes()
+			if d:
+				self.define_log_attributes(d)
+				self._check_log_attributes()
+			else:
+				warning("No header info loaded")
 	def define_log_attributes(self, pairs):
 		if type(pairs) == dict:
 			self.log_attributes = pairs

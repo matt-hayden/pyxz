@@ -10,11 +10,8 @@ from cStringIO import StringIO
 
 from ARFF_format import ARFF_format_with_version, ARFF_format_Error, dequote
 import MeterMaster4_parser
-from TraceWizard4.MeterMaster_Common import MeterMaster_Common, TraceWizard_Common, EventRow_midpoint, ratedata_t
+import TraceWizard4
 
-#log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
-#log_attribute_timestamp_fields = 'LogEndTime', 'LogStartTime'
-#
 def format_TraceWizard5_header(pairs):
 	log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
 	def timeconvert(s):
@@ -55,15 +52,16 @@ respell = {
 #
 class TraceWizard5_parser_Error(ARFF_format_Error):
 	pass
-class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
-	# Custom comment statements are otherwise ignored in ARFF
+class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Common):
 	event_timestamp_format = '%Y-%m-%d %H:%M:%S'
-	format = "TraceWizard5"
+	format = "ARFF_format_with_version"
+	#
+	has_flow_section=True
 	#
 	@staticmethod
 	def attribute_name_formatter(s):
 		"""
-		Called in ARFF_format_with_version
+		Called by a method in ARFF_format_with_version
 		"""
 		if s in respell:
 			return respell[s]
@@ -76,11 +74,8 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 	log_attribute_section_regex=re.compile('% @LOG')
 	log_attribute_regex=re.compile('%\s+(?P<attribute_name>\w+)\s*[,]\s*(?P<attribute_value>.*)')
 	# right now, each logged attribute is simply a comment
-	has_flow_section=True
 	flow_section_regex=re.compile('% @FLOW')
 	flow_timestamp_format = event_timestamp_format
-	#
-	default_file_extension = '.TWDB'
 	#
 	def __init__(self, data = None, load = True):
 		self.filename = None
@@ -263,6 +258,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard_Common):
 		if self.has_flow_section:
 			next_section = None
 			if not flow_line_parser:
+				ratedata_t = TraceWizard4.ratedata_t
 				row_factory = namedtuple('FlowRow', self.flows_header)
 				def flow_line_parser(row):
 					return row_factory(

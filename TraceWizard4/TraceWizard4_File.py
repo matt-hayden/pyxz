@@ -4,39 +4,36 @@ from itertools import groupby
 from logging import debug, info, warning, error, critical
 import os.path
 
+import TraceWizard4
 from MDB_File import MDB_File
-from MeterMaster_Common import MeterMaster_Common, TraceWizard_Common, EventRow_midpoint
-
-# identical to TW5 Parser:
-Interval = namedtuple('Interval', 'min max')
 
 class TraceWizard4_File_Error(Exception):
 	pass
-class TraceWizard4_File(TraceWizard_Common):
-	format = "TraceWizard4" # default, could be tuned by detecting modifications to the file's template
+class TraceWizard4_File(TraceWizard4.TraceWizard_Common):
+	format = "TDB"
 	storage_interval = timedelta(seconds=10.0)
 	volume_units = 'Gallons'
 	#
+	has_log_attribute_section = False
 	has_flow_section = True
 	#
 	flows_query = '''select EventID, StartTime as DateTimeStamp, Rate as RateData from Flows order by Flows.ID'''
 	events_query = '''SELECT Events.ID as EventID, Fixtures.Name, Events.StartTime as DateTimeStamp, Events.Duration, Events.Peak, Events.Volume, Events.Mode, Events.ModeFreq FROM Fixtures RIGHT JOIN (Events INNER JOIN EventFixtures ON Events.ID = EventFixtures.IDEvent) ON Fixtures.ID = EventFixtures.IDFixture order by Events.ID'''
 	fixture_profiles_query = '''select * from Fixtures order by ID'''
 	#
-	default_file_extension = '.TDB'
-	#
 	def __init__(self, data, load = True, **kwargs):
 		self.filename = None
 		if type(data) == str:
 			if os.path.exists(data):
 				if load:
-					self.from_file(data)
+					self.from_file(data, **kwargs)
 				else:
 					self.filename = data
 			elif os.path.exists(os.path.split(data)[0]): # stub for write implementation
 				self.filename = data
 			elif load:
-				self.from_query(data)
+				info("Unsure what to open, trying '%s' as a SQL query" % data)
+				self.from_query(data, **kwargs)
 		#else:
 		#	self.from_iterable(data)
 	#
@@ -75,17 +72,6 @@ class TraceWizard4_File(TraceWizard_Common):
 				info("Loading table [%s]" % table_name)
 				self.extras[table_name] = list(db.generate_table(table_name))
 		# events:
-		"""
-		EventID can be sparse -- may have some gaps where events have been 
-		merged.
-		
-		eq = list(db.generate_query(self.events_query))
-		size = max([f.EventID for f in eq])+1
-		el = [None,]*size
-		for row in eq:
-			el[row.EventID] = row
-		self.events = el
-		"""
 		self.events = list(db.generate_query(self.events_query))
 		if len(self.events) > 0:
 			info("%d events" % len(self.events))
@@ -112,16 +98,17 @@ if __name__ == '__main__':
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '67096.TDB')
 	print "Using", fn, "(%s)" % ("found" if os.path.exists(fn) else "not found")
-	t = TraceWizard4_File(fn, driver_name = 'adodbapi')
+	t = TraceWizard4_File(fn) # , driver_name = 'adodbapi')
 	print t
 	t.print_summary()
 	#for d, fs in t.get_flows_by_day():
 	#	print d, sum([ f.RateData for f in fs ])*t.flow_multiplier
 	total = t.get_total_volume()
-	limit = 4
-	i = 0
-	for e, f in t.get_events_and_flows():
-		print e, f
-		i += 1
-		if i > limit:
-			break
+	for e, fs in t.get_events_and_flows():
+		print "Event:", e
+		print "Flows:", fs
+		break
+	for e, rs in t.get_events_and_rates():
+		print "Event:", e
+		print "Rates:", rs
+		break

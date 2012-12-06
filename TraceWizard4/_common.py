@@ -14,15 +14,24 @@ Interval = namedtuple('Interval', 'min max')
 class MeterMaster_Common:
 	logged_volume_tolerance = 0.025 # percent diff
 	warning_flows_table_duration_tolerance = timedelta(hours=1)
+	sane_storage_intervals = Interval(1,600)
 	#
 	label = ''
 	#
 	def _check_log_attributes(self, check_volume = False):
+		si = self.storage_interval.total_seconds()
+		if (si < self.sane_storage_intervals.min):
+			self.storage_interval = default_storage_interval
+			error("Insane storage interval of %s, defaulting to %s" % (si, self.storage_interval))
+		if (si > self.sane_storage_intervals.max):
+			self.storage_interval = default_storage_interval
+			error("Insane storage interval of %s, defaulting to %s" % (si, self.storage_interval))
+		#
 		storage_interval_delta = self.log_attributes['NumberOfIntervals']*self.storage_interval
 		flows_table_duration = self.ends - self.begins
 		d = flows_table_duration - storage_interval_delta
 		if abs(d) > self.warning_flows_table_duration_tolerance:
-			warning("Difference of %s between MMData and NumberOfIntervals" % d)
+			warning("Difference of %s between flow table and expected NumberOfIntervals" % d)
 		#
 		if check_volume:
 			rdv = self.get_total_volume()
@@ -63,6 +72,7 @@ class MeterMaster_Common:
 		except:
 			return self.get_total_volume()
 	def get_total_volume(self, limit = None):
+		# overloaded by subclasses that have events
 		if limit is None:
 			return self.flow_multiplier*sum(f.RateData for f in self.flows)
 		else:
@@ -83,15 +93,27 @@ class MeterMaster_Common:
 			#return self.flows[-1].DateTimeStamp+self.log_attributes['StorageInterval']
 			#return self.events[-1].StartTime+self.events[-1].Duration
 	@property
+	def duration(self):
+		"""
+		Use t.duration.days to get the number of days
+		"""
+		return self.ends - self.begins
+	@property
 	def timespan(self):
 		return Interval(self.begins, self.ends)
 	@property
 	def readings(self):
-		return Interval(self.log_attributes['BeginReading'], self.log_attributes['EndReading']) 
+		return Interval(self.log_attributes['BeginReading'], self.log_attributes['EndReading'])
+	def get_register_volume(self, raw = False):
+		if raw:
+			return self.log_attributes['EndReading'] - self.log_attributes['BeginReading']
+		else:
+			return self.log_attributes['RegVolume']
 	def __repr__(self):
 		s = " ".join((self.__class__.__name__,
-					  "(format '%s')" % self.format if self.format else '',
-					  "'%s'" % self.label))
+					  "'%s'" % self.label,
+					  "(format '%s')" % self.format if self.format else ''
+					  ))
 		return "<%s>" % s.strip()
 	def print_summary(self):
 		print "%d log attributes" % (len(self.log_attributes))
@@ -112,18 +134,46 @@ class TraceWizard_Common(MeterMaster_Common):
 		if d:
 			warning("Difference of %s between LogEndTime and NumberOfIntervals" % d)
 	#
-	def get_events_and_flows(self):
+	def get_events_by_day(self, day_decider=None):
+		"""
+		Returns all events broken into 24-hour periods. Events spanning
+		midnight are, by default, not broken across days. Flows for events
+		spanning midnight are all assigned to a single day, the same day as
+		that event. Returns:
+			[ (date0, [event_00, ..., event_0n]) ... ]
+		"""
+		if not day_decider:
+			def day_decider(t):
+				return EventRow_midpoint(t).date()
+		for d, ef in groupby(self.events, key=day_decider):
+			yield (d, tuple(ef))
+	def get_events_and_flows(self,
+							 event_key = lambda e: e.EventID,
+							 flow_key = lambda f: f.EventID):
 		"""
 		Returns an iterable of the following structure:
 			[ event, [flow_0, ..., flow_n]]
 		To discern the fields in event or flows, use the flows_header and 
 		events_header members.
-		TODO: make sure the EventID matches the FlowID (right now these are simply aligned)
+		Note that in the events and flows members, EventID may not exactly 
+		correspond to an event's order in those lists. This method works around
+		that.
 		"""
-		EventFlows = namedtuple('EventFlows', 'event flows')
-		assert self.has_flow_section
-		for k, g in groupby(self.flows, lambda e: e.EventID):
-			yield EventFlows(self.events[k],tuple(g))
+		size = max([event_key(e) for e in self.events])+1
+		el = [None,]*size
+		#fl = [[],]*size
+		fl = [None,]*size
+		for row in self.events:
+			k=event_key(row)
+			if k:
+				el[k] = row
+			else:
+				critical("Error reading ID from event %s" % row)
+		for k, fs in groupby(self.flows, flow_key):
+			if el[k]:
+				yield el[k], list(fs)
+			else:
+				critical("Error reading ID from flow %s" % row)
 	def get_events_and_rates(self):
 		"""
 		Returns an iterable of the following structure:
@@ -131,19 +181,5 @@ class TraceWizard_Common(MeterMaster_Common):
 		To discern the fields in event, use events_header. The units of flow
 		rate are available in the flows_units member.
 		"""
-		for e, g in self.get_events_and_flows():
-			yield (e, tuple([f.RateData for f in g]) )
-	def get_events_by_day(self, day_decider=None):
-		"""
-		Returns all events broken into 24-hour periods. Events spanning
-		midnight are, by default, not broken across days. Flows for events
-		spanning midnight are all assigned to a single day, the same day as
-		that event. Returns:
-			[ date, [event_0, [flow_00, ..., flow_0j]], ...,
-					[event_n, [flow_n0, ..., flow_nk]] ]
-		"""
-		if not day_decider:
-			def day_decider(t):
-				return EventRow_midpoint(t[0]).date()
-		for k, ef in groupby(self.get_events_and_flows(), key=day_decider):
-			yield (k, tuple(ef))
+		for e, fs in self.get_events_and_flows():
+			yield e, tuple([f.RateData for f in fs])
