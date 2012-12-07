@@ -2,8 +2,13 @@
 from os import walk
 from os.path import isdir, join
 import sys
-from win32file import GetFileAttributes, SetFileAttributes
-from win32con import FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_READONLY
+
+try:
+	from win32file import GetFileAttributes, SetFileAttributes
+	from win32con import FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_READONLY
+except ImportError:
+	print >>sys.stderr, "Unsupported on %s" % (sys.executable)
+	import pdb; pdb.set_trace()
 #
 recurse = True
 #
