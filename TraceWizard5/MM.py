@@ -6,7 +6,6 @@ import os.path
 from cStringIO import StringIO
 import re
 
-#from TraceWizard4.MeterMaster_Common import MeterMaster_Common, ratedata_t, volume_t
 import TraceWizard4
 from CSV_with_header import CSV_with_header_and_version
 

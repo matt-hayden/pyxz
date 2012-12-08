@@ -4,8 +4,8 @@ from itertools import groupby
 from logging import debug, info, warning, error, critical
 import os.path
 
+from _common import *
 from MDB_File import MDB_File
-from MeterMaster_Common import MeterMaster_Common, Interval, ratedata_t, volume_t
 
 def format_MeterMaster3_Customer_header(row):
 	d = {}
@@ -73,7 +73,7 @@ class MeterMaster3_MDB(MeterMaster_Common):
 				  ):
 		self.filename = filename
 		db = MDB_File(filename, driver_name)
-		self.format = "MDB (%s)" % db.driver_name
+		self.format = db.driver_name
 		if load_data:
 			self.flows = list(db.generate_table('MMData'))
 			if len(self.flows) > 0:
@@ -123,6 +123,6 @@ if __name__ == '__main__':
 	fn = os.path.join(tempdir, '67096.MDB')
 	print "Using", fn, "(%s)" % ("found" if os.path.exists(fn) else "not found")
 	m = MeterMaster3_MDB(fn)
-	print m
+	print m, m.get_total_volume(logical=True), "/", m.get_total_volume(logical=False), "over", m.days, "days"
 	for d, fs in m.get_flows_by_day():
 		print d, sum([ f.RateData for f in fs ])*m.flow_multiplier

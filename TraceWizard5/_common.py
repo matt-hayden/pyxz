@@ -1,9 +1,9 @@
 import os.path
 
-from TraceWizard4.MeterMaster3_File import MeterMaster3_MDB
-from TraceWizard4.TraceWizard4_File import TraceWizard4_File
-from MeterMaster4_parser import MeterMaster4_CSV
-from TraceWizard5_File import TraceWizard5_File
+from TraceWizard4.MM import MeterMaster3_MDB
+from TraceWizard4.file import TraceWizard4_File
+from TraceWizard5.MM import MeterMaster4_CSV
+from TraceWizard5.file import TraceWizard5_File
 
 def open_file(filename):
 	ext = os.path.splitext(filename)[-1]

@@ -1,3 +1,4 @@
 from _common import *
+from TraceWizard4 import load_config, ratedata_t, volume_t
 
-__all__ = [ 'TraceWizard5_File', 'MeterMaster4_parser' ]
+__all__ = [ 'file', 'MM' ]

@@ -54,6 +54,12 @@ class TraceWizard5_parser_Error(ARFF_format_Error):
 	pass
 class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Common):
 	event_timestamp_format = '%Y-%m-%d %H:%M:%S'
+	@staticmethod
+	def fixture_keyer(event):
+		return event.Class
+	@staticmethod
+	def first_cycle_fixture_keyer(event):
+		return (event.Class, event.FirstCycle)
 	format = "ARFF_format_with_version"
 	#
 	has_flow_section=True

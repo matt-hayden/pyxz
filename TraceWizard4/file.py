@@ -4,13 +4,20 @@ from itertools import groupby
 from logging import debug, info, warning, error, critical
 import os.path
 
-import TraceWizard4
+from _common import *
 from MDB_File import MDB_File
 
 class TraceWizard4_File_Error(Exception):
 	pass
-class TraceWizard4_File(TraceWizard4.TraceWizard_Common):
-	format = "TDB"
+class TraceWizard4_File(TraceWizard_Common):
+	@staticmethod
+	def fixture_keyer(event):
+		return event.Name
+	@staticmethod
+	def first_cycle_fixture_keyer(event):
+		return (event.Name, "@" in event.Name)
+	# Defaults:
+	format = ""
 	storage_interval = timedelta(seconds=10.0)
 	volume_units = 'Gallons'
 	#

@@ -3,10 +3,9 @@ from collections import namedtuple
 from datetime import datetime, timedelta
 from logging import debug, info, warning, error, critical
 
-from TraceWizard4.MeterMaster_Common import Interval, ratedata_t
+from TraceWizard4 import Interval, ratedata_t
 from TraceWizard5_parser import TraceWizard5_parser
 
-Interval = namedtuple('Interval', 'min max')
 """
 These subclasses define the different TraceWizard5 file formats. There are at
 least 4.
@@ -118,7 +117,7 @@ if __name__ == '__main__':
 					  '09_22oct2011_append_21dec2011.twdb',
 					  '12S704.twdb'
 					  ]
-	fn = os.path.join(tempdir, example_traces[1])
+	fn = os.path.join(tempdir, '12S704.twdb')
 	# Example 1: read a whole file:
 	t = TraceWizard5_File(fn)
 	# Example 2: read only the header:
@@ -133,3 +132,4 @@ if __name__ == '__main__':
 	for e, fs in t.get_events_and_flows():
 		print "Event:", e
 		print "Flows:", fs
+		break
