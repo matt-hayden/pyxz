@@ -54,16 +54,15 @@ class TraceWizard5_parser_Error(ARFF_format_Error):
 	pass
 class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Common):
 	event_timestamp_format = '%Y-%m-%d %H:%M:%S'
+	format = ''
+	has_flow_section=True
+	#
 	@staticmethod
 	def fixture_keyer(event):
 		return event.Class
 	@staticmethod
 	def first_cycle_fixture_keyer(event):
 		return (event.Class, event.FirstCycle)
-	format = "ARFF_format_with_version"
-	#
-	has_flow_section=True
-	#
 	@staticmethod
 	def attribute_name_formatter(s):
 		"""
@@ -83,17 +82,18 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 	flow_section_regex=re.compile('% @FLOW')
 	flow_timestamp_format = event_timestamp_format
 	#
-	def __init__(self, data = None, load = True):
-		self.filename = None
+	def __init__(self, data = None, load = True, **kwargs):
+		self.path = ''
+		self.label = ''
 		self._build_parse_sectioner()
 		if type(data) == str:
 			if os.path.exists(data):
 				if load:
-					self.from_file(data)
+					self.from_file(data, **kwargs)
 				else:
-					self.filename = data
+					self.path = data
 			elif os.path.exists(os.path.split(data)[0]): # stub for write implementation
-				self.filename = data
+				self.path = data
 			#elif load:
 			#		self.from_iterable(data)
 		else:
@@ -154,8 +154,8 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 		#
 		if iterable is None:
 			info("Reading ARFF header from '%s'",
-				 self.filename)
-			iterable = open(self.filename)
+				 self.path)
+			iterable = open(self.path)
 		self.format, self.version, line_number = self.sniff_version(iterable)
 		info("Opening %s file version %s" % (self.format, self.version))
 		# Relation attributes (mandatory)
@@ -168,7 +168,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 		self.fixture_profiles = []
 		if self.has_fixture_profile_section:
 			expected_header_row = "% {}".format(','.join(self.fixture_profile_header))
-			fixture_line_parser = self.parse_fixture_profile_line # TODO
+			fixture_line_parser = self.parse_fixture_profile_line
 			#
 			next_section=self._parse_sectioner.pop()
 			fp = []
@@ -191,8 +191,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 					if m:
 						fp.append(fixture_line_parser(m.group('comment')))
 					else:
-						error("Fixture profile row '%s' not recognized",
-							  line)
+						error("Fixture profile row '%s' not recognized" % line)
 			self.fixture_profiles = fp
 			debug("%d fixture profiles",
 				  len(self.fixture_profiles))
@@ -239,7 +238,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 		#
 		mm_log_filename = log_filename
 		if make_relative:
-			c = os.path.commonprefix([self.filename, log_filename])
+			c = os.path.commonprefix([self.path, log_filename])
 			if c:
 				mm_log_filename = log_filename.replace(c, "", count=1)
 		return MeterMaster4_parser.MeterMaster4_CSV(mm_log_filename)

@@ -189,10 +189,10 @@ class ARFF_format:
 	def from_file(self, filename):
 		with open(filename) as fi:
 			self.from_iterable(fi)
-		self.filename = filename
+		self.path = filename
 	def from_iterable(self, iterable):
 		self.parse_ARFF(iterable)
-		self.filename = None
+		self.path = None
 	def parse_ARFF(self, iterable):
 		line_number = self.parse_ARFF_header(iterable)
 		line_number = self.parse_ARFF_body(iterable, line_number = line_number)

@@ -24,11 +24,10 @@ class CSV_with_header:
 	error_when_max_rows_reached = True	#
 	max_header_rows=25					#
 	#
-	def __init__(self, 
-				 data = None, 
-				 eoh = None, 
-				 rows = None,
-				 load = True):
+	def __init__(self, data, *args, **kwargs):
+		eoh = kwargs.pop('eoh', None)
+		rows = kwargs.pop('rows', None)
+		load = kwargs.pop('load', True)
 		if eoh is not None:
 			self.end_of_header = eoh
 		elif rows:
@@ -42,9 +41,9 @@ class CSV_with_header:
 					if load:
 						self.from_file(data)
 					else:
-						self.filename = data
+						self.path = data
 				elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
-					self.filename = data
+					self.path = data
 				else:
 					self.from_iterable(data)
 			else:
@@ -52,12 +51,12 @@ class CSV_with_header:
 	def from_file(self, filename):
 		with open(filename) as fi:
 			self.from_iterable(fi)
-		self.filename = filename
+		self.path = filename
 	def from_iterable(self, iterable):
 		self.parse_CSV(iterable)
-		self.filename = None
+		self.path = None
 	def parse_CSV_header(self, iterable = None):
-		iterable = iterable or open(self.filename)
+		iterable = iterable or open(self.path)
 		with closing(StringIO()) as sio:
 			for line_number, line in enumerate(iterable, start=1):
 				if (line_number > self.max_header_rows):
@@ -79,7 +78,7 @@ class CSV_with_header:
 		Use this as a pattern to be overridden in subclasses. The member name
 		specified in data_table_name is used only for example.
 		"""
-		iterable = iterable or open(self.filename)
+		iterable = iterable or open(self.path)
 		line_number = self.parse_CSV_header(iterable)
 		self.__dict__[data_table_name] = list(csv.reader(iterable))
 class CSV_with_header_and_version(CSV_with_header):

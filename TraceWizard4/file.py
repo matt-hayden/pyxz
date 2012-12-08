@@ -17,7 +17,6 @@ class TraceWizard4_File(TraceWizard_Common):
 	def first_cycle_fixture_keyer(event):
 		return (event.Name, "@" in event.Name)
 	# Defaults:
-	format = ""
 	storage_interval = timedelta(seconds=10.0)
 	volume_units = 'Gallons'
 	#
@@ -28,16 +27,18 @@ class TraceWizard4_File(TraceWizard_Common):
 	events_query = '''SELECT Events.ID as EventID, Fixtures.Name, Events.StartTime as DateTimeStamp, Events.Duration, Events.Peak, Events.Volume, Events.Mode, Events.ModeFreq FROM Fixtures RIGHT JOIN (Events INNER JOIN EventFixtures ON Events.ID = EventFixtures.IDEvent) ON Fixtures.ID = EventFixtures.IDFixture order by Events.ID'''
 	fixture_profiles_query = '''select * from Fixtures order by ID'''
 	#
-	def __init__(self, data, load = True, **kwargs):
-		self.filename = None
+	def __init__(self, data, **kwargs):
+		load = kwargs.pop('load', True)
+		self.path = ''
+		self.label = ''
 		if type(data) == str:
 			if os.path.exists(data):
 				if load:
 					self.from_file(data, **kwargs)
 				else:
-					self.filename = data
-			elif os.path.exists(os.path.split(data)[0]): # stub for write implementation
-				self.filename = data
+					self.path = data
+			elif os.path.exists(os.path.dirname(data)): # stub for write implementation
+				self.path = data
 			elif load:
 				info("Unsure what to open, trying '%s' as a SQL query" % data)
 				self.from_query(data, **kwargs)
@@ -48,14 +49,15 @@ class TraceWizard4_File(TraceWizard_Common):
 						 ignored_classes=['Noise', 'Duplicate', 'Unclassified']):
 		return sum(e.Volume for e in self.events if e.Name not in ignored_classes)
 	#
-	def from_file(self,
-				  filename,
-				  load_flows = True,
-				  load_fixtures = True,
-				  load_extras = ['Parameters', 'Meta'],
-				  driver_name = None):
-		self.filename = filename
+	def from_file(self, filename, **kwargs):
+		load_flows = kwargs.pop('load_flows', True)
+		load_fixtures = kwargs.pop('load_fixtures', True)
+		load_extras = kwargs.pop('load_extras', ['Parameters', 'Meta'])
+		driver_name = kwargs.pop('driver_name', None)
+		#
+		self.path = filename
 		db = MDB_File(filename, driver_name)
+		self.format = driver_name
 		#
 		self.flows = []
 		if load_flows:
@@ -68,7 +70,7 @@ class TraceWizard4_File(TraceWizard_Common):
 		if load_fixtures:
 			self.fixture_profiles = list(db.generate_query(self.fixture_profiles_query))
 			if len(self.fixture_profiles) > 0:
-				info("%d fixture profiles" % len(self.flows))
+				info("%d fixture profiles" % len(self.fixture_profiles))
 			else:
 				error("No fixture profiles")
 		available_extra_tables = (set(load_extras) & set(db.table_names))
@@ -88,7 +90,7 @@ class TraceWizard4_File(TraceWizard_Common):
 		# replacement for stuff found in other format's define_log_attributes:
 		#
 		try:
-			fn = os.path.split(self.filename)[-1]
+			fn = os.path.basename(self.path)
 			n = os.path.splitext(fn)[0]
 			self.label = n
 		except:

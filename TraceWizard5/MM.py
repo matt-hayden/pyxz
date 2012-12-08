@@ -61,6 +61,10 @@ class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_vers
 	flows_header = ['DateTimeStamp', 'RateData']
 	flow_timestamp_format = '%m/%d/%Y %I:%M:%S %p'
 	#
+	def __init__(self, *args, **kwargs):
+		self.label = ''
+		CSV_with_header_and_version.__init__(self, *args, **kwargs) # yuck
+	#
 	def define_log_attributes(self, pairs):
 		self.log_attributes = format_MeterMaster4_header(pairs)
 		#
@@ -69,7 +73,7 @@ class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_vers
 		n = self.log_attributes['CustomerID']
 		if not n:
 			try:
-				fn = os.path.split(self.filename)[-1]
+				fn = os.path.split(self.path)[-1]
 				n = os.path.splitext(fn)[0]
 			except:
 				n = "<%s>" % self.__class__.__name__
@@ -88,11 +92,10 @@ class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_vers
 					ratedata_t(line[1])
 					)
 		if iterable is None:
-			info("Reading CSV format from '%s'" % self.filename)
-			iterable = open(self.filename)
+			info("Reading CSV format from '%s'" % self.path)
+			iterable = open(self.path)
 		#
 		line_number = self.parse_CSV_header(iterable)
-		self.define_log_attributes(self.header)
 		f = []
 		for l in csv.reader(iterable):
 			try:
@@ -102,6 +105,10 @@ class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_vers
 				raise e
 		self.__dict__[data_table_name] = f
 		self._check_log_attributes()
+	def parse_CSV_header(self, *args, **kwargs):
+		line_number = CSV_with_header_and_version.parse_CSV_header(self, *args, **kwargs) # yuck
+		self.define_log_attributes(self.header)
+		return line_number
 #
 if __name__ == '__main__':
 	import logging

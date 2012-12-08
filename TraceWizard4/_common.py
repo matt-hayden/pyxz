@@ -12,11 +12,12 @@ def EventRow_midpoint(e):
 Interval = namedtuple('Interval', 'min max')
 
 class MeterMaster_Common:
+	format = ''
 	logged_volume_tolerance = 0.025 # percent diff
-	warning_flows_table_duration_tolerance = timedelta(hours=1)
 	sane_storage_intervals = Interval(1,600)
+	warning_flows_table_duration_tolerance = timedelta(hours=1)
 	#
-	label = ''
+	#label = ''
 	#
 	def _check_log_attributes(self, check_volume = False):
 		si = self.storage_interval.total_seconds()
@@ -176,9 +177,7 @@ class TraceWizard_Common(MeterMaster_Common):
 		):
 		"""
 		Returns all events broken into 24-hour periods. Events spanning
-		midnight are, by default, not broken across days. Flows for events
-		spanning midnight are all assigned to a single day, the same day as
-		that event. Returns:
+		midnight are, by default, not broken across days. Returns:
 			[ (date0, [event_00, ..., event_0n]) ... ]
 		"""
 		if not day_decider:
@@ -193,8 +192,9 @@ class TraceWizard_Common(MeterMaster_Common):
 			for d, ef in groupby(self.events, key=day_decider):
 				yield (d, tuple(ef))
 	def get_events_and_flows(self,
-							 event_key = lambda e: e.EventID,
-							 flow_key = lambda f: f.EventID):
+		event_key = lambda e: e.EventID,
+		flow_key = lambda f: f.EventID
+		):
 		"""
 		Returns an iterable of the following structure:
 			[ event, [flow_0, ..., flow_n]]
@@ -204,20 +204,21 @@ class TraceWizard_Common(MeterMaster_Common):
 		correspond to an event's order in those lists. This method works around
 		that.
 		"""
-		size = max([event_key(e) for e in self.events])+1
+		size = event_key(self.events[-1])+1
+		#size = max([event_key(e) for e in self.events])+1 # if not sorted
 		el = [None,]*size
 		fl = [None,]*size
 		for row in self.events:
 			k=event_key(row)
-			if k:
+			if k is not None:
 				el[k] = row
 			else:
-				critical("Error reading ID from event %s" % (row))
+				critical("Error reading ID from event %s" % str(row))
 		for k, fs in groupby(self.flows, flow_key):
 			if el[k]:
 				yield el[k], list(fs)
 			else:
-				critical("Error reading ID from flow %s" % (row))
+				critical("Error reading ID from flow %s" % str(row))
 	def get_events_and_rates(self):
 		"""
 		Returns an iterable of the following structure:
@@ -226,4 +227,4 @@ class TraceWizard_Common(MeterMaster_Common):
 		rate are available in the flows_units member.
 		"""
 		for e, fs in self.get_events_and_flows():
-			yield e, tuple([f.RateData for f in fs])
+			yield e, tuple(f.RateData for f in fs)

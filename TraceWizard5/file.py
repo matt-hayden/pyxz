@@ -11,8 +11,8 @@ These subclasses define the different TraceWizard5 file formats. There are at
 least 4.
 """
 class TraceWizard5000_parser(TraceWizard5_parser):
-	format = "TraceWizard5 5.0.0.0"
-	minimum_version = (5,1,0,0)
+	minimum_version = (5,0,0,0)
+	#format = "%s %s" % (__package__, ".".join(str(i) for i in minimum_version))
 	number_of_event_fields = 11
 	has_fixture_profile_section=False
 	has_log_attribute_section=False
@@ -25,10 +25,10 @@ class TraceWizard5000_parser(TraceWizard5_parser):
 		TraceWizard5_parser.define_log_attributes(self, pairs) # yuck
 		#
 		try:
-			fn = os.path.split(self.filename)[-1]
+			fn = os.path.split(self.path)[-1]
 			n = os.path.splitext(fn)[0]
 		except Exception as e:
-			debug("Error finding label for %s: %s" %(self.filename, e))
+			debug("Error finding label for %s: %s" %(self.path, e))
 			n = "<%s>" % self.__class__.__name__
 		self.label = n
 	#
@@ -40,15 +40,15 @@ class TraceWizard5000_parser(TraceWizard5_parser):
 		formatters[3] = lambda t: timedelta(seconds=float(t))
 		return formatters
 class TraceWizard5100_parser(TraceWizard5000_parser):
-	format = "TraceWizard5 5.1.0.0"
 	minimum_version = (5,1,0,0)
+	#format = "%s %s" % (__package__, ".".join(str(i) for i in minimum_version))
 	number_of_event_fields = 12
 	#
 class TraceWizard51021_parser(TraceWizard5100_parser):
 	"""
 	The minor version is likely wrong here.
 	"""
-	format = "TraceWizard5 5.1.0.21"
+	#format = "TraceWizard5 5.1.0.21"
 	minimum_version = (5,1,0,9)
 	number_of_event_fields = 15
 	has_fixture_profile_section=True
@@ -68,8 +68,9 @@ class TraceWizard51030_parser(TraceWizard51021_parser):
 	"""
 	The minor version is likely wrong here.
 	"""
-	format = "TraceWizard5 5.1.0.30"
+	#format = "TraceWizard5 5.1.0.30"
 	minimum_version = (5,1,0,30)
+	#format = "%s %s" % (__package__, ".".join(str(i) for i in minimum_version))
 	has_log_attribute_section=True
 	#
 	def define_log_attributes(self, pairs):
@@ -78,7 +79,7 @@ class TraceWizard51030_parser(TraceWizard51021_parser):
 		n = self.log_attributes['CustomerID']
 		if not n:
 			try:
-				fn = os.path.split(self.filename)[-1]
+				fn = os.path.split(self.path)[-1]
 				n = os.path.splitext(fn)[0]
 				if not n:
 					# LogFileName found only in later versions of TW5

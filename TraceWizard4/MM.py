@@ -46,41 +46,36 @@ class MeterMaster3_Error(Exception):
 	pass
 class MeterMaster3_MDB(MeterMaster_Common):
 	#
-	format = "MeterMaster v3 MDB"
 	has_meter_section = True
 	has_site_section = True
 	has_flow_section = True
 	#
-	def __init__(self, data, load = True, **kwargs):
-		self.filename = None
+	def __init__(self, data, **kwargs):
+		load = kwargs.pop('load', True)
+		#
+		self.path = ''
+		self.label = ''
 		if type(data) == str:
 			if os.path.exists(data):
 				if load:
-					self.from_file(data)
+					self.from_file(data, **kwargs)
 				else:
-					self.filename = data
-			elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
-				self.filename = data
+					self.path = data
+			elif os.path.exists(os.path.dirname(data)): # stub for write implementation
+				self.path = data
 			elif load:
-				self.from_query(data)
+				self.from_query(data, **kwargs)
 		#else:
 		#	self.from_iterable(data)
-	def from_file(self,
-				  filename,
-				  load_data = True,
-				  load_headers = True,
-				  driver_name = None
-				  ):
-		self.filename = filename
+	def from_file(self, filename, **kwargs):
+		driver_name	= kwargs.pop('driver', None)
+		load_flows = kwargs.pop('load_flows', True)
+		load_header = kwargs.pop('load_header', True)
+		#
+		self.path = filename
 		db = MDB_File(filename, driver_name)
 		self.format = db.driver_name
-		if load_data:
-			self.flows = list(db.generate_table('MMData'))
-			if len(self.flows) > 0:
-				info("%d flow data points" % len(self.flows))
-			else:
-				critical("No flow data points loaded")
-		if load_headers:
+		if load_header:
 			d = {}
 			if self.has_site_section:
 				t = db.generate_table('Customer')
@@ -91,9 +86,15 @@ class MeterMaster3_MDB(MeterMaster_Common):
 			#
 			if d:
 				self.define_log_attributes(d)
-				self._check_log_attributes()
 			else:
 				warning("No header info loaded")
+		if load_flows:
+			self.flows = list(db.generate_table('MMData'))
+			if len(self.flows) > 0:
+				info("%d flow data points" % len(self.flows))
+			else:
+				critical("No flow data points loaded")
+			self._check_log_attributes()
 	def define_log_attributes(self, pairs):
 		if type(pairs) == dict:
 			self.log_attributes = pairs
@@ -106,7 +107,7 @@ class MeterMaster3_MDB(MeterMaster_Common):
 		n = self.log_attributes['CustomerID']
 		if not n:
 			try:
-				fn = os.path.split(self.filename)[-1]
+				fn = os.path.basename(self.path)
 				n = os.path.splitext(fn)[0]
 			except:
 				n = "<%s>" % self.__class__.__name__
