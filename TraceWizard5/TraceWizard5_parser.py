@@ -82,7 +82,8 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 	flow_section_regex=re.compile('% @FLOW')
 	flow_timestamp_format = event_timestamp_format
 	#
-	def __init__(self, data = None, load = True, **kwargs):
+	def __init__(self, data = None, **kwargs):
+		load = kwargs.pop('load', True)
 		self.path = ''
 		self.label = ''
 		self._build_parse_sectioner()
@@ -147,10 +148,12 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 					e.Mode
 				)
 	#
-	def parse_ARFF_header(self, iterable = None):
+	def parse_ARFF_header(self, iterable = None, **kwargs):
 		"""
 		Read the TraceWizard5-specific header after sniffing the version.
 		"""
+		load_fixture_profiles = kwargs.pop('load_fixture_profiles', True)
+		load_log_attributes = kwargs.pop('load_log_attributes', True)
 		#
 		if iterable is None:
 			info("Reading ARFF header from '%s'",
@@ -167,55 +170,54 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 		# Fixture list (optional)
 		self.fixture_profiles = []
 		if self.has_fixture_profile_section:
-			expected_header_row = "% {}".format(','.join(self.fixture_profile_header))
-			fixture_line_parser = self.parse_fixture_profile_line
-			#
 			next_section=self._parse_sectioner.pop()
-			fp = []
-			if self.check_fixture_profile_header:
-				n = iterable.next()
-				header_row = n.strip()
-				if header_row == expected_header_row:
-					debug("Flows header:" + header_row)
-				else:
-					error("Unexpected fixture profile header '%s'" + header_row)
-					iterable.insert(0, n)
-			#
-			for line_number, line in enumerate(iterable, start=line_number+1):
-				n=next_section(line)
-				if n:
-					break
-				# else:
-				if line.strip():
-					m = self.comment_regex.match(line)
-					if m:
-						fp.append(fixture_line_parser(m.group('comment')))
+			if load_fixture_profiles:
+				expected_header_row = "% {}".format(','.join(self.fixture_profile_header))
+				fixture_line_parser = self.parse_fixture_profile_line
+				#
+				fp = []
+				if self.check_fixture_profile_header:
+					n = iterable.next()
+					header_row = n.strip()
+					if header_row == expected_header_row:
+						debug("Flows header:" + header_row)
 					else:
-						error("Fixture profile row '%s' not recognized" % line)
-			self.fixture_profiles = fp
-			debug("%d fixture profiles",
-				  len(self.fixture_profiles))
-		else:
-			info("No fixture profiles")
+						error("Unexpected fixture profile header '%s'" + header_row)
+						iterable.insert(0, n)
+				#
+				for line_number, line in enumerate(iterable, start=line_number+1):
+					n=next_section(line)
+					if n:
+						break
+					# else:
+					if line.strip():
+						m = self.comment_regex.match(line)
+						if m:
+							fp.append(fixture_line_parser(m.group('comment')))
+						else:
+							error("Fixture profile row '%s' not recognized" % line)
+				self.fixture_profiles = fp
+				debug("%d fixture profiles" % len(self.fixture_profiles))
 		# Datalogger attributes (optional)
 		self.log_attributes = {}
 		if self.has_log_attribute_section:
 			next_section=self._parse_sectioner.pop()
-			la = []
-			for line_number, line in enumerate(iterable, start=line_number+1):
-				n=next_section(line)
-				if n:
-					break
-				# else:
-				if line.strip():
-					m = self.log_attribute_regex.match(line)
-					if m:
-						la.append((m.group('attribute_name'), m.group('attribute_value')))
-					else:
-						error("Datalogger attribute row '%s' not recognized",
-							  line)
-			self.define_log_attributes(la)
-			self._check_log_attributes()
+			if load_log_attributes:
+				la = []
+				for line_number, line in enumerate(iterable, start=line_number+1):
+					n=next_section(line)
+					if n:
+						break
+					# else:
+					if line.strip():
+						m = self.log_attribute_regex.match(line)
+						if m:
+							la.append((m.group('attribute_name'), m.group('attribute_value')))
+						else:
+							error("Datalogger attribute row '%s' not recognized",
+								  line)
+				self.define_log_attributes(la)
+				self._check_log_attributes()
 		else:
 			info("No datalogger attributes")
 		self.has_header = True
@@ -243,55 +245,54 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 				mm_log_filename = log_filename.replace(c, "", count=1)
 		return MeterMaster4_parser.MeterMaster4_CSV(mm_log_filename)
 	#
-	def parse_ARFF(self, 
-				   iterable = None, 
-				   line_parser = None, 
-				   flow_line_parser = None):
+	def parse_ARFF(self, iterable = None, **kwargs):
 		"""
 		Parsing an input file beyond sniffing the version and reading the
 		header.
 		"""
-		line_number = self.parse_ARFF_header(iterable)
+		flow_line_parser = kwargs.pop('flow_line_parser', None)
+		load_flows = kwargs.pop('load_flows', True)
+		#
+		line_number = self.parse_ARFF_header(iterable, **kwargs)
 		line_number = self.parse_ARFF_body(iterable,
 										   line_number=line_number,
 										   member_name=self.event_table_name,
-										   next_section=self._parse_sectioner.pop()
-										   )
+										   next_section=self._parse_sectioner.pop(),
+										   **kwargs)
 		debug("%d events" % len(self.events))
 		# Flows
 		self.flows = []
 		if self.has_flow_section:
 			next_section = None
-			if not flow_line_parser:
-				ratedata_t = TraceWizard4.ratedata_t
-				row_factory = namedtuple('FlowRow', self.flows_header)
-				def flow_line_parser(row):
-					return row_factory(
-						int(row[0]),
-						datetime.strptime(row[1], self.flow_timestamp_format),
-						timedelta(seconds=float(row[2])),
-						ratedata_t(row[3])
-						)
-			with closing(StringIO()) as sio:
-				for line_number, line in enumerate(iterable, start=line_number+1):
-					m = self.comment_regex.match(line)
-					if m:
-						#assert not m.group('comment').startswith("%")
-						sio.write(m.group('comment'))
-						sio.write('\n')
-				debug("Flows parsing produced %d characters" % sio.tell())
-				sio.seek(0)
-				#
-				for l in csv.reader(sio):
-					try:
-						self.flows.append(flow_line_parser(l))
-					except Exception as e:
-						debug("Error parsing array '%s': %s" % (l, e))
-						#raise e
-				#sio.close()
-			debug("%d flows" % len(self.flows))
-		else:
-			warning("No flows")
+			if load_flows:
+				if not flow_line_parser:
+					ratedata_t = TraceWizard4.ratedata_t
+					row_factory = namedtuple('FlowRow', self.flows_header)
+					def flow_line_parser(row):
+						return row_factory(
+							int(row[0]),
+							datetime.strptime(row[1], self.flow_timestamp_format),
+							timedelta(seconds=float(row[2])),
+							ratedata_t(row[3])
+							)
+				with closing(StringIO()) as sio:
+					for line_number, line in enumerate(iterable, start=line_number+1):
+						m = self.comment_regex.match(line)
+						if m:
+							#assert not m.group('comment').startswith("%")
+							sio.write(m.group('comment'))
+							sio.write('\n')
+					debug("Flows parsing produced %d characters" % sio.tell())
+					sio.seek(0)
+					#
+					for l in csv.reader(sio):
+						try:
+							self.flows.append(flow_line_parser(l))
+						except Exception as e:
+							debug("Error parsing array '%s': %s" % (l, e))
+							#raise e
+					#sio.close()
+				debug("%d flows" % len(self.flows))
 	#
 	def get_total_volume(self,
 						 ignored_classes=['Noise', 'Duplicate', 'Unclassified']):

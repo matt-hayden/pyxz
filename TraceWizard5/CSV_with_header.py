@@ -4,6 +4,8 @@ import os, os.path
 import re
 from cStringIO import StringIO
 
+class CSV_with_header_Error(Exception):
+	pass
 class CSV_with_header:
 	"""
 	Reads a CSV file that contains a special header section, separated from an
@@ -39,21 +41,21 @@ class CSV_with_header:
 			if type(data) == str:
 				if os.path.exists(data):
 					if load:
-						self.from_file(data)
+						self.from_file(data, **kwargs)
 					else:
 						self.path = data
-				elif os.path.exists(os.path.split(data)[0]):	# stub for write implementation
+				elif os.path.exists(os.path.dirname(data)):	# stub for write implementation
 					self.path = data
-				else:
-					self.from_iterable(data)
+				else: # assume this is a long string from a CSV format file
+					self.from_iterable(data, **kwargs)
 			else:
-				self.from_iterable(data)
-	def from_file(self, filename):
+				self.from_iterable(data, **kwargs)
+	def from_file(self, filename, **kwargs):
 		with open(filename) as fi:
-			self.from_iterable(fi)
+			self.from_iterable(fi, **kwargs)
 		self.path = filename
-	def from_iterable(self, iterable):
-		self.parse_CSV(iterable)
+	def from_iterable(self, iterable, **kwargs):
+		self.parse_CSV(iterable, **kwargs)
 		self.path = None
 	def parse_CSV_header(self, iterable = None):
 		iterable = iterable or open(self.path)
@@ -68,7 +70,8 @@ class CSV_with_header:
 					sio.write(line)
 			sio.seek(0)
 			self.header = list(csv.reader(sio))
-			self.header_lines = line_number
+		self.header_lines = line_number
+		self.has_header = True
 		return line_number
 	def parse_CSV(self,
 				  iterable = None,
@@ -82,26 +85,29 @@ class CSV_with_header:
 		line_number = self.parse_CSV_header(iterable)
 		self.__dict__[data_table_name] = list(csv.reader(iterable))
 class CSV_with_header_and_version(CSV_with_header):
-	format = 'CSV' # subclasses should override this
+	format = 'CSV' # subclasses should override this, see below
 	version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
 	def parse_CSV_header(self, iterable = None):
 		line_number = CSV_with_header.parse_CSV_header(self, iterable) # yuck
-		if self.header[0][0] == self.format:
+		if not self.header[0][0].upper().startswith(self.format.upper()):
+			raise CSV_with_header_Error("'%s' not first line in header (%s)" % (self.format, self.header[0][0]))
+		try:
+			self.version = self.header[0][1:]
 			try:
-				self.version = self.header[0][1]
-				try:
-					m = self.version_regex.match(self.version)
-					if m:
-						self.version_tuple = tuple(m.group('version_string').split('.'))
-						self.header = self.header[1:]
-				except:
-					pass
+				m = self.version_regex.match(self.version)
+				if m:
+					self.version_tuple = tuple(m.group('version_string').split('.'))
+					self.header = self.header[1:]
 			except:
-				self.version = None
+				pass
+		except:
+			self.version = None
 		return line_number
 #
 if __name__ == '__main__':
 	import os.path
+	class tester(CSV_with_header_and_version):
+		format = 'MM100 Data Export' # for testing
 	#desktop=os.path.expandvars('%UserProfile%\Desktop')
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '12S704.csv')
@@ -109,7 +115,7 @@ if __name__ == '__main__':
 	# Example 1: read the whole file
 	# m = CSV_with_header(fn, eoh='DateTimeStamp,RateData\n')
 	# Example 2: read only the headers
-	m = CSV_with_header_and_version(fn, eoh='DateTimeStamp,RateData\n', load=False)
+	m = tester(fn, eoh='DateTimeStamp,RateData\n', load=False)
 	print "Parsing header:"
 	m.parse_CSV_header()
 	print m.header_lines, "rows in header"

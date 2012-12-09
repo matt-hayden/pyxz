@@ -91,21 +91,17 @@ class TraceWizard51030_parser(TraceWizard51021_parser):
 	#
 #
 TraceWizard5_classes = [ TraceWizard51030_parser, TraceWizard51021_parser, TraceWizard5100_parser, TraceWizard5000_parser ]
-def TraceWizard5_File(filename,
-					  load = True,
-					  sniffer = None
-					  ):
+def TraceWizard5_File(filename, *args, **kwargs):
 	"""
 	Convenience function to return the correct parser for an ARFF file.
 	"""
-	if not sniffer:
-		sniffer = TraceWizard5_parser.sniff_version
+	sniffer = kwargs.pop('sniffer', TraceWizard5_parser.sniff_version)
 	with open(filename) as fi:
 		format, version, line_number = sniffer(fi)
 	for vclass in TraceWizard5_classes:
 		if version >= vclass.minimum_version:
 			break
-	return vclass(filename, load = load)
+	return vclass(filename, *args, **kwargs)
 if __name__ == '__main__':
 	import logging
 	import os.path

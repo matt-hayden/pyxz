@@ -155,14 +155,11 @@ class ARFF_format:
 	@property
 	def body_header(self):
 		return [a.Name for a in self.attributes]
-	def parse_ARFF_body(self,
-						iterable,				# iterable is possibly an open file
-						line_number = 1,		# starting line number
-						member_name = 'body',	# name of object member to refer to this table
-						next_section = None,	# returns null while still in the attribute section
-						line_parser = None		# override the row factory return here
-						):
-		###
+	def parse_ARFF_body(self, iterable, line_number = 1, **kwargs):
+		member_name = kwargs.pop('member_name', 'body') # name of object member to refer to this table
+		next_section = kwargs.pop('next_section', None) # returns null while still in the attribute section
+		line_parser = kwargs.pop('line_parser', None) # override the row factory return here
+		#
 		if not line_parser:
 			row_factory = namedtuple('ARFF_Row', self.body_header)
 			def line_parser(iterable):
@@ -186,14 +183,14 @@ class ARFF_format:
 			sio.seek(0)
 			self.__dict__[member_name] = [ line_parser(l) for l in csv.reader(sio) ]
 		return line_number
-	def from_file(self, filename):
+	def from_file(self, filename, **kwargs):
 		with open(filename) as fi:
-			self.from_iterable(fi)
+			self.from_iterable(fi, **kwargs)
 		self.path = filename
-	def from_iterable(self, iterable):
-		self.parse_ARFF(iterable)
+	def from_iterable(self, iterable, **kwargs):
+		self.parse_ARFF(iterable, **kwargs)
 		self.path = None
-	def parse_ARFF(self, iterable):
+	def parse_ARFF(self, iterable, **kwargs):
 		line_number = self.parse_ARFF_header(iterable)
 		line_number = self.parse_ARFF_body(iterable, line_number = line_number)
 		

@@ -52,6 +52,7 @@ def format_MeterMaster4_header(pairs):
 	return d
 
 class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_version):
+	data_table_name = 'flows'
 	end_of_header = 'DateTimeStamp,RateData\n'	# EOL needed here
 	format = 'MM100 Data Export'	# key to the version tuple (beginning of CSV)
 	#
@@ -78,11 +79,9 @@ class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_vers
 			except:
 				n = "<%s>" % self.__class__.__name__
 		self.label = n
-	def parse_CSV(self,
-				  iterable = None,
-				  data_table_name = 'flows',
-				  line_parser = None
-				  ):
+	def parse_CSV(self, iterable = None, **kwargs):
+		line_parser = kwargs.pop('line_parser', None)
+		load_flows = kwargs.pop('load_flows', True)
 		if not line_parser:
 			ratedata_t = TraceWizard4.ratedata_t
 			row_factory = namedtuple('FlowRow', self.flows_header)
@@ -96,15 +95,16 @@ class MeterMaster4_CSV(TraceWizard4.MeterMaster_Common, CSV_with_header_and_vers
 			iterable = open(self.path)
 		#
 		line_number = self.parse_CSV_header(iterable)
-		f = []
-		for l in csv.reader(iterable):
-			try:
-				f.append(line_parser(l))
-			except Exception as e:
-				debug("error parsing array '%s'" % l)
-				raise e
-		self.__dict__[data_table_name] = f
-		self._check_log_attributes()
+		if load_flows:
+			f = []
+			for l in csv.reader(iterable):
+				try:
+					f.append(line_parser(l))
+				except Exception as e:
+					debug("error parsing array '%s'" % l)
+					raise e
+			self.__dict__[self.data_table_name] = f
+			self._check_log_attributes()
 	def parse_CSV_header(self, *args, **kwargs):
 		line_number = CSV_with_header_and_version.parse_CSV_header(self, *args, **kwargs) # yuck
 		self.define_log_attributes(self.header)
