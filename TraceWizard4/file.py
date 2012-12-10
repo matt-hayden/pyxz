@@ -1,6 +1,6 @@
 from collections import namedtuple
 from datetime import timedelta
-from itertools import groupby
+from itertools import groupby, ifilter	
 from logging import debug, info, warning, error, critical
 import os.path
 
@@ -16,8 +16,16 @@ class TraceWizard4_File(TraceWizard_Common):
 	@staticmethod
 	def first_cycle_fixture_keyer(event):
 		return (event.Name, "@" in event.Name)
+	@staticmethod
+	def Class_from_fixture_name(fixture_name):
+		for i in [str(i) for i in range(1,9)]:
+			if fixture_name.endswith(i):
+				return fixture_name.replace(i,'').strip()
+		return fixture_name
+				
 	# Defaults:
-	storage_interval = timedelta(seconds=10.0)
+	default_event_fields = ['EventID', 'Name', 'DateTimeStamp', 'Duration', 'Peak', 'Volume', 'Mode', 'ModeFreq']
+	ignored_classes=['Noise', 'Duplicate', 'Unclassified']
 	volume_units = 'Gallons'
 	#
 	has_log_attribute_section = False
@@ -44,10 +52,35 @@ class TraceWizard4_File(TraceWizard_Common):
 				self.from_query(data, **kwargs)
 		#else:
 		#	self.from_iterable(data)
+		self.storage_interval = timedelta(seconds=10.0)
 	#
-	def get_total_volume(self,
-						 ignored_classes=['Noise', 'Duplicate', 'Unclassified']):
-		return sum(e.Volume for e in self.events if e.Name not in ignored_classes)
+	def get_logical_events(self):
+		"""
+		Chop off incomplete days at the beginning and ending of logging (based
+		on flow data points, not events) and add a _count_ field to each event,
+		signifying the number of events it counts as (currently between 0 and 
+		1). Events are returned in the same order as the .events array.
+		"""
+		try:
+			fields = [ d[0] for d in self.events[0].cursor_description]
+		except: # not all drivers have cursor_description
+			fields = self.default_event_fields
+		TraceWizard4_Event = namedtuple('TraceWizard4_Event', fields+['Class', 'FirstCycle','count'])
+		begin_ts, end_ts = self.get_complete_days(logical = True, typer = datetime)
+		for row in self.events:
+			if (begin_ts <= row.DateTimeStamp <= end_ts):
+				n = row.Name.strip()
+				if any(ifilter(n.upper().startswith, self.cyclers)):
+					#e.count = 1 if n.endswith('@') else 0
+					fc = n.endswith('@')
+					c = 1 if e.FirstCycle else 0
+					yield TraceWizard4_Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=fc, count=c)
+				else:
+					#e.count = 1
+					yield TraceWizard4_Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=False, count=1)
+	#
+	def get_total_volume(self):
+		return sum(e.Volume for e in self.events if e.Name not in self.ignored_classes)
 	#
 	def from_file(self, filename, **kwargs):
 		load_flows = kwargs.pop('load_flows', True)
@@ -73,13 +106,22 @@ class TraceWizard4_File(TraceWizard_Common):
 				info("%d fixture profiles" % len(self.fixture_profiles))
 			else:
 				error("No fixture profiles")
-		available_extra_tables = (set(load_extras) & set(db.table_names))
-		debug("%d extra tables" % len(available_extra_tables))
-		if available_extra_tables:
+		if db.table_names: # this is available only for some drivers
+			available_extra_tables = (set(load_extras) & set(db.table_names))
+			debug("%d extra tables" % len(available_extra_tables))
+			if available_extra_tables:
+				self.extras = {}
+				for table_name in available_extra_tables:
+					info("Loading table [%s]" % table_name)
+					self.extras[table_name] = list(db.generate_table(table_name))
+		else:
 			self.extras = {}
-			for table_name in available_extra_tables:
-				info("Loading table [%s]" % table_name)
-				self.extras[table_name] = list(db.generate_table(table_name))
+			for table_name in load_extras:
+				try:
+					info("Loading table [%s]" % table_name)
+					self.extras[table_name] = list(db.generate_table(table_name))
+				except:
+					debug("%s not found" % table_name)
 		# events:
 		self.events = list(db.generate_query(self.events_query))
 		if len(self.events) > 0:
@@ -107,17 +149,19 @@ if __name__ == '__main__':
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '67096.TDB')
 	print "Using", fn, "(%s)" % ("found" if os.path.exists(fn) else "not found")
-	t = TraceWizard4_File(fn) # , driver_name = 'adodbapi')
+	t = TraceWizard4_File(fn)
 	print t
 	t.print_summary()
 	#for d, fs in t.get_flows_by_day():
 	#	print d, sum([ f.RateData for f in fs ])*t.flow_multiplier
 	total = t.get_total_volume()
 	for e, fs in t.get_events_and_flows():
-		print "Event:", e
-		print "Flows:", fs
-		break
+		if e.Class == 'Toilet':
+			print "Event:", e
+			print "Flows:", fs[0], "...", fs[-1]
+			break
 	for e, rs in t.get_events_and_rates():
-		print "Event:", e
-		print "Rates:", rs
-		break
+		if e.Class == 'Toilet':
+			print "Event:", e
+			print "Rates:", rs[0], "...", rs[-1]
+			break

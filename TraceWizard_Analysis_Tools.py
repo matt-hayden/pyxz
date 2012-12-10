@@ -12,13 +12,16 @@ import yaml
 
 from TraceWizard5 import TraceWizard5_File, load_config, volume_t
 
-# Config:
+# Load the config file:
 config = load_config("TraceWizard_config.py")
 fixture_type_lookup = config.fixture_type_lookup
 fixtures = config.AllFixtures
 cyclers = config.FirstCycleFixtures
 ftypes = set(fixture_type_lookup.values())
+window_size = config.window_size
 
+def mean(iterable, start_mean = 0, start_stdev = 0, start_count = 0):
+	
 def load_dir(data, **kwargs):
 	if os.path.isdir(data):
 		folder = data
@@ -61,7 +64,7 @@ def load_dir(data, **kwargs):
 	indoor_fixture_proportions = {k:a/indoor_total for k,a in indoor_fixture_totals.iteritems()}
 	#
 	# Loop across days:
-	window_size = 3
+
 	windices = window_size - 1
 	window_max_by_day = []
 	for cl in hourly_volume_by_type['Indoor'].cumsum(axis=1):
@@ -79,14 +82,17 @@ def load_dir(data, **kwargs):
 	print window_max_by_day
 
 def save_dir(filename, folder = None, **kwargs):
-	trace = TraceWizard5_File(filename)
+	filenamer = kwargs.pop('filenamer', None)
+	if not filenamer:
+		filenamer = lambda s: os.path.join(folder,s)
 	#
-	hour_keyer = lambda ef: ef.StartTime.hour
-	fixture_keyer = trace.fixture_keyer
-	first_cycle_fixture_keyer = trace.first_cycle_fixture_keyer
+	day_keyer = lambda e: e.StartTime.date()
+	hour_keyer = lambda e: e.StartTime.hour
+	#
+	trace = TraceWizard5_File(filename)
+	fixture_keyer = trace.fixture_keyer # member of the trace object, and can change from TW4 to TW5
+	first_cycle_fixture_keyer = trace.first_cycle_fixture_keyer # ditto
 	label = trace.label or os.path.split(filename)[-1]
-	#filenamer = lambda s: os.path.join(folder,os.path.extsep.join((label,s)) )
-	filenamer = lambda s: os.path.join(folder,s)
 	#
 	if not folder:
 		folder = os.path.extsep.join((filename, "d"))
@@ -100,36 +106,65 @@ def save_dir(filename, folder = None, **kwargs):
 	with open(filenamer('log_attributes.yaml'),'w') as fo:
 		yaml.dump(trace.log_attributes, fo)
 	
-	# Initialize:
-	begin_date, end_date = trace.get_complete_days()
-	days = (end_date-begin_date).days
-	hourly_volume_by_fixture = { k:np.zeros((days, 24)) for k in fixtures } # fixture total by hour
-	hourly_count_by_fixture = { k:np.zeros((days, 24), dtype=np.int) for k in fixtures }
-	total_volume_by_hour = np.zeros((days, 24)) # trace total by hour, over days*24 bins
+	if False:
+		## Example 1: simply loop across all events:
+		fixture_volumes = {}
+		se = trace.get_logical_events()
+		se.sort(key = fixture_keyer)
+		for f, es in groupby(se, key = fixture_keyer):
+			fixture_volumes[f] = np.array(e.Volume for e in es)
 	
-	# Loop 1: day's events
-	for d, efs1 in trace.get_events_by_day(logical = True):
-		dn = (d-begin_date).days
-		# Loop 2: hour's events
-		for h, efs2 in groupby(efs1, hour_keyer):
-			hl = sorted(list(efs2), key = fixture_keyer)
-			daily_total = 0.0
-			# Loop 3: fixture's events that hour
-			for fixture_name, efs3 in groupby(hl, key = fixture_keyer):
-				if fixture_name in cyclers:
-					c, s = 0, 0.0
-					for e in efs3:
-						s += e.Volume
-						n, fs = first_cycle_fixture_keyer(e)
-						if fs:
-							c += 1
-				else:
-					sa = list(e.Volume for e in efs3)
-					hourly_count_by_fixture[fixture_name][dn][h] = len(sa)
-					s = sum(sa)
-				daily_total += s
-				hourly_volume_by_fixture[fixture_name][dn][h] = s
-			total_volume_by_hour[dn][h] = daily_total
+	if False:
+		## Example 2: OLAP cube
+		# Initialize:
+		begin_date, end_date = trace.get_complete_days()
+		days = (end_date-begin_date).days
+		hourly_volume_by_fixture = { k:np.zeros((days, 24)) for k in fixtures } # fixture total by hour
+		hourly_count_by_fixture = { k:np.zeros((days, 24), dtype=np.int) for k in fixtures }
+		total_volume_by_hour = np.zeros((days, 24)) # trace total by hour, over days*24 bins
+		# Loop 1: day's events
+		for d, es1 in trace.get_events_by_day(logical = True):
+			dn = (d-begin_date).days
+			# Loop 2: hour's events
+			for h, es2 in groupby(es1, hour_keyer):
+				hl = sorted(list(es2), key = fixture_keyer)
+				daily_total = 0.0
+				# Loop 3: fixture's events that hour
+				for fixture_name, es3 in groupby(hl, key = fixture_keyer):
+					if fixture_name in cyclers:
+						c, s = 0, 0.0
+						for e in es3:
+							s += e.Volume
+							n, fs = first_cycle_fixture_keyer(e)
+							if fs:
+								c += 1
+					else:
+						sa = list(e.Volume for e in es3)
+						hourly_count_by_fixture[fixture_name][dn][h] = len(sa)
+						s = sum(sa)
+					daily_total += s
+					hourly_volume_by_fixture[fixture_name][dn][h] = s
+				total_volume_by_hour[dn][h] = daily_total
+	
+	## Example 3: Fixture OLAP cube
+	def add_first_cycle_count_flag(events):
+		for e in events:
+			if fixture_keyer(e) in cyclers:
+				n, fs = first_cycle_fixture_keyer(e)
+				e.count = 1 if fs else 0
+			else:
+				e.count = 1
+			yield e
+	fixture_volumes = {}
+	se = trace.get_logical_events()
+	se.sort(key = fixture_keyer)
+	# Loop 1: Fixture name
+	for f, es in groupby(se, key = fixture_keyer):
+		events_to_sum = list(es)
+		if f in cyclers: # the FirstCycle / @ events are meaningful
+			events_to_count = [ e for e in events_to_sum if first_cycle_fixture_keyer(e)[-1] ]
+		else:
+			events_to_count = events_to_sum
 	
 	# Combine fixtures into groups based on their location:
 	hourly_volume_by_type = { ft:np.zeros((days, 24)) for ft in ftypes }

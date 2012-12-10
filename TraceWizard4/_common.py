@@ -77,16 +77,9 @@ class MeterMaster_Common:
 			return volume_t(self.log_attributes['MMVolume'])
 		except:
 			return self.get_total_volume()
-	def get_total_volume(self,
-		logical = False,	# return only volume between first and last complete day
-		limit = None		# if set, flows above this limit are ignored
-		):
+	def get_total_volume(self, logical = False, **kwargs):
 		# overloaded by subclasses that have events
-		if limit is None:
-			trd = sum(f.RateData for f in (self.get_logical_flows() if logical else self.flows))
-		else:
-			trd = sum(f.RateData for f in (self.get_logical_flows() if logical else self.flows) if f.RateData < limit)
-		return self.flow_multiplier*trd
+		return self.flow_multiplier*sum(f.RateData for f in (self.get_logical_flows() if logical else self.flows))
 	@property
 	def begins(self):
 		try:
@@ -99,28 +92,32 @@ class MeterMaster_Common:
 			return self.log_attributes['LogEndTime']
 		except:
 			return self.flows[-1].DateTimeStamp+self.storage_interval
-	def get_complete_days(self,
-		logical=True,
-		midnight = time(),
-		typer = date
-		):
-		if logical:
-			begin_date, end_date = self.begins.date(), self.ends.date()
-			if (self.begins.hour > 6):
-				begin_date += timedelta(days=1)
-			if (self.ends.hour > 21):
-				end_date += timedelta(days=1)
+	def get_complete_days(self, **kwargs):
+		midnight = kwargs.pop('midnight', time())
+		typer = kwargs.pop('typer', date)
+		begin_date, end_date = self.begins.date(), self.ends.date()
+		if (self.begins.hour > 6):
+			begin_date += timedelta(days=1)
+		if (self.ends.hour > 21):
+			end_date += timedelta(days=1)
 		# convert to datetime rather than date objects:
 		if type(begin_date) != typer:
 			begin_date = typer.combine(begin_date, midnight)
 		if type(end_date) != typer:
 			end_date = typer.combine(end_date, midnight)
 		return Interval(begin_date, end_date)
-	def get_logical_flows(self):
-		begin_ts, end_ts = self.get_complete_days(logical = True, typer = datetime)
-		for f in self.flows:
-			if (begin_ts <= f.DateTimeStamp <= end_ts):
-				yield f
+	def get_logical_flows(self, **kwargs):
+		limit = kwargs.pop('limit', None)
+		limit_replacement_value = kwargs.pop('limit_replacement_value', 0)
+		begin_ts, end_ts = self.get_complete_days(typer = datetime)
+		if limit is None:
+			for f in self.flows:
+				if (begin_ts <= f.DateTimeStamp <= end_ts):
+					yield f
+		else:
+			for f in self.flows:
+				if (begin_ts <= f.DateTimeStamp <= end_ts):
+					yield f if (0 <= f.RateData < limit) else limit_replacement_value
 	@property
 	def duration(self):
 		"""
@@ -152,6 +149,8 @@ class MeterMaster_Common:
 		print "%d flows over %s days" % (len(self.flows), self.days)
 class TraceWizard_Common(MeterMaster_Common):
 	event_table_name = 'events'
+	cyclers = [ 'Clotheswasher', 'Clothes Washer', 'Dishwasher', 'Dish Washer' ]
+	cyclers = [ s.upper() for s in cyclers ]
 	#
 	def _check_log_attributes(self):
 		MeterMaster_Common._check_log_attributes(self) # yuck
@@ -165,12 +164,6 @@ class TraceWizard_Common(MeterMaster_Common):
 		d = timestamp_delta - storage_interval_delta
 		if d:
 			warning("Difference of %s between LogEndTime and NumberOfIntervals" % d)
-	#
-	def get_logical_events(self):
-		begin_ts, end_ts = self.get_complete_days(logical = True)
-		for e in self.events:
-			if (begin_ts <= e.StartTime <= end_ts):
-				yield e
 	def get_events_by_day(self,
 		logical = True,
 		day_decider=None
@@ -181,20 +174,18 @@ class TraceWizard_Common(MeterMaster_Common):
 			[ (date0, [event_00, ..., event_0n]) ... ]
 		"""
 		if not day_decider:
-			def day_decider(t):
-				return EventRow_midpoint(t).date()
+			def day_decider(e):
+				#return EventRow_midpoint(e).date()
+				return e.StartTime.date()
 		if logical:
 			b, e = self.get_complete_days(typer=date)
-			for d, ef in groupby(self.events, key=day_decider):
+			for d, ef in groupby(self.get_logical_events() if logical else self.events, key=day_decider):
 				if (b <= d < e): # note this is a date comparison, not datetime, hence < instead of <=
 					yield (d, tuple(ef))
 		else:
 			for d, ef in groupby(self.events, key=day_decider):
 				yield (d, tuple(ef))
-	def get_events_and_flows(self,
-		event_key = lambda e: e.EventID,
-		flow_key = lambda f: f.EventID
-		):
+	def get_events_and_flows(self, logical = True, **kwargs):
 		"""
 		Returns an iterable of the following structure:
 			[ event, [flow_0, ..., flow_n]]
@@ -204,11 +195,15 @@ class TraceWizard_Common(MeterMaster_Common):
 		correspond to an event's order in those lists. This method works around
 		that.
 		"""
+		event_key = kwargs.pop('event_key', lambda e: e.EventID)
+		flow_key = kwargs.pop('flow_key', event_key)
+		#
 		size = event_key(self.events[-1])+1
 		#size = max([event_key(e) for e in self.events])+1 # if not sorted
+		#
 		el = [None,]*size
 		fl = [None,]*size
-		for row in self.events:
+		for row in self.get_logical_events() if logical else self.events:
 			k=event_key(row)
 			if k is not None:
 				el[k] = row
@@ -218,13 +213,13 @@ class TraceWizard_Common(MeterMaster_Common):
 			if el[k]:
 				yield el[k], list(fs)
 			else:
-				critical("Error reading ID from flow %s" % str(row))
-	def get_events_and_rates(self):
+				info("No event sharing ID %d with flow %s" % (k, str(row)), "possibly because only events from complete days are being" if logical else "")
+	def get_events_and_rates(self, **kwargs):
 		"""
 		Returns an iterable of the following structure:
 			[ event, [rate_0, ..., rate_n]]
 		To discern the fields in event, use events_header. The units of flow
 		rate are available in the flows_units member.
 		"""
-		for e, fs in self.get_events_and_flows():
+		for e, fs in self.get_events_and_flows(**kwargs):
 			yield e, tuple(f.RateData for f in fs)

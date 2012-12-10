@@ -56,6 +56,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 	event_timestamp_format = '%Y-%m-%d %H:%M:%S'
 	format = ''
 	has_flow_section=True
+	ignored_classes=['Noise', 'Duplicate', 'Unclassified']
 	#
 	@staticmethod
 	def fixture_keyer(event):
@@ -117,6 +118,22 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 			ps.append(self.flow_section_regex.match)
 		ps.reverse() # Hmm
 		self._parse_sectioner = ps
+	#
+	def get_logical_events(self):
+		"""
+		Chop off incomplete days at the beginning and ending of logging (based
+		on flow data points, not events) and add a _count_ field to each event,
+		signifying the number of events it counts as (currently between 0 and 
+		1). Events are returned in the same order as the .events array.
+		"""
+		begin_ts, end_ts = self.get_complete_days(logical = True)
+		for e in events:
+			if (begin_ts <= e.StartTime <= end_ts):
+				if e.Class in self.cyclers:
+					e.count = 1 if e.FirstCycle else 0
+				else:
+					e.count = 1
+				yield e
 	#
 	@property
 	def events_header(self):
@@ -294,9 +311,8 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 					#sio.close()
 				debug("%d flows" % len(self.flows))
 	#
-	def get_total_volume(self,
-						 ignored_classes=['Noise', 'Duplicate', 'Unclassified']):
-		return sum(e.Volume for e in self.events if e.Class not in ignored_classes)
+	def get_total_volume(self):
+		return sum(e.Volume for e in self.events if e.Class not in self.ignored_classes)
 	#
 	def print_summary(self):
 		print "%d attributes, %d fixture profiles, %d log attributes" % (len(self.attributes), len(self.fixture_profiles), len(self.log_attributes))
