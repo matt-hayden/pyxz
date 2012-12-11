@@ -18,14 +18,13 @@ class TraceWizard4_File(TraceWizard_Common):
 		return (event.Name, "@" in event.Name)
 	@staticmethod
 	def Class_from_fixture_name(fixture_name):
-		for i in [str(i) for i in range(1,9)]:
+		for i in "123456789@": # yes, iterate along characters
 			if fixture_name.endswith(i):
 				return fixture_name.replace(i,'').strip()
 		return fixture_name
-				
 	# Defaults:
 	default_event_fields = ['EventID', 'Name', 'DateTimeStamp', 'Duration', 'Peak', 'Volume', 'Mode', 'ModeFreq']
-	ignored_classes=['Noise', 'Duplicate', 'Unclassified']
+	ignored_classes=['Noise', 'Duplicate']
 	volume_units = 'Gallons'
 	#
 	has_log_attribute_section = False
@@ -54,6 +53,9 @@ class TraceWizard4_File(TraceWizard_Common):
 		#	self.from_iterable(data)
 		self.storage_interval = timedelta(seconds=10.0)
 	#
+	@property
+	def fixture_names(self):
+		return set([self.Class_from_fixture_name(p.Name) for p in self.fixture_profiles])
 	def get_logical_events(self):
 		"""
 		Chop off incomplete days at the beginning and ending of logging (based
@@ -65,7 +67,7 @@ class TraceWizard4_File(TraceWizard_Common):
 			fields = [ d[0] for d in self.events[0].cursor_description]
 		except: # not all drivers have cursor_description
 			fields = self.default_event_fields
-		TraceWizard4_Event = namedtuple('TraceWizard4_Event', fields+['Class', 'FirstCycle','count'])
+		Event = namedtuple('TraceWizard4_logical_event', fields+['Class', 'FirstCycle','count'])
 		begin_ts, end_ts = self.get_complete_days(logical = True, typer = datetime)
 		for row in self.events:
 			if (begin_ts <= row.DateTimeStamp <= end_ts):
@@ -74,10 +76,10 @@ class TraceWizard4_File(TraceWizard_Common):
 					#e.count = 1 if n.endswith('@') else 0
 					fc = n.endswith('@')
 					c = 1 if e.FirstCycle else 0
-					yield TraceWizard4_Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=fc, count=c)
+					yield Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=fc, count=c)
 				else:
 					#e.count = 1
-					yield TraceWizard4_Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=False, count=1)
+					yield Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=False, count=1)
 	#
 	def get_total_volume(self):
 		return sum(e.Volume for e in self.events if e.Name not in self.ignored_classes)
@@ -94,14 +96,24 @@ class TraceWizard4_File(TraceWizard_Common):
 		#
 		self.flows = []
 		if load_flows:
-			self.flows = list(db.generate_query(self.flows_query))
+			self.flows = db.generate_query(self.flows_query)
 			if len(self.flows) > 0:
 				info("%d flow data points" % len(self.flows))
 			else:
 				error("No flow data points loaded")
 		self.fixture_profiles = []
 		if load_fixtures:
-			self.fixture_profiles = list(db.generate_query(self.fixture_profiles_query))
+			q = db.generate_query(self.fixture_profiles_query)
+			#field_names = [ r[0] for r in q[0].cursor_description ]
+			self.fixture_profiles = [None,]*(max(row.ID for row in q)+1)
+			FixtureProfile = namedtuple('FixtureProfile', ['ID', 'Name', 'Vol', 'Peak', 'Duration', 'Mode', 'ModeFreq'])
+			for row in q:
+				self.fixture_profiles[row.ID] = FixtureProfile(row.ID or 0, row.Name or "",
+					Interval(row.MinVol or 0, row.MaxVol or 0), Interval(row.MinPeak or 0, row.MaxPeak or 0),
+					Interval(row.MinDur or 0, row.MaxDur or 0), Interval(row.MinMode or 0, row.MaxMode or 0),
+					Interval(row.MinModeFreq or 0, row.MaxModeFreq or 0))
+			else:
+				self.fixture_profiles = q
 			if len(self.fixture_profiles) > 0:
 				info("%d fixture profiles" % len(self.fixture_profiles))
 			else:
@@ -113,17 +125,17 @@ class TraceWizard4_File(TraceWizard_Common):
 				self.extras = {}
 				for table_name in available_extra_tables:
 					info("Loading table [%s]" % table_name)
-					self.extras[table_name] = list(db.generate_table(table_name))
+					self.extras[table_name] = db.generate_table(table_name)
 		else:
 			self.extras = {}
 			for table_name in load_extras:
 				try:
 					info("Loading table [%s]" % table_name)
-					self.extras[table_name] = list(db.generate_table(table_name))
+					self.extras[table_name] = db.generate_table(table_name)
 				except:
 					debug("%s not found" % table_name)
 		# events:
-		self.events = list(db.generate_query(self.events_query))
+		self.events = db.generate_query(self.events_query)
 		if len(self.events) > 0:
 			info("%d events" % len(self.events))
 		else:
@@ -152,6 +164,7 @@ if __name__ == '__main__':
 	t = TraceWizard4_File(fn)
 	print t
 	t.print_summary()
+	print t.fixture_names, t.fixture_profiles
 	#for d, fs in t.get_flows_by_day():
 	#	print d, sum([ f.RateData for f in fs ])*t.flow_multiplier
 	total = t.get_total_volume()

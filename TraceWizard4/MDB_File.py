@@ -5,7 +5,7 @@ import sys
 
 if sys.platform == 'win32':
 	try:
-		import Xpyodbc as import_driver
+		import pyodbc as import_driver
 	except:
 		debug("Driver pyodbc not available")
 		try:

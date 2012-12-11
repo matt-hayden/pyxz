@@ -149,9 +149,13 @@ class MeterMaster_Common:
 		print "%d flows over %s days" % (len(self.flows), self.days)
 class TraceWizard_Common(MeterMaster_Common):
 	event_table_name = 'events'
-	cyclers = [ 'Clotheswasher', 'Clothes Washer', 'Dishwasher', 'Dish Washer' ]
+	cyclers = [ 'Clotheswasher', 'Dishwasher', 'Clothes Washer', 'Dish Washer' ]
 	cyclers = [ s.upper() for s in cyclers ]
 	#
+	@property
+	def fixture_names(self):
+		# Should be overloaded by subclasses
+		return set(e.Class for e in self.events)
 	def _check_log_attributes(self):
 		MeterMaster_Common._check_log_attributes(self) # yuck
 		# These checks are similar to MeterMaster4:
@@ -164,22 +168,20 @@ class TraceWizard_Common(MeterMaster_Common):
 		d = timestamp_delta - storage_interval_delta
 		if d:
 			warning("Difference of %s between LogEndTime and NumberOfIntervals" % d)
-	def get_events_by_day(self,
-		logical = True,
-		day_decider=None
-		):
+	def get_events_by_day(self, logical = True, **kwargs):
 		"""
 		Returns all events broken into 24-hour periods. Events spanning
 		midnight are, by default, not broken across days. Returns:
 			[ (date0, [event_00, ..., event_0n]) ... ]
 		"""
+		day_decider = kwargs.pop('day_decider', None)
 		if not day_decider:
 			def day_decider(e):
 				#return EventRow_midpoint(e).date()
 				return e.StartTime.date()
 		if logical:
 			b, e = self.get_complete_days(typer=date)
-			for d, ef in groupby(self.get_logical_events() if logical else self.events, key=day_decider):
+			for d, ef in groupby(self.get_logical_events(**kwargs) if logical else self.events, key=day_decider):
 				if (b <= d < e): # note this is a date comparison, not datetime, hence < instead of <=
 					yield (d, tuple(ef))
 		else:
@@ -196,14 +198,15 @@ class TraceWizard_Common(MeterMaster_Common):
 		that.
 		"""
 		event_key = kwargs.pop('event_key', lambda e: e.EventID)
-		flow_key = kwargs.pop('flow_key', event_key)
+		flow_key = kwargs.pop('flow_key', lambda e: e.EventID)
 		#
 		size = event_key(self.events[-1])+1
 		#size = max([event_key(e) for e in self.events])+1 # if not sorted
 		#
 		el = [None,]*size
 		fl = [None,]*size
-		for row in self.get_logical_events() if logical else self.events:
+		missed_flows = []
+		for row in self.get_logical_events(**kwargs) if logical else self.events:
 			k=event_key(row)
 			if k is not None:
 				el[k] = row
@@ -213,7 +216,8 @@ class TraceWizard_Common(MeterMaster_Common):
 			if el[k]:
 				yield el[k], list(fs)
 			else:
-				info("No event sharing ID %d with flow %s" % (k, str(row)), "possibly because only events from complete days are being" if logical else "")
+				missed_flows.extend(fs)
+		info("%d flows match no event" %len(missed_flows)+("(probably because events from incomplete days are removed)" if logical else ""))
 	def get_events_and_rates(self, **kwargs):
 		"""
 		Returns an iterable of the following structure:

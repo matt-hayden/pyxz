@@ -54,10 +54,13 @@ class TraceWizard51021_parser(TraceWizard5100_parser):
 	has_fixture_profile_section=True
 	#
 	check_fixture_profile_header = True
+	#@property
+	#def fixture_names(self): # only gives names from defined profiles
+	#	return set(p.FixtureClass for p in self.fixture_profiles)
 	fixture_profile_header = ['FixtureClass', 'MinVolume', 'MaxVolume', 'MinPeak', 'MaxPeak', 'MinDuration','MaxDuration', 'MinMode', 'MaxMode']
-	Fixture_Profile = namedtuple('Fixture_Profile', 'FixtureClass Volume Peak Duration Mode')
+	FixtureProfile = namedtuple('FixtureProfile', 'FixtureClass Volume Peak Duration Mode')
 	def parse_fixture_profile_line(self, line, row_factory = None):
-		row_factory = row_factory or self.Fixture_Profile
+		row_factory = row_factory or self.FixtureProfile
 		#
 		fa = line.split(',')
 		fv = [ ratedata_t(v or 0) for v in fa[1:] ]
@@ -127,6 +130,7 @@ if __name__ == '__main__':
 	#for d, es in t.get_events_by_day():
 	#	print d, sum([e.Volume for e in es])
 	for e, fs in t.get_events_and_flows():
-		print "Event:", e
-		print "Flows:", fs
-		break
+		if e.Class == 'Toilet':
+			print "Event:", e
+			print "Flows:", fs[0], "...", fs[-1]
+			break

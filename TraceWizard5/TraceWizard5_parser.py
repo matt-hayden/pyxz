@@ -126,14 +126,14 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 		signifying the number of events it counts as (currently between 0 and 
 		1). Events are returned in the same order as the .events array.
 		"""
-		begin_ts, end_ts = self.get_complete_days(logical = True)
-		for e in events:
-			if (begin_ts <= e.StartTime <= end_ts):
-				if e.Class in self.cyclers:
-					e.count = 1 if e.FirstCycle else 0
+		Event = namedtuple('TraceWizard5_logical_event', list(self.events[0]._fields)+['count',])
+		begin_ts, end_ts = self.get_complete_days(logical = True, typer = datetime)
+		for row in self.events:
+			if (begin_ts <= row.StartTime <= end_ts):
+				if row.Class.upper() in self.cyclers:
+					yield Event(*row, count = 1 if row.FirstCycle else 0)
 				else:
-					e.count = 1
-				yield e
+					yield Event(*row, count = 1)
 	#
 	@property
 	def events_header(self):
