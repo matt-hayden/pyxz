@@ -7,9 +7,12 @@ from datetime import datetime, date, time, timedelta
 from glob import glob
 from itertools import groupby, izip
 from logging import debug, info, warning, error, critical
+
 import numpy as np
+from pandas import Series, date_range
 import yaml
 
+from TraceWizard4 import Interval
 from TraceWizard5 import TraceWizard5_File, load_config, volume_t
 
 # Load the config file:
@@ -20,8 +23,6 @@ cyclers = config.FirstCycleFixtures
 ftypes = set(fixture_type_lookup.values())
 window_size = config.window_size
 
-def mean(iterable, start_mean = 0, start_stdev = 0, start_count = 0):
-	
 def load_dir(data, **kwargs):
 	if os.path.isdir(data):
 		folder = data
@@ -105,7 +106,7 @@ def save_dir(filename, folder = None, **kwargs):
 	#	yaml.dump(trace.fixture_profiles, fo)
 	with open(filenamer('log_attributes.yaml'),'w') as fo:
 		yaml.dump(trace.log_attributes, fo)
-	
+	"""
 	if False:
 		## Example 1: simply loop across all events:
 		fixture_volumes = {}
@@ -145,41 +146,41 @@ def save_dir(filename, folder = None, **kwargs):
 					daily_total += s
 					hourly_volume_by_fixture[fixture_name][dn][h] = s
 				total_volume_by_hour[dn][h] = daily_total
+		# Combine fixtures into groups based on their location:
+		hourly_volume_by_type = { ft:np.zeros((days, 24)) for ft in ftypes }
+		for fixture_name in fixtures:
+			try:
+				ftype = fixture_type_lookup[fixture_name]
+				hourly_volume_by_type[ftype] += hourly_volume_by_fixture[fixture_name]
+			except KeyError:
+				info("Fixture '%s' not found, ignoring" % fixture_name)
+		# Save the tables that are hard to generate:
+		np.savez(filenamer("hourly_volume_by_type"), **hourly_volume_by_type)
+		np.savez(filenamer("hourly_count_by_fixture"), **hourly_count_by_fixture)
+		np.savez(filenamer("hourly_volume_by_fixture"), **hourly_volume_by_fixture)
+		np.save(filenamer("total_volume_by_hour"), total_volume_by_hour)
+	"""
+	if True:
+		begin_date, end_date = trace.get_complete_days(typer = datetime)
+		intervals = trace.log_attributes['NumberOfIntervals']
+		indexer = date_range(start=begin_date, end=end_date, freq="%ds" % trace.storage_interval.total_seconds())
+		names = trace.fixture_names
+		"""
+		#storage_divider = int(trace.storage_interval.total_seconds())
+		flow_array_by_fixture = {k:np.zeros((intervals)) for k in names}
+		event_time_list_by_fixture = {k:[] for k in names}
+		## Get an array of flow rates by fixture
+		for e, fs in trace.get_events_and_flows(logical = True):
+			for f in fs:
+				offset = (begin_date-e.StartTime).total_seconds()//storage_divider
+				flow_array_by_fixture[e.Class][offset] += f.RateData
+			if e.count:
+				event_time_list_by_fixture[e.Class].append(e.StartTime)
+		np.savez(filenamer("flow_array_by_fixture"), **flow_array_by_fixture)
+		"""
+
 	
-	## Example 3: Fixture OLAP cube
-	def add_first_cycle_count_flag(events):
-		for e in events:
-			if fixture_keyer(e) in cyclers:
-				n, fs = first_cycle_fixture_keyer(e)
-				e.count = 1 if fs else 0
-			else:
-				e.count = 1
-			yield e
-	fixture_volumes = {}
-	se = trace.get_logical_events()
-	se.sort(key = fixture_keyer)
-	# Loop 1: Fixture name
-	for f, es in groupby(se, key = fixture_keyer):
-		events_to_sum = list(es)
-		if f in cyclers: # the FirstCycle / @ events are meaningful
-			events_to_count = [ e for e in events_to_sum if first_cycle_fixture_keyer(e)[-1] ]
-		else:
-			events_to_count = events_to_sum
-	
-	# Combine fixtures into groups based on their location:
-	hourly_volume_by_type = { ft:np.zeros((days, 24)) for ft in ftypes }
-	for fixture_name in fixtures:
-		try:
-			ftype = fixture_type_lookup[fixture_name]
-			hourly_volume_by_type[ftype] += hourly_volume_by_fixture[fixture_name]
-		except KeyError:
-			info("Fixture '%s' not found, ignoring" % fixture_name)
-	
-	# Save the tables that are hard to generate:
-	np.savez(filenamer("hourly_volume_by_type"), **hourly_volume_by_type)
-	np.savez(filenamer("hourly_count_by_fixture"), **hourly_count_by_fixture)
-	np.savez(filenamer("hourly_volume_by_fixture"), **hourly_volume_by_fixture)
-	np.save(filenamer("total_volume_by_hour"), total_volume_by_hour)
+
 	#
 if __name__ == '__main__':
 	#for fn in sys.argv[1:]:
