@@ -30,9 +30,9 @@ class TraceWizard4_File(TraceWizard_Common):
 	has_log_attribute_section = False
 	has_flow_section = True
 	#
-	flows_query = '''select EventID, StartTime as DateTimeStamp, Rate as RateData from Flows order by Flows.ID'''
-	events_query = '''SELECT Events.ID as EventID, Fixtures.Name, Events.StartTime as DateTimeStamp, Events.Duration, Events.Peak, Events.Volume, Events.Mode, Events.ModeFreq FROM Fixtures RIGHT JOIN (Events INNER JOIN EventFixtures ON Events.ID = EventFixtures.IDEvent) ON Fixtures.ID = EventFixtures.IDFixture order by Events.ID'''
-	fixture_profiles_query = '''select * from Fixtures order by ID'''
+	flows_query = '''select EventID, StartTime as DateTimeStamp, Rate as RateData from Flows order by Flows.StartTime'''
+	events_query = '''SELECT Events.ID as EventID, Fixtures.Name, Events.StartTime as DateTimeStamp, Events.Duration, Events.Peak, Events.Volume, Events.Mode, Events.ModeFreq FROM Fixtures RIGHT JOIN (Events INNER JOIN EventFixtures ON Events.ID = EventFixtures.IDEvent) ON Fixtures.ID = EventFixtures.IDFixture order by Events.StartTime'''
+	fixture_profiles_query = '''select * from Fixtures order by Fixtures.Order'''
 	#
 	def __init__(self, data, **kwargs):
 		load = kwargs.pop('load', True)
@@ -98,8 +98,11 @@ class TraceWizard4_File(TraceWizard_Common):
 		if load_flows:
 			self.flows = db.generate_query(self.flows_query)
 			if len(self.flows) > 0:
-				info("%d flow data points" % len(self.flows))
+				self.has_flows = True
+				#self.flows.sort(key = lambda f: f.DateTimeStamp) # see SQL above
+				debug("%d flow data points" % len(self.flows))
 			else:
+				self.has_flows = False
 				error("No flow data points loaded")
 		self.fixture_profiles = []
 		if load_fixtures:
@@ -137,9 +140,11 @@ class TraceWizard4_File(TraceWizard_Common):
 		# events:
 		self.events = db.generate_query(self.events_query)
 		if len(self.events) > 0:
+			self.has_events = True
 			info("%d events" % len(self.events))
 		else:
 			critical("No events loaded")
+			self.has_events = False
 		#
 		# replacement for stuff found in other format's define_log_attributes:
 		#

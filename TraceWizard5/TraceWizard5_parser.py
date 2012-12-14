@@ -276,7 +276,12 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 										   member_name=self.event_table_name,
 										   next_section=self._parse_sectioner.pop(),
 										   **kwargs)
-		debug("%d events" % len(self.events))
+		if len(self.events) > 0:
+			self.has_events = True
+			debug("%d events" % len(self.events))
+		else:
+			self.has_events = False
+			critical("No flows loaded")
 		# Flows
 		self.flows = []
 		if self.has_flow_section:
@@ -309,7 +314,12 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 							debug("Error parsing array '%s': %s" % (l, e))
 							#raise e
 					#sio.close()
+			if len(self.flows) > 0:
+				self.has_flows = True
 				debug("%d flows" % len(self.flows))
+			else:
+				self.has_flows = False
+				info("Not flows loaded")
 	#
 	def get_total_volume(self):
 		return sum(e.Volume for e in self.events if e.Class not in self.ignored_classes)
