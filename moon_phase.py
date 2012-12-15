@@ -4,9 +4,9 @@ import ephem
 from pytz import timezone, utc
 
 def is_visible(body):
-	ra = body.ra
-	if (0 <= ra <= 180):
-		return ra
+	alt = body.alt
+	if (0 <= alt <= 180):
+		return alt
 	return None
 # to see a list of cities, use ephem.cities._city_data.keys()
 try:
