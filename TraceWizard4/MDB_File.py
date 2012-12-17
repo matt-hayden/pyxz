@@ -1,18 +1,36 @@
+#!env python
+"""
+Reader for MS Access single-file databases, typically .MDB. This may work with
+.accdb files as well. Currently, the only systems that can handle these files
+are Windows-based. All testing has been done on Windows XP using pyodbc. 
+Note that there are at least four maintained database drivers:
+* adobdbapi		Comes with pywin32, uses ADO calls.
+* ceODBC		(untested)
+* odbc			(untested) 
+* pyodbc		Wraps the ODBC facility on Windows.
+"""
+
 from collections import namedtuple
 from contextlib import closing
 from logging import debug, info, warning, error, critical
 import sys
 
-if sys.platform == 'win32':
+try:
+	import pyodbc as import_driver
+except:
+	debug("Driver pyodbc not available")
 	try:
-		import pyodbc as import_driver
+		import adodbapi as import_driver
 	except:
-		debug("Driver pyodbc not available")
-		try:
-			import adodbapi as import_driver
-		except:
-			debug("Driver adodbapi not available")
+		debug("Driver adodbapi not available")
+
+if import_driver:
 	info("Module using driver", import_driver.__name__)
+else:
+	if sys.platform == 'win32':
+		raise NotImplementedError("Install a valid database driver")
+	else:
+		raise NotImplementedError("Not implemented on " + sys.platform)
 #
 class MDB_Error(Exception):
 	pass
@@ -79,6 +97,7 @@ class MDB_Base:
 			return list(cur.fetchall())
 class odbc_MDB(MDB_Base):
 	"""
+	Example subclass of MDB_Base.
 	"""
 	def open_file(self, filename):
 		"""
@@ -87,6 +106,9 @@ class odbc_MDB(MDB_Base):
 		cstring = self.connection_string_for_file(filename)
 		self.con = import_driver.odbc(cstring)
 class adodbapi_MDB(MDB_Base):
+	"""
+	Example subclass of MDB_Base.
+	"""
 	@staticmethod
 	def connection_string_for_file(filename):
 		"""
@@ -98,6 +120,9 @@ class adodbapi_MDB(MDB_Base):
 	def get_field_names_for_cursor(self, cur):
 		return [ f[0] for f in cur.description ]
 class pyodbc_MDB(MDB_Base):
+	"""
+	Example subclass of MDB_Base.
+	"""
 	pyodbc_TableDef = namedtuple('TableDef', 'table_cat table_schem table_name table_type remarks')
 	# for some reason, pyodbc gives an extra field:
 	pyodbc_ColumnDef = namedtuple('ColumnDef', 'table_cat table_schem table_name column_name data_type type_name column_size buffer_length decimal_digits num_prec_radix nullable remarks column_def sql_data_type sql_datetime_sub char_octet_length ordinal_position is_nullable X1')

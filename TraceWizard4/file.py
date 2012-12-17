@@ -7,9 +7,9 @@ import os.path
 from _common import *
 from MDB_File import MDB_File
 
-class TraceWizard4_File_Error(Exception):
+class TraceWizard4_import_Error(Exception):
 	pass
-class TraceWizard4_File(TraceWizard_Common):
+class TraceWizard4_import(TraceWizard_Common):
 	@staticmethod
 	def fixture_keyer(event):
 		return event.Name
@@ -73,12 +73,10 @@ class TraceWizard4_File(TraceWizard_Common):
 			if (begin_ts <= row.DateTimeStamp <= end_ts):
 				n = row.Name.strip()
 				if any(ifilter(n.upper().startswith, self.cyclers)):
-					#e.count = 1 if n.endswith('@') else 0
 					fc = n.endswith('@')
-					c = 1 if e.FirstCycle else 0
+					c = 1 if fc else 0
 					yield Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=fc, count=c)
 				else:
-					#e.count = 1
 					yield Event(*row, Class=self.Class_from_fixture_name(row.Name), FirstCycle=False, count=1)
 	#
 	def get_total_volume(self):
@@ -166,7 +164,7 @@ if __name__ == '__main__':
 	tempdir=os.path.expandvars('%TEMP%\example-traces')
 	fn = os.path.join(tempdir, '67096.TDB')
 	print "Using", fn, "(%s)" % ("found" if os.path.exists(fn) else "not found")
-	t = TraceWizard4_File(fn)
+	t = TraceWizard4_import(fn)
 	print t
 	t.print_summary()
 	print t.fixture_names, t.fixture_profiles

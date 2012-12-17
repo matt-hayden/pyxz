@@ -200,8 +200,8 @@ class TraceWizard_Common(MeterMaster_Common):
 		event_key = kwargs.pop('event_key', lambda e: e.EventID)
 		flow_key = kwargs.pop('flow_key', lambda e: e.EventID)
 		#
-		size = event_key(self.events[-1])+1
-		#size = max([event_key(e) for e in self.events])+1 # if not sorted
+		#size = event_key(self.events[-1])+1
+		size = max([event_key(e) for e in self.events])+1 # if not sorted
 		#
 		el = [None,]*size
 		fl = [None,]*size

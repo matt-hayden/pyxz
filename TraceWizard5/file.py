@@ -94,7 +94,7 @@ class TraceWizard51030_parser(TraceWizard51021_parser):
 	#
 #
 TraceWizard5_classes = [ TraceWizard51030_parser, TraceWizard51021_parser, TraceWizard5100_parser, TraceWizard5000_parser ]
-def TraceWizard5_File(filename, *args, **kwargs):
+def TraceWizard5_import(filename, *args, **kwargs):
 	"""
 	Convenience function to return the correct parser for an ARFF file.
 	"""
@@ -119,9 +119,9 @@ if __name__ == '__main__':
 					  ]
 	fn = os.path.join(tempdir, '12S704.twdb')
 	# Example 1: read a whole file:
-	t = TraceWizard5_File(fn)
+	t = TraceWizard5_import(fn)
 	# Example 2: read only the header:
-	#t = TraceWizard5_File(fn, load=False)
+	#t = TraceWizard5_import(fn, load=False)
 	#t.parse_ARFF_header()
 	
 	print fn, "(found)" if os.path.exists(fn) else "(not found)"

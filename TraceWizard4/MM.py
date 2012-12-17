@@ -44,8 +44,17 @@ def format_MeterMaster3_MeterInfo_header(row):
 
 class MeterMaster3_Error(Exception):
 	pass
+class MeterMaster3_CSV(MeterMaster_Common):
+	"""
+	For MeterMaster 3.0-era files exported into text files. 
+	Currently not implemented.
+	"""
+	pass
 class MeterMaster3_MDB(MeterMaster_Common):
-	#
+	"""
+	For MS Access 95-based MeterMaster 3.0-era files. These files are no longer
+	readable in Access 2010.
+	"""
 	has_meter_section = True
 	has_site_section = True
 	has_flow_section = True
