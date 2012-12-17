@@ -144,9 +144,14 @@ class MeterMaster_Common:
 					  "(format '%s')" % self.format if self.format else ''
 					  ))
 		return "<%s>" % s.strip()
-	def print_summary(self):
-		print "%d log attributes" % (len(self.log_attributes))
-		print "%d flows over %s days" % (len(self.flows), self.days)
+	def describe(self):
+		print "%r:" % self
+		try:
+			print "%d log attributes" % (len(self.log_attributes))
+		except:
+			print "No log attributes"
+		print "[%s, ..., %s] (%d days)" % (self.begins, self.ends, self.days)
+		print "[Length: %d flows, Total %5.0f %s]" % (len(self.flows), self.get_total_volume(), self.volume_units)
 class TraceWizard_Common(MeterMaster_Common):
 	event_table_name = 'events'
 	cyclers = [ 'Clotheswasher', 'Dishwasher', 'Clothes Washer', 'Dish Washer' ]
@@ -168,6 +173,14 @@ class TraceWizard_Common(MeterMaster_Common):
 		d = timestamp_delta - storage_interval_delta
 		if d:
 			warning("Difference of %s between LogEndTime and NumberOfIntervals" % d)
+	def describe(self):
+		print "%r:" % self
+		try:
+			print "%d log attributes" % (len(self.log_attributes))
+		except:
+			print "No log attributes"
+		print "[%s, ..., %s] (%d days)" % (self.begins, self.ends, self.days)
+		print "[Length: %d events, Total %5.0f %s]" % (len(self.events), self.get_total_volume(), self.volume_units)
 	def get_events_by_day(self, logical = True, **kwargs):
 		"""
 		Returns all events broken into 24-hour periods. Events spanning

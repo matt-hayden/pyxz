@@ -8,7 +8,7 @@ logger.setLevel(logging.DEBUG)
 tempdir = os.path.expandvars('%TEMP%\example-traces')
 files = [os.path.join(tempdir, fn) for fn in '12S704.twdb', '12S704.csv', '67096.tdb', '67096.MDB']
 
-if True:
+if False:
 	print
 	print "Loading just headers:"
 	
@@ -28,8 +28,10 @@ if True:
 	f = open_file(files[3], load_flows = False)
 	print f
 
-if False:
+if True:
 	print
 	print "Loading whole files:"
 	for fn in files:
-		print open_file(fn)
+		f = open_file(fn)
+		print fn, "->", f
+		f.describe()

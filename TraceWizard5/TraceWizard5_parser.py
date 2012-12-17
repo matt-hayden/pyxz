@@ -9,11 +9,11 @@ import re
 from cStringIO import StringIO
 
 from ARFF_format import ARFF_format_with_version, ARFF_format_Error, dequote
-import MeterMaster4_parser
+import MM
 import TraceWizard4
 
 def format_TraceWizard5_header(pairs):
-	log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MeterMaster4_parser
+	log_attribute_timestamp_format = '%Y-%m-%d %H:%M:%S' # different from MM
 	def timeconvert(s):
 		try:
 			return datetime.strptime(s, log_attribute_timestamp_format)
@@ -23,7 +23,7 @@ def format_TraceWizard5_header(pairs):
 	#for n, (k, v) in enumerate(pairs):
 	#	print n, k, v
 	di = dict(pairs)
-	do = MeterMaster4_parser.format_MeterMaster4_header(pairs)
+	do = MM.format_MeterMaster4_header(pairs)
 	do['LogStartTime'] = timeconvert(di['LogStartTime'])
 	do['LogEndTime'] = timeconvert(di['LogEndTime'])
 	do['LogFileName'] = di['LogFileName'].strip()
@@ -260,7 +260,7 @@ class TraceWizard5_parser(ARFF_format_with_version, TraceWizard4.TraceWizard_Com
 			c = os.path.commonprefix([self.path, log_filename])
 			if c:
 				mm_log_filename = log_filename.replace(c, "", count=1)
-		return MeterMaster4_parser.MeterMaster4_CSV(mm_log_filename)
+		return MM.MeterMaster4_CSV(mm_log_filename)
 	#
 	def parse_ARFF(self, iterable = None, **kwargs):
 		"""
