@@ -127,9 +127,9 @@ class MeterMaster_Common:
 	@property
 	def days(self):
 		return self.duration.days
-	@property
-	def timespan(self):
-		return Interval(self.begins, self.ends)
+	#@property
+	#def timespan(self):
+	#	return Interval(self.begins, self.ends)
 	@property
 	def readings(self):
 		return Interval(self.log_attributes['BeginReading'], self.log_attributes['EndReading'])
@@ -174,11 +174,11 @@ class TraceWizard_Common(MeterMaster_Common):
 		if d:
 			warning("Difference of %s between LogEndTime and NumberOfIntervals" % d)
 	def describe(self):
-		print "%r:" % self
+		print self
 		try:
-			print "%d log attributes" % (len(self.log_attributes))
+			print "[%d log attributes]" % (len(self.log_attributes))
 		except:
-			print "No log attributes"
+			print "[No log attributes]"
 		print "[%s, ..., %s] (%d days)" % (self.begins, self.ends, self.days)
 		print "[Length: %d events, Total %5.0f %s]" % (len(self.events), self.get_total_volume(), self.volume_units)
 	def get_events_by_day(self, logical = True, **kwargs):

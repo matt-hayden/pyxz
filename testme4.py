@@ -34,7 +34,7 @@ class Analyzer(Base1):
 		input_trace = open_file(data, **kwargs)
 		#
 		# Copy members:
-		for m in ['log_attributes', 'meter_info', 'label']:
+		for m in ['format', 'version', 'log_attributes', 'meter_info', 'label']:
 			self.copy_attr_from(input_trace, m)
 		#self.log_attributes = input_trace.log_attributes
 		#self.label = input_trace.label
@@ -72,3 +72,4 @@ if __name__ == '__main__':
 	#filename = os.path.join(tempdir, '12S704.twdb')
 	filename = os.path.join(tempdir, '67096.tdb')
 	t = Analyzer(filename)
+	t.flows.hist()
