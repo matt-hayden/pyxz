@@ -13,14 +13,12 @@ from pandas import Series, date_range
 import yaml
 
 from TraceWizard4 import Interval
-from TraceWizard5 import TraceWizard5_File, load_config, volume_t
+from TraceWizard5 import TraceWizard5_import, load_config, volume_t
 
 # Load the config file:
 config = load_config("TraceWizard_config.py")
-fixture_type_lookup = config.fixture_type_lookup
-fixtures = config.AllFixtures
-cyclers = config.FirstCycleFixtures
-ftypes = set(fixture_type_lookup.values())
+fixtures = config.tags_by_fixture.keys()
+cyclers = config.fixtures_by_tag['First cycle relevant']
 window_size = config.window_size
 
 def load_dir(data, **kwargs):
@@ -53,7 +51,7 @@ def load_dir(data, **kwargs):
 	hourly_volume_by_fixture = dict(np.load(files[0]).iteritems())
 	hod_volume_by_fixture = {k:m.sum(axis=0) for k, m in hourly_volume_by_fixture.iteritems()}
 	fixture_totals = {k:a.sum() for k, a in hod_volume_by_fixture.iteritems()}
-	indoor_fixture_totals = {k:a for k,a in fixture_totals.iteritems() if fixture_type_lookup[k] == 'Indoor'}
+	indoor_fixture_totals = {k:a for k,a in fixture_totals.iteritems() if config.fixtures_by_tag[k] == 'Indoor'}
 	#
 	files = glob(os.path.join(folder, "*hourly_volume_by_type.npz"))
 	hourly_volume_by_type = dict(np.load(files[0]).iteritems())
@@ -90,7 +88,7 @@ def save_dir(filename, folder = None, **kwargs):
 	day_keyer = lambda e: e.StartTime.date()
 	hour_keyer = lambda e: e.StartTime.hour
 	#
-	trace = TraceWizard5_File(filename)
+	trace = TraceWizard5_import(filename)
 	fixture_keyer = trace.fixture_keyer # member of the trace object, and can change from TW4 to TW5
 	first_cycle_fixture_keyer = trace.first_cycle_fixture_keyer # ditto
 	label = trace.label or os.path.split(filename)[-1]
@@ -147,7 +145,7 @@ def save_dir(filename, folder = None, **kwargs):
 					hourly_volume_by_fixture[fixture_name][dn][h] = s
 				total_volume_by_hour[dn][h] = daily_total
 		# Combine fixtures into groups based on their location:
-		hourly_volume_by_type = { ft:np.zeros((days, 24)) for ft in ftypes }
+		hourly_volume_by_type = { ft:np.zeros((days, 24)) for ft in fixtures_by_tag.keys() }
 		for fixture_name in fixtures:
 			try:
 				ftype = fixture_type_lookup[fixture_name]
