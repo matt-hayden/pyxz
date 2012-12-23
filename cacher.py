@@ -1,15 +1,8 @@
 from datetime import datetime, timedelta
 import os.path
+from cPickle import dump, load
 from cStringIO import StringIO
 
-def tee(input, filename, mode = 'wb'):
-	s = StringIO()
-	print >>s, input,
-	s.seek(0)
-	content = s.read()
-	with open(filename, mode) as fo:
-		fo.write(content)
-	return content
 def cached(function,
 		   args = (),
 		   cache_file = None,
@@ -19,7 +12,7 @@ def cached(function,
 	
 	@cached
 	def hello(*args):
-		return "Hello,\nWorld"
+		return datetime.now()
 	print hello
 	
 	~/.cache/hello or ~/.hello.cache will be printed if less than 15 minutes
@@ -39,11 +32,12 @@ def cached(function,
 	cache_file = os.path.expanduser(cache_file)
 	#
 	if os.path.exists(cache_file) and (age(cache_file) < lifetime):
-		return open(cache_file).read()
+#		return open(cache_file).read()
+		return load(open(cache_file))
 	else:
-		return tee(function(*args), cache_file)
+#		return tee(function(*args), cache_file)
+		content = function(*args)
+		with open(cache_file, 'wb') as fo:
+			dump(content, fo)
+		return content
 #
-@cached
-def hello(*args):
-	return "Hello,\nWorld"
-print hello
