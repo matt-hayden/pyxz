@@ -3,6 +3,10 @@ import json
 from math import sin, cos, pi, radians
 from urllib2 import urlopen
 
+conditions_by_lat_lon_string = '''http://openweathermap.org/data/2.1/find/city?lat={lat}&lon={lon}&cnt={cnt}'''
+conditions_by_city_string = '''http://openweathermap.org/data/2.1/find/city?lat={lat}&lon={lon}&cnt={cnt}'''
+forecast_by_lat_lon_string = '''http://openweathermap.org/data/2.1/forecast/city?lat={lat}&lon={lon}&cnt={cnt}'''
+url_for_icon_string = '''http://openweathermap.org/img/w/{icon}.png'''
 
 def kelvin_to_celsius(k):
 	return k-273.15
@@ -30,10 +34,6 @@ def english_direction(angle, unit='degrees'):
 	else:
 		w_part = "E"
 	return n_part+w_part
-
-conditions_by_lat_lon_string = '''http://openweathermap.org/data/2.1/find/city?lat={lat}&lon={lon}&cnt={cnt}'''
-forecast_by_lat_lon_string = '''http://openweathermap.org/data/2.1/forecast/city?lat={lat}&lon={lon}&cnt={cnt}'''
-url_for_icon_string = '''http://openweathermap.org/img/w/{icon}.png'''
 
 def get_current_conditions(**kwargs):
 	lat = kwargs.pop('latitude',None)
