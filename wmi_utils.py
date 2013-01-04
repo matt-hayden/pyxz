@@ -109,9 +109,14 @@ def wmi_uptime(*args, **kwargs):
 #
 if __name__ == '__main__':
 	def print_shell_aliases(boxer, shell = "bash"):
-		if shell.title() in ['Bash', 'Bourne']:
+		shell = shell.lower()
+		if shell in ['bash', 'bourne']:
 			for c in commands:
 				print """alias {0}='{1} {0}'""".format(c, boxer)
+		elif shell == 'doskey':
+			print >> sys.stderr, "Make sure python is in your path, and wmi_utils is in PYTHONPATH"
+			for c in commands:
+				print """DOSKEY {0}={1} {0}""".format(c, boxer)
 	def command_switchboard(command_name, args = () ):
 		if command_name == 'wmi_utils' or command_name is None:
 			if args:
@@ -132,6 +137,8 @@ if __name__ == '__main__':
 			wmi_uptime()
 		elif command_name in commands:
 			raise wmi_utils_Error("Internal error: {}: command not found".format(command_name) )
+		else:
+			raise wmi_utils_Error("{}: command not found".format(command_name) )
 	#
 	called_dirname, called_basename = os.path.split(sys.argv[0])
 	called_filepart, script_extension = os.path.splitext(called_basename)
