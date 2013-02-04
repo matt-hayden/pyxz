@@ -11,7 +11,7 @@ def open_file(filename, *args, **kwargs):
 	format = kwargs.pop('format', None)
 	if format == 'TraceWizard5' or ext == '.TWDB':
 		return TraceWizard5_import(filename, *args, **kwargs)
-	elif format == 'MeterMaster4' or ext == '.CSV':
+	elif format == 'MeterMaster4' or ext in ('.CSV', '.ZIP'):
 		return MeterMaster4_CSV(filename, *args, **kwargs)
 	elif format == 'TraceWizard4' or ext == '.TDB':
 		return TraceWizard4_import(filename, *args, **kwargs)

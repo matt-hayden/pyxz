@@ -1,8 +1,35 @@
 from contextlib import closing
 import csv
+import io
 import os, os.path
 import re
 from cStringIO import StringIO
+from zipfile import ZipFile
+
+class SelfNamedZipFileError(Exception):
+	pass
+def SelfNamedZipFile(filepath, default_extensions = [], **kwargs):
+	with ZipFile(filepath, 'r') as zi:
+		filelist = zi.infolist()
+		if len(filelist) == 0:
+			raise SelfNamedZipFileError("File '{}' empty".format(filepath))
+		elif 'zip_entry' in kwargs: # can be a filename or ZipInfo object
+			bi = zi.open(kwargs.pop('zip_entry'))
+		elif len(filelist) == 1:
+			bi = zi.open(filelist[0])
+		else:
+			dirname, filename = os.path.split(filepath)
+			basename, ext = os.path.splitext(filename)
+			default_filenames = [basename]+[ basename+ext for ext in default_extensions ]
+			default_filenames = [ f.upper() for f in default_filenames ]
+			possible_valid_entries = [ i for i in filelist if i.filename.upper() in default_filenames ]
+			if len(possible_valid_entries) == 1:
+				bi = zi.open(possible_valid_entries[0])
+			else:
+				print "%d possible files: %s" %(len(possible_valid_entries), ", ".join(possible_valid_entries))
+				print "Opening first occurring in '%s'" %(filename)
+				bi = zi.open(filelist[0])
+		return io.TextIOWrapper(bi, newline=None)
 
 class CSV_with_header_Error(Exception):
 	pass
@@ -50,10 +77,12 @@ class CSV_with_header:
 					self.from_iterable(data, **kwargs)
 			else:
 				self.from_iterable(data, **kwargs)
-	def from_file(self, filename, **kwargs):
-		with open(filename) as fi:
+	def from_file(self, filepath, **kwargs):
+		dirname, filename = os.path.split(filepath)
+		basename, ext = os.path.splitext(filename)
+		with SelfNamedZipFile(filepath, default_extensions = ('.CSV',), **kwargs) if kwargs.pop('force_unzip', ext.upper() == '.ZIP') else open(filepath) as fi:
 			self.from_iterable(fi, **kwargs)
-		self.path = filename
+		self.path = filepath
 	def from_iterable(self, iterable, **kwargs):
 		self.parse_CSV(iterable, **kwargs)
 		self.path = None
