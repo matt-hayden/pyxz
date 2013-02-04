@@ -1,6 +1,7 @@
 #! env python
 """
 Very simply emulate UNIX cal program.
+Cygwin moved the cal function into the util-linux package.
 """
 
 from calendar import TextCalendar
