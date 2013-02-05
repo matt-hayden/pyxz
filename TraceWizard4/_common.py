@@ -152,10 +152,6 @@ class MeterMaster_Common:
 			print "No log attributes"
 		print "[%s, ..., %s] (%d days)" % (self.begins, self.ends, self.days)
 		print "[Length: %d flows, Total %5.0f %s]" % (len(self.flows), self.get_total_volume(), self.volume_units)
-	def get_attribute(self, name, default=""):
-		if name in self.log_attributes:
-			return self.log_attributes[name]
-		else: return default
 class TraceWizard_Common(MeterMaster_Common):
 	event_table_name = 'events'
 	cyclers = [ 'Clotheswasher', 'Dishwasher', 'Clothes Washer', 'Dish Washer' ]

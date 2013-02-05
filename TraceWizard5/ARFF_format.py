@@ -34,7 +34,7 @@ class ARFF_format:
 	def attribute_name_formatter(s):
 		return s.title()
 	numeric_t = float
-	real_t = float # Decimal?
+	real_t = float # Decimal
 	bool_sets = [ set(l) for l in [ ['True', 'False'], ['Yes', 'No'] ] ]
 	#
 	index_nominals = False

@@ -78,9 +78,10 @@ class CSV_with_header:
 			else:
 				self.from_iterable(data, **kwargs)
 	def from_file(self, filepath, **kwargs):
-		dirname, filename = os.path.split(filepath)
-		basename, ext = os.path.splitext(filename)
-		with SelfNamedZipFile(filepath, default_extensions = ('.CSV',), **kwargs) if kwargs.pop('force_unzip', ext.upper() == '.ZIP') else open(filepath) as fi:
+		dirname, basename = os.path.split(filepath)
+		filename, ext = os.path.splitext(basename)
+		force_unzip = kwargs.pop('force_unzip', ext.upper() == '.ZIP')
+		with SelfNamedZipFile(filepath, default_extensions = ('.CSV',), **kwargs) if force_unzip else open(filepath) as fi:
 			self.from_iterable(fi, **kwargs)
 		self.path = filepath
 	def from_iterable(self, iterable, **kwargs):
@@ -88,6 +89,8 @@ class CSV_with_header:
 		self.path = None
 	def parse_CSV_header(self, iterable = None):
 		iterable = iterable or open(self.path)
+		assert iterable
+		line_number = 1
 		with closing(StringIO()) as sio:
 			for line_number, line in enumerate(iterable, start=1):
 				if (line_number > self.max_header_rows):
@@ -99,6 +102,7 @@ class CSV_with_header:
 					sio.write(line)
 			sio.seek(0)
 			self.header = list(csv.reader(sio))
+		#
 		self.header_lines = line_number
 		self.has_header = True
 		return line_number

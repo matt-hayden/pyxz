@@ -12,6 +12,8 @@ from CSV_with_header import CSV_with_header_and_version
 def format_MeterMaster4_header(pairs):
 	duration_regex = re.compile('((?P<days>\d+) days)?[ +]*((?P<hours>\d+):(?P<minutes>\d+)(:(?P<seconds>\d+))?)?')
 	volume_t = TraceWizard4.volume_t
+	def volume_t_formatter(text):
+		return volume_t(text.replace(',',''))
 	#
 	if type(pairs) == dict:
 		row = pairs
@@ -44,10 +46,10 @@ def format_MeterMaster4_header(pairs):
 								   )
 	else:
 		d['TotalTime'] = row.TotalTime
-	d['BeginReading'] = volume_t(row['BeginReading'])
-	d['EndReading'] = volume_t(row['EndReading'])
-	d['RegVolume'] = volume_t(row['RegVolume'])
-	d['MMVolume'] = volume_t(row['MMVolume'])
+	d['BeginReading'] = volume_t_formatter(row['BeginReading'])
+	d['EndReading'] = volume_t_formatter(row['EndReading'])
+	d['RegVolume'] = volume_t_formatter(row['RegVolume'])
+	d['MMVolume'] = volume_t_formatter(row['MMVolume'])
 	d['ConvFactor'] = float(row['ConvFactor'])
 	return d
 
