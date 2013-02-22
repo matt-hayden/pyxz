@@ -1,8 +1,10 @@
 #! env python
 """
-Wrapper to get the size of the current terminal window. Availability:
-UNIX: curses and console tools
-Win32: PyWin32 undocumented
+Wrapper to get the size of the current terminal window.
+
+Availability:
+	UNIX: curses and console tools
+	Win32: win32console if PyWin32 installed or a fallback
 """
 import os
 import struct
@@ -11,7 +13,7 @@ def get_win32console_size():
 	"""
 	http://nullege.com/codes/search/win32console.GetStdHandle
 	"""
-	try: # Works for 32-bit python only
+	try:
 		import win32console
 		# Query stderr to avoid problems with redirections
 		screenbuf = win32console.GetStdHandle(win32console.STD_ERROR_HANDLE)
@@ -19,33 +21,29 @@ def get_win32console_size():
 		columns = window.Right - window.Left + 1
 		rows = window.Bottom - window.Top + 1
 		return (rows, columns)
-	except: # assume 64-bit
-		try:
-			from ctypes import windll, create_string_buffer
-			# stdin handle is -10
-			# stdout handle is -11
-			# stderr handle is -12
-			h = windll.kernel32.GetStdHandle(-12)
-			csbi = create_string_buffer(22)
-			res = windll.kernel32.GetConsoleScreenBufferInfo(h, csbi)
-			if res:
-				(bufx, bufy, curx, cury, wattr,
-				left, top, right, bottom,
-				maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
-				sizex = right - left + 1
-				sizey = bottom - top + 1
-				return (sizey, sizex)
-		except:
-			pass
-
+	except ImportError:
+		from ctypes import windll, create_string_buffer
+		# stdin handle is -10
+		# stdout handle is -11
+		# stderr handle is -12
+		h = windll.kernel32.GetStdHandle(-12)
+		csbi = create_string_buffer(22)
+		res = windll.kernel32.GetConsoleScreenBufferInfo(h, csbi)
+		if res:
+			(bufx, bufy, curx, cury, wattr,
+			left, top, right, bottom,
+			maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
+			sizex = right - left + 1
+			sizey = bottom - top + 1
+			return (sizey, sizex)
 #
 def get_termios_size():
 	"""
 	http://pdos.csail.mit.edu/~cblake/cls/cls.py
 	"""
-	def ioctl_GWINSZ(fd):              #### TABULATION FUNCTIONS
-		try:                                ### Discover terminal width
-			import fcntl, termios, struct #, os
+	def ioctl_GWINSZ(fd):					#### TABULATION FUNCTIONS
+		try:								### Discover terminal width
+			import fcntl, termios, struct	#, os
 			cr = struct.unpack('hh', fcntl.ioctl(fd, termios.TIOCGWINSZ, '1234'))
 		except:
 			return None
@@ -76,3 +74,22 @@ def get_terminal_size(default = None):
 			pass
 	return rc or default
 #
+def to_columns(iterable, num_columns = None, sep=None, term_columns = None):
+	"""
+	Formats elements of an iterable into a table, like the short output of 'ls'
+	"""
+	sl = max(len(str(x)) for x in iterable)
+	if not num_columns:
+		if not term_columns:
+			term_rows, term_columns = get_terminal_size()
+		num_columns = term_columns//sl
+	if num_columns < 1:
+		num_columns = 1
+	rows = (len(iterable)//num_columns)+1
+	partitioned = [iterable[i:i+rows] for i in xrange(1,len(iterable),rows)]
+	if sep is None:
+		width_by_partition = [ (max(len(x) for x in el), el) for el in partitioned ]
+		partitioned = [ [x.ljust(j) for x in el] for j, el in width_by_partition ]
+		sep = ' '
+	lines = (sep.join(x) for x in zip(*partitioned))
+	return '\n'.join(lines)
