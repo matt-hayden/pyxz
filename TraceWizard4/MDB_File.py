@@ -15,6 +15,7 @@ from contextlib import closing
 from logging import debug, info, warning, error, critical
 import sys
 
+import_driver = None
 try:
 	import pyodbc as import_driver
 except:

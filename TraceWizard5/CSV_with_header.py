@@ -9,6 +9,12 @@ from zipfile import ZipFile
 class SelfNamedZipFileError(Exception):
 	pass
 def SelfNamedZipFile(filepath, default_extensions = [], **kwargs):
+	"""
+	Simple helper function to allow ZIP files as file containers. The ZIP file
+	must contain a nonambiguous internal member. For example, foo.ZIP must
+	include foo, or foo.txt if '.txt' in argument default_extensions.
+	The extensions in default_extensions are checked in order.
+	"""
 	with ZipFile(filepath, 'r') as zi:
 		filelist = zi.infolist()
 		if len(filelist) == 0:
@@ -20,14 +26,23 @@ def SelfNamedZipFile(filepath, default_extensions = [], **kwargs):
 		else:
 			dirname, filename = os.path.split(filepath)
 			basename, ext = os.path.splitext(filename)
-			default_filenames = [basename]+[ basename+ext for ext in default_extensions ]
+			if default_extensions:
+				default_filenames = [ basename+ext for ext in default_extensions ]+[basename]
+			else:
+				default_filenames = [basename]
+			# case-insensitive:
 			default_filenames = [ f.upper() for f in default_filenames ]
 			possible_valid_entries = [ i for i in filelist if i.filename.upper() in default_filenames ]
-			if len(possible_valid_entries) == 1:
+			if not possible_valid_entries:
+				bi = zi.open(filelist[0])
+				info("Tried to find a nonambiguous file in {}, resorted to {}".format(filepath, filelist[0]))
+			elif len(possible_valid_entries) == 1:
 				bi = zi.open(possible_valid_entries[0])
 			else:
-				print "%d possible files: %s" %(len(possible_valid_entries), ", ".join(possible_valid_entries))
-				print "Opening first occurring in '%s'" %(filename)
+				listing = ", ".join(possible_valid_entries)
+				if len(listing) > 255:
+					listing[:252]+"..."
+				info("%d candidate members in %s: %s" %(len(possible_valid_entries), filename, listing))
 				bi = zi.open(filelist[0])
 		return io.TextIOWrapper(bi, newline=None)
 
@@ -53,10 +68,10 @@ class CSV_with_header:
 	error_when_max_rows_reached = True	#
 	max_header_rows=25					#
 	#
-	def __init__(self, data, *args, **kwargs):
-		eoh = kwargs.pop('eoh', None)
-		rows = kwargs.pop('rows', None)
-		load = kwargs.pop('load', True)
+	def __init__(self, data, **kwargs):
+		eoh = kwargs.pop('eoh', None)	# 
+		rows = kwargs.pop('rows', None)	# number of rows
+		load = kwargs.pop('load', True)	# boolean to begin loading file or wait
 		if eoh is not None:
 			self.end_of_header = eoh
 		elif rows:
@@ -64,29 +79,28 @@ class CSV_with_header:
 			self.error_when_max_rows_reached = False
 			self.max_header_rows = rows
 		#
-		if data:
-			if type(data) == str:
-				if os.path.exists(data):
-					if load:
-						self.from_file(data, **kwargs)
-					else:
-						self.path = data
-				elif os.path.exists(os.path.dirname(data)):	# stub for write implementation
-					self.path = data
-				else: # assume this is a long string from a CSV format file
-					self.from_iterable(data, **kwargs)
-			else:
+		if type(data) == str:
+			if os.path.exists(data):
+				self.path = data
+				if load:
+					self.from_file(self.path, **kwargs)
+#				else: # stub for something else
+			elif os.path.exists(os.path.dirname(data)):	# stub for write implementation
+				self.path = data
+			else: # assume this is a long string from a CSV format file
+				self.path = ''
 				self.from_iterable(data, **kwargs)
+		else:
+			self.from_iterable(data, **kwargs)
 	def from_file(self, filepath, **kwargs):
 		dirname, basename = os.path.split(filepath)
 		filename, ext = os.path.splitext(basename)
+		#
 		force_unzip = kwargs.pop('force_unzip', ext.upper() == '.ZIP')
 		with SelfNamedZipFile(filepath, default_extensions = ('.CSV',), **kwargs) if force_unzip else open(filepath) as fi:
 			self.from_iterable(fi, **kwargs)
-		self.path = filepath
 	def from_iterable(self, iterable, **kwargs):
 		self.parse_CSV(iterable, **kwargs)
-		self.path = None
 	def parse_CSV_header(self, iterable = None):
 		iterable = iterable or open(self.path)
 		assert iterable
@@ -122,15 +136,18 @@ class CSV_with_header_and_version(CSV_with_header):
 	version_regex = re.compile('[vV]?(?P<version_string>[\d.]*\d)')
 	def parse_CSV_header(self, iterable = None):
 		line_number = CSV_with_header.parse_CSV_header(self, iterable) # yuck
-		if not self.header[0][0].upper().startswith(self.format.upper()):
-			raise CSV_with_header_Error("'%s' not first line in header (%s)" % (self.format, self.header[0][0]))
+		token = self.header[0]
+		if token[0].upper().startswith(self.format.upper()):
+			del self.header[0]
+		else:
+			raise CSV_with_header_Error("'%s' not first line in header (%s)" % (self.format, token))
 		try:
-			self.version = self.header[0][1:]
+			self.version = token[1:]
 			try:
 				m = self.version_regex.match(self.version)
 				if m:
 					self.version_tuple = tuple(m.group('version_string').split('.'))
-					self.header = self.header[1:]
+#					self.header = self.header[1:]
 			except:
 				pass
 		except:
