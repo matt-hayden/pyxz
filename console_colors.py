@@ -86,7 +86,8 @@ if __name__ == '__main__':
 	wcc = WindowsConsoleColor()
 	apps = list(wcc.GetSettingsByApplication())
 	print "%d application(s) have custom settings: %r" %(len(apps), apps)
-	print "Current palette:", [ "0x%06x" % x for x in wcc[:] ]
+	#print "Current palette:", [ "0x%06x" % x for x in wcc[:] ]
+	print "Current palette:", list(wcc[:])
 	if False:
 		new_palette = [ 0x000000,	# Black
 						0x004080,	# Blue
