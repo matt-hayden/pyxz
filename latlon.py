@@ -40,4 +40,4 @@ def get_lat_lon(loc, *args, **kwargs):
 if __name__ == '__main__':
 	arg = ' '.join(sys.argv[1:])
 	place, (lat, lon) = get_lat_lon(arg)
-	print place,"=","Lat:{:03.5f},Lon:{:03.5f}".format(lat, lon)
+	print place,"=","Lat:{:+03.5f},Lon:{:+03.5f}".format(lat, lon)
