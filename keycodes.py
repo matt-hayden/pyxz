@@ -5,18 +5,6 @@ import re
 
 #
 keycode_re=re.compile('\s*(?P<year_code>\d{2})(?P<site_type_code>[a-zA-Z])(?P<year_count>\d{3,4})(?P<suffix>[a-zA-Z]\w*)?\s*')
-
-### Legacy:
-def parse_keycode(s, two_digit_year_cutoff=38):
-   m=keycode_re.match(s)
-   if m:
-      g = m.groupdict()
-      suffix = g['suffix'] if ('suffix' in g) else ""
-      year2, site_type_code, year_count = int(g['year_code']), g['site_type_code'].upper(), int(g['year_count'])
-#      year4 = 2000+year2 if (year2 <= two_digit_year_cutoff) else 1900+year2
-      return ("{year2}{site_type_code}{year_count}".format(**vars()), suffix)
-   else:
-      return s
 #
 keycode_types = { s[0].upper(): s for s in ['Agricultural', 'Commercial', 'Irrigation', 'Multi-family Residential', 'Single-Family Residence']}
 keycode_types['N'] = 'Institutional'
@@ -97,17 +85,17 @@ class AquacraftSimpleKeycode:
 		elif isinstance(arg, basestring):
 			text = arg
 		else:
-			raise NotImplementedError(arg)
+			raise KeycodeError(arg)
 		if path_warning and ((os.path.sep in text) or ('/' in text) or ('\\' in text)):
 			warning("String {} looks like a path, consider os.path.split() and stripext() in this module instead".format(text))
 		if extsep and (extsep in text):
 			text, ext = os.path.splitext(text)
 		self.parse(text, **kwargs)
 	def __lt__(self, other):
-		assert self.type == other.type, ValueError()
+		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() < other.to_tuple())
 	def __gt__(self, other):
-		assert self.type == other.type, ValueError()
+		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() > other.to_tuple())
 	def __hash__(self):
 		return int(str(self.year2)
@@ -128,6 +116,13 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 	True
 	>>> Keycode('12X345') == Keycode('12X345abc')
 	True
+	>>> Keycode('12X345') < Keycode('12X346')
+	True
+	>>> Keycode('14X345') > Keycode('12X346')
+	True
+	>>> Keycode('14A345') > Keycode('12X346')
+	Traceback (most recent call last):
+	KeycodeError: Cannot compare 14A345 and 12X346
 	
 	Use AquacraftMultiKeycode to allow formal suffixes A1, A2, B1, B2 
 	(and so on) to formally differentiate sites:
