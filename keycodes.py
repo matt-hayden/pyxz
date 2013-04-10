@@ -10,6 +10,10 @@ keycode_types = { s[0].upper(): s for s in ['Agricultural', 'Commercial', 'Irrig
 keycode_types['N'] = 'Institutional'
 keycode_types['X'] = None
 
+### Legacy:
+def parse_keycode(t):
+	return str(Keycode(t))
+
 class KeycodeError(Exception):
 	pass
 class AquacraftSimpleKeycode:
