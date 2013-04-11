@@ -6,38 +6,75 @@ best when ZIP is given.
 If modifying the geocoder, note that geopy has slight implementation 
 differences, see https://code.google.com/p/geopy/wiki/GettingStarted
 """
+from logging import debug, info, warning, error, critical
+
 from geopy import geocoders
 from numpy import median
-import sys
+
+class LatLonException(Exception):
+	pass
 
 lat_lon_cache = {}
 #gc = geocoders.GeoNames(format_string="%s, USA")
 gc = geocoders.GoogleV3()
-def get_lat_lon(loc, *args, **kwargs):
-	"""
-	Coroutine for resolving a lat-lon pair from a city, with some caching to
-	avoid being obnoxious. 
-	"""
-	key = loc.strip().upper()
-	if key in lat_lon_cache:
-		return lat_lon_cache[key]
-	else:
+#
+def fetch_lat_lon(loc, *args, **kwargs):
+	sanity_check = kwargs.pop('sanity_check', True)
+	#
+	def sanity_checker(lat, lon, *args):
+		if lat is None: return False
+		if lon is None: return False
+		if args: return False
 		try:
-			result = gc.geocode(loc, region="us", exactly_one=False) # GoogleV3
-#			result = gc.geocode(loc, exactly_one=False)
-			if isinstance(result, list):
-				if len(result)<1:
-					return ("None", (None, None))
-				if len(result)==1:
-					result = result[0]
-				else:
-					loc_median = median([(lat,lon) for place, (lat,lon) in result], axis=1)
-					result = ("median of {} in {}".format(len(result), result[0][0]), loc_median)
-			lat_lon_cache[key] = result
-			return result
-		except Exception as e:
-			print >> sys.stderr, loc, "Failed:", e
+			lat, lon = float(lat), float(lon)
+		except:
+			return False
+		if not (0 <= lat <= 90): return False
+		if not (-180 <= lon <= 180): return False
+		return True
+	#
+	"""
+	Result is a list of tuples like (place, (lat, lon)) where place is 
+	English and lat and lon are float. Unfortunately, the structure of
+	this list varies from geocoder to geocoder.
+	"""
+	results = gc.geocode(loc, region="us", exactly_one=False) # GoogleV3
+#			results = gc.geocode(loc, exactly_one=False)
+	if len(results)<1:
+		raise LatLonException(loc+" returned no results")
+	if len(results)==1:
+		result = results[0]
+	else:
+		loc_median = median([(lat,lon) for place, (lat,lon) in results], axis=1)
+		placenames = set([s.title() for s, (lat, lon) in results])
+		result = ("median of {} points in {}".format(len(results), placenames), loc_median)
+	if sanity_check and not sanity_checker(*result[1]):
+		raise LatLonException(loc+" failed sanity check: "+str(result))
+	return result
+def lookup_lat_lon(loc, *args, **kwargs):
+	error_result = kwargs.pop('error_result', ("None", (None, None)))
+	retry_on_errors = kwargs.pop('retry_on_errors', False)
+	#
+	key = loc.strip().upper()
+	if key not in lat_lon_cache:
+		try:
+			lat_lon_cache[key] = fetch_lat_lon(loc, *args, **kwargs)
+		except LatLonException:
+			try:
+				# try to get around a bug in GoogleV3 by doubling the placename
+				loc2 = ' ; '.join((loc,)*2)
+				lat_lon_cache[key] = fetch_lat_lon(loc2, *args, **kwargs)
+			except Exception as e:
+				error("Lookup of {} failed: {}".format(loc, e))
+				if not retry_on_errors:
+					lat_lon_cache[key] = error_result
+				return error_result
+	return lat_lon_cache[key]
 if __name__ == '__main__':
-	arg = ' '.join(sys.argv[1:])
-	place, (lat, lon) = get_lat_lon(arg)
-	print place,"=","Lat:{:+03.5f},Lon:{:+03.5f}".format(lat, lon)
+	import sys
+	for arg in sys.argv[1:]:
+		place, (lat, lon) = lookup_lat_lon(arg)
+		try:
+			print place,"=","Lat:{:+03.5f},Lon:{:+03.5f}".format(lat, lon)
+		except:
+			print place, (lat, lon)
