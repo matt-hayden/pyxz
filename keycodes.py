@@ -3,8 +3,19 @@ from logging import debug, info, warning, error, critical
 import os.path
 import re
 
-#
-keycode_re=re.compile('\s*(?P<year_code>\d{2})(?P<site_type_code>[a-zA-Z])(?P<year_count>\d{3,4})(?P<suffix>[a-zA-Z]\w*)?\s*')
+### The 2012 keycode spec: (detects up to 7 characters for the keycode,
+### plus a suffix like H,A1,etc.)
+keycode_re=re.compile('\s*'
+					  '(?P<year_code>\d{2})'
+					  '(?P<site_type_code>[a-zA-Z])'
+					  '(?P<year_count>\d{3,4})'
+					  '(?P<suffix>[a-zA-Z]\w*)?'
+					  '\s*')
+### Numerical-only format pre-2009:
+extra_keycode_res = [re.compile('\s*'
+								'(?P<keycode>\d+)'
+								'(?P<suffix>[a-zA-Z]\w*)?'
+								'\s*'),]
 #
 keycode_types = { s[0].upper(): s for s in ['Agricultural', 'Commercial', 'Irrigation', 'Multi-family Residential', 'Single-Family Residence']}
 keycode_types['N'] = 'Institutional'
@@ -14,6 +25,33 @@ keycode_types['X'] = None
 def parse_keycode(t):
 	return str(Keycode(t))
 
+def parse_filename(filepath):
+	"""
+	Convenience function for pulling keycodes from filenames. Some studies used
+	integer IDs, others used the 2009 Keycode spec. 
+	"""
+	if (os.path.sep in filepath) or ('/' in filepath) or (r'\\' in filepath):
+		dirname, basename = os.path.split(filepath)
+	else:
+		basename = filepath
+	if os.path.extsep in basename:
+		filepart, ext = os.path.splitext(basename)
+	else:
+		filepart = basename
+	id = filepart.upper()
+	try:
+		id = Keycode(filepart, strict=True)
+	except:
+		try:
+			id = int(filepart[:7])
+		except:
+			for exp in extra_keycode_res:
+				m = exp.match(filepart)
+				if m:
+					g = m.groupdict()
+					if 'keycode' in g:
+						id = int(g['keycode'])
+	return id
 class KeycodeError(Exception):
 	pass
 class AquacraftSimpleKeycode:

@@ -12,44 +12,21 @@ from itertools import groupby
 from logging import debug, info, warning, error, critical
 from os import mkdir
 import os.path
-import re
 from shutil import move
 from subprocess import check_output
 import sys
 
-from keycodes import Keycode
+# Aquacraft keycode logic is found in a small module:
+from keycodes import parse_filename
 
-output_directory='joined'
+# sejda is used for PDF processing:
+executable="sejda-console-1.0.0.M6\\bin\\sejda-console.bat"
+
+# Processed output files will be 
+output_directories=['', 'joined1', 'joined2', 'joined3']
+
+# Processed input files will end up in move_directory, and can be deleted:
 move_directory='_processed'
-extra_keycode_formats = [re.compile('\s*(?P<keycode>\d+)(?P<suffix>[a-zA-Z]\w*)?\s*'),]
-
-def parse_filename(filepath):
-	"""
-	Filenames are based on keycodes. Some studies used integer IDs, others used
-	the 2009 Keycode spec. 
-	"""
-	if (os.path.sep in filepath) or ('/' in filepath) or (r'\\' in filepath):
-		dirname, basename = os.path.split(filepath)
-	else:
-		basename = filepath
-	if os.path.extsep in basename:
-		filepart, ext = os.path.splitext(basename)
-	else:
-		filepart = basename
-	id = filepart.upper()
-	try:
-		id = Keycode(filepart, strict=True)
-	except:
-		try:
-			id = int(filepart[:7])
-		except:
-			for exp in extra_keycode_formats:
-				m = exp.match(filepart)
-				if m:
-					g = m.groupdict()
-					if 'keycode' in g:
-						id = int(g['keycode'])
-	return id
 
 def combine_similarly_named_files(*args, **kwargs):
 	n, nff, uf = 0, 0, 0
@@ -60,43 +37,48 @@ def combine_similarly_named_files(*args, **kwargs):
 	for keycode, fi in groupby(args, parse_filename):
 		filenames=[ f for f in fi if (os.path.splitext(f)[-1].upper() in ('.PDF',)) ]
 		nf = len(filenames)
-		debug("{} file(s) {} -> keycode {}".format(nf, filenames, keycode))
-		if keycode in (None, ''):
-			error("Invalid keycode for {} files {}, skipped".format(nf, filenames))
-			uf+=nf
-			continue
-		if len(filenames) < 1:
-			error("No PDF files for keycode {}, skipped".format(keycode))
-			continue
-		elif len(filenames) == 1:
-			# do nothing
-			uf+=1
+		try:
+			output_directory=output_directories[nf]
+		except:
+			critical("No output directory for {}-size files, {} skipped".format(nf, filenames))
 			continue
 		else:
-			output_filename=os.path.join(output_directory, "{}.PDF".format(keycode))
+			debug("{} file(s) {} -> {}".format(nf, filenames, output_directory))
+		#
+		if (keycode != 0) and not keycode: # allow keycode = 0
+			error("Invalid keycode for {} files: {}, skipped".format(nf, filenames))
+			continue
+		if len(filenames) < 1:
+			warning("No PDF files for keycode {}, skipped".format(keycode))
+		elif len(filenames) == 1:
+			# simply move the file into the 1-directory
+			src=filenames.pop()
+			assert not filenames
+			move(src, output_directory)
+		else:
+			output_filename=os.path.join(output_directory, str(keycode)+".PDF")
 			try:
-				output = check_output(["sejda-console-1.0.0.M6\\bin\\sejda-console.bat", "merge", "-f"]+filenames+["-o", output_filename])
+				output = check_output([executable, "merge", "-f"]+filenames+["-o", output_filename])
 				debug("sejda output: {}".format(output))
 			except Exception as e:
 				critical("sejda failed: {}".format(e))
-		if os.path.exists(output_filename):
-			for f in filenames:
-				move(f, move_directory)
-		else:
-			error("Failed to create {}".format(output_filename))
-			nff+=len(filenames)
-	if nff:
-		warning("{} ignored + {} failed of {} files".format(uf, nff, n))
-	else:
-		info("{} ignored + {} failed of {} files".format(uf, nff, n))
+			if os.path.exists(output_filename):
+				for f in filenames:
+					move(f, move_directory)
+			else:
+				error("Failed to create {}".format(output_filename))
+				nff+=len(filenames)
+	return nff, n
 #
 import logging
-logging.basicConfig(level=logging.DEBUG if __debug__ else logging.INFO)
+logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARNING)
 #
-if not os.path.isdir(output_directory):
-	mkdir(output_directory)
+for d in output_directories:
+	if not os.path.isdir(d):
+		mkdir(d)
 if not os.path.isdir(move_directory):
 	mkdir(move_directory)
 #
 args = sys.argv[1:] or glob('*.PDF')
-combine_similarly_named_files(*args)
+failures, total = combine_similarly_named_files(*args)
+print "{} failures out of {} total files processed".format(failures, totals)

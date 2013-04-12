@@ -78,3 +78,4 @@ if __name__ == '__main__':
 			print place,"=","Lat:{:+03.5f},Lon:{:+03.5f}".format(lat, lon)
 		except:
 			print place, (lat, lon)
+	print lat_lon_cache
