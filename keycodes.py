@@ -3,19 +3,12 @@ from logging import debug, info, warning, error, critical
 import os.path
 import re
 
-### The 2012 keycode spec: (detects up to 7 characters for the keycode,
-### plus a suffix like H,A1,etc.)
-keycode_re=re.compile('\s*'
-					  '(?P<year_code>\d{2})'
-					  '(?P<site_type_code>[a-zA-Z])'
-					  '(?P<year_count>\d{3,4})'
-					  '(?P<suffix>[a-zA-Z]\w*)?'
-					  '\s*')
 ### Numerical-only format pre-2009:
 extra_keycode_res = [re.compile('\s*'
 								'(?P<keycode>\d+)'
 								'(?P<suffix>[a-zA-Z]\w*)?'
-								'\s*'),]
+								'\s*')
+					]
 #
 keycode_types = { s[0].upper(): s for s in ['Agricultural', 'Commercial', 'Irrigation', 'Multi-family Residential', 'Single-Family Residence']}
 keycode_types['N'] = 'Institutional'
@@ -25,7 +18,7 @@ keycode_types['X'] = None
 def parse_keycode(t):
 	return str(Keycode(t))
 
-def parse_filename(filepath):
+def parse_filename(filepath, int_t=int, max_digits=24):
 	"""
 	Convenience function for pulling keycodes from filenames. Some studies used
 	integer IDs, others used the 2009 Keycode spec. 
@@ -38,20 +31,19 @@ def parse_filename(filepath):
 		filepart, ext = os.path.splitext(basename)
 	else:
 		filepart = basename
-	id = filepart.upper()
 	try:
-		id = Keycode(filepart, strict=True)
+		return Keycode(filepart, strict=True)
 	except:
 		try:
-			id = int(filepart[:7])
+			return int_t(filepart[:max_digits])
 		except:
 			for exp in extra_keycode_res:
 				m = exp.match(filepart)
 				if m:
 					g = m.groupdict()
 					if 'keycode' in g:
-						id = int(g['keycode'])
-	return id
+						return int_t(g['keycode'])
+	return filepart.upper()
 class KeycodeError(Exception):
 	pass
 class AquacraftSimpleKeycode:
@@ -65,13 +57,21 @@ class AquacraftSimpleKeycode:
 	Note that most earlier code assumes exactly 6 characters in each keycode. 7
 	characters are used since around 2012.
 	"""
-	keycode_re=re.compile('\s*(?P<year_code>\d{2})(?P<site_type_code>[a-zA-Z])(?P<year_count>\d{3,4})(?P<suffix>[a-zA-Z]\w*)?\s*')
+	keycode_re=re.compile('\s*'
+						  '(?P<year_code>\d{2})'
+						  '(?P<site_type_code>[a-zA-Z])'
+						  '(?P<year_count>\d{3,4})'
+						  '(?P<suffix>[a-zA-Z]\w*)?'
+						  '\s*')
 	two_digit_max_year=2095
 	year_count_max_digits=4
 	year_count_max=10**year_count_max_digits-1
 	#
 	def __init__(self, arg, **kwargs):
-		self.from_string(arg, **kwargs)
+		if isinstance(arg, AquacraftSimpleKeycode):
+			self.parse(arg.text, **kwargs)
+		else:
+			self.from_string(arg, **kwargs)
 	@property
 	def year(self):
 		return self.year4
@@ -117,19 +117,14 @@ class AquacraftSimpleKeycode:
 		return int(str(self.year2)+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
 	def __float__(self):
 		return float(self.year2+"."+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
-	def from_string(self, arg, **kwargs):
+	def from_string(self, text, **kwargs):
 		extsep = kwargs.pop('extsep', os.path.extsep)
 		self.keep_suffix = kwargs.pop('keep_suffix', True)
-		path_warning = kwargs.pop('path_warning', True)
+#		path_warning = kwargs.pop('path_warning', True)
 		#
-		if isinstance(arg, AquacraftSimpleKeycode):
-			text = arg.text
-		elif isinstance(arg, basestring):
-			text = arg
-		else:
-			raise KeycodeError(arg)
-		if path_warning and ((os.path.sep in text) or ('/' in text) or ('\\' in text)):
-			warning("String {} looks like a path, consider os.path.split() and stripext() in this module instead".format(text))
+		assert isinstance(text, basestring), KeycodeError(str(text))
+#		if path_warning and ((os.path.sep in text) or ('/' in text) or ('\\' in text)):
+#			warning("String {} looks like a path, consider os.path.split() and stripext() in this module instead".format(text))
 		if extsep and (extsep in text):
 			text, ext = os.path.splitext(text)
 		self.parse(text, **kwargs)
