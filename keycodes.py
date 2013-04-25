@@ -18,6 +18,7 @@ keycode_types['X'] = None
 def parse_keycode(t):
 	return str(Keycode(t))
 
+###
 def parse_filename(filepath, int_t=int, max_digits=24):
 	"""
 	Convenience function for pulling keycodes from filenames. Some studies used
@@ -75,12 +76,18 @@ class AquacraftSimpleKeycode:
 	@property
 	def year(self):
 		return self.year4
+	def get_study(self, sep = " "):
+		try:
+			studies = [ s for s,r in keycode_ranges_by_study.items() if self in r ]
+			return sep.join(studies)
+		except IOError:
+			return ""
 	def normalized(self, **kwargs):
 		assert self.year_count<=self.year_count_max
 		if kwargs.pop('keep_suffix', False):
-			return "{0.year2}{0.site_type_code}{0.year_count}{0.suffix}".format(self)
+			return "{0.year2:02}{0.site_type_code}{0.year_count:03}{0.suffix}".format(self)
 		else:
-			return "{0.year2}{0.site_type_code}{0.year_count}".format(self)
+			return "{0.year2:02}{0.site_type_code}{0.year_count:03}".format(self)
 	def parse(self, text, **kwargs):
 		strict = kwargs.pop('strict', True)
 		self.text = text
@@ -110,7 +117,8 @@ class AquacraftSimpleKeycode:
 		except:
 			return self.text
 	def __repr__(self):
-		return "<{1} trace {0}>".format(self, self.type or "Unknown")
+		label = " ".join(filter(lambda _: str(_).strip(), (self.get_study(), self.type))) or "Unknown"
+		return "<{1} trace {0}>".format(self, label)
 	def to_tuple(self):
 		return self.year2, self.site_type_code, self.year_count, self.suffix
 	def __int__(self):
@@ -129,9 +137,11 @@ class AquacraftSimpleKeycode:
 			text, ext = os.path.splitext(text)
 		self.parse(text, **kwargs)
 	def __lt__(self, other):
+		other = other if isinstance(other, self.__class__) else Keycode(other)
 		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() < other.to_tuple())
 	def __gt__(self, other):
+		other = other if isinstance(other, self.__class__) else Keycode(other)
 		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() > other.to_tuple())
 	def __hash__(self):
@@ -140,8 +150,9 @@ class AquacraftSimpleKeycode:
 				  +"{1:0{0}d}".format(self.year_count_max_digits, self.year_count)
 				  +'0')
 	def __eq__(self, other):
+		other = other if isinstance(other, self.__class__) else Keycode(other)
 		if self.type == other.type:
-			return (self.year, self.year_count) == (other.year, other.year_count)
+			return (self.year, self.site_type_code, self.year_count) == (other.year, other.site_type_code, other.year_count)
 		else:
 			return False
 class AquacraftMultiKeycode(AquacraftSimpleKeycode):
@@ -149,7 +160,9 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 	Can be subclassed for particular keycode variants in projects. Python
 	sets and operators work like so:
 	
-	>>> Keycode('12X345') == Keycode('12X345')
+	>>> Keycode('12X345') == '12X345'
+	True
+	>>> Keycode('12X345A1') == '12x345'
 	True
 	>>> Keycode('12X345') == Keycode('12X345abc')
 	True
@@ -274,14 +287,15 @@ def Keycode(*args, **kwargs):
 	elif len(args) == 2:
 		k1 = Keycode(args[0])
 		if isinstance(args[1], int):
-			assert args[1] != 0
+			assert args[1] != 0 # this might become a special case later
 			if args[1] > 0:
 				start = k1.year_count
 				end = start + args[1] - 1
 			elif args[1] < 0:
 				end = k1.year_count
 				start = end + args[1]
-		else:
+		else: # assume it's convertible to a Keycode object
+			start = k1.year_count
 			k2 = Keycode(args[1])
 			end = k2.year_count
 		a = []
@@ -292,7 +306,8 @@ def Keycode(*args, **kwargs):
 #		return set(a)
 		return a
 	elif len(args) >= 3:
-		return Keycode(reduce(lambda x,y: x+str(y), [str(a) for a in args]))
+#		return Keycode(reduce(lambda x,y: x+str(y), [str(a) for a in args]))
+		return Keycode(''.join(str(a) for a in args if a is not None))
 #
 def splitext(filepath, **kwargs):
 	"""
@@ -314,6 +329,17 @@ def splitext(filepath, **kwargs):
 	except:
 		return filepart, ext
 #
+
+### TODO: this section must be updated as new keycodes are assigned
+keycode_ranges_by_study={
+	'Phoenix-Relog': Keycode('09S301','09S391'),
+	'Roseville': Keycode('09S401','09S416'),
+	'ABCWUA': Keycode('10S401','10S469'),
+	'Westy-2010': Keycode('10S730','10S799'),
+	'REUWS-2': Keycode('12S101','12S1319')+Keycode('13S101','13S215')
+	}
+###
+
 if __name__=='__main__':
 	import doctest
 	failures, tests = doctest.testmod()
