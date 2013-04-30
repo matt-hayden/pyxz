@@ -1,4 +1,12 @@
 #! env python
+"""Since 2009, Aquacraft keycodes are unique identifiers between 6 and 7 
+characters long. Before this, identifiers are only unique within certain
+studies.
+
+Note: the study lookup functionality is hard-coded at the end of this file.
+It's easy to change, but requires manual adjustment.
+"""
+
 from logging import debug, info, warning, error, critical
 import os.path
 import re
@@ -330,17 +338,7 @@ def splitext(filepath, **kwargs):
 		return filepart, ext
 #
 
-### TODO: this section must be updated as new keycodes are assigned
-keycode_ranges_by_study={
-	'Phoenix-Relog': Keycode('09S301','09S391'),
-	'Roseville': Keycode('09S401','09S416'),
-	'ABCWUA': Keycode('10S401','10S469'),
-	'Westy-2010': Keycode('10S730','10S799'),
-	'REUWS-2': Keycode('12S101','12S1319')+Keycode('13S101','13S215')
-	}
-###
-
-if __name__=='__main__':
+def test():
 	import doctest
 	failures, tests = doctest.testmod()
 	if not failures:
@@ -361,3 +359,18 @@ if __name__=='__main__':
 					except Exception as e:
 						print text, e
 				print
+#
+if __name__=='__main__':
+	if __debug__:
+		test()
+	
+	import sys
+### TODO: this section must be updated as new keycodes are assigned
+keycode_ranges_by_study={
+	'Phoenix-Relog': Keycode('09S301','09S391'),
+	'Roseville': Keycode('09S401','09S416'),
+	'ABCWUA': Keycode('10S401','10S469'),
+	'Westy-2010': Keycode('10S730','10S799'),
+	'REUWS-2': Keycode('12S101','12S1319')+Keycode('13S101','13S215')
+	}
+### EOF
