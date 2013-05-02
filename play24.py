@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from glob import glob
 import os.path
 import sys
@@ -6,38 +6,52 @@ import sys
 ### external module for Windows
 from playMP3 import playMP3
 
-#
+## To specify a timezone:
+#from pytz import timezone
+#tz = timezone('UTC')
+tz=None
+
 soundsdirectories=[ os.path.join("sounds", "24"),
 					os.path.expandvars(os.path.expanduser('~/sounds/24')),
 					os.path.join(os.path.expandvars('%ProgramFiles%'), "Agent Jack Bauer", "sounds", "24"),
 					os.path.join(os.path.expandvars('%ProgramFiles(x86)%'), "Agent Jack Bauer", "sounds", "24")
 					]
-"""
-# To specify a timezone:
-from pytz import timezone
-tz = timezone('UTC')
-"""
-tz=None
-#
-def find_sounds(dirs = soundsdirectories):
+
+def find_sounds(dirs):
 	for d in filter(os.path.isdir, dirs):
 		if glob(os.path.join(d, "*.mp3")):
 			return d
 	return None
-def get_hourly_soundfile(dir=find_sounds(),
-						 now=None
-						 ):
-	# This is necessary instead of now = datetime.now(tz) above:
-	now = now or datetime.now(tz)
+def get_sounds_lookup(dir=find_sounds(soundsdirectories), strict=False):
+	"""
+	Returns something like [ "0.mp3", ... , "23.mp3" ]
+	"""
 	assert os.path.isdir(dir)
-	filepath = os.path.join(dir, "{}.mp3".format(now.hour))
-	return filepath if os.path.isfile(filepath) else None
+	if strict:
+		filenames = [ "{}.mp3".format(_) for _ in range(24) ]
+		return [ os.path.join(dir, _) for _ in filenames ]
+	else:
+		soundfiles = glob(os.path.join(dir, "*.mp3"))
+		l = len(soundfiles)
+		assert l > 0
+		if l >= 24:
+			return get_sounds_lookup(dir, strict=True)
+		elif l >= 12:
+			if os.path.join(dir, "12.mp3") in soundfiles:
+				filenames = [ "{}.mp3".format(_) for _ in [12]+range(1,12) ]
+				return [ os.path.join(dir, _) for _ in filenames ]
+		else:
+			return [ soundfiles[_ % l] for _ in range(24) ]
 #
-soundsdir = find_sounds()
-def play24():
-	soundfile = get_hourly_soundfile(soundsdir)
-	assert os.path.isfile(soundfile)
-	playMP3(soundfile)
+def play24(now = None, sounds_lookup=get_sounds_lookup(), ahead=timedelta(minutes=5)):
+	assert filter(os.path.exists, sounds_lookup)
+	if not isinstance(now, datetime):
+		if now:
+			now = datetime.fromtimestamp(now, tz)
+		else:
+			now = datetime.now(tz)+ahead
+	h = now.hour
+	playMP3(sounds_lookup[h])
 #
 if __name__=='__main__':
 	play24()
