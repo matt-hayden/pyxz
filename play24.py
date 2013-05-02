@@ -7,12 +7,10 @@ import sys
 from playMP3 import playMP3
 
 #
-dirname=os.path.dirname(sys.argv[0])
-soundsdirectories=[ 'sounds/24', 
-					os.path.join(dirname, 'sounds/24'),
+soundsdirectories=[ os.path.join("sounds", "24"),
 					os.path.expandvars(os.path.expanduser('~/sounds/24')),
-					os.path.join(os.path.expandvars('%ProgramFiles%'), "Agent Jack Bauer", "sounds","24"),
-					os.path.join(os.path.expandvars('%ProgramFiles(x86)%'), "Agent Jack Bauer", "sounds","24")
+					os.path.join(os.path.expandvars('%ProgramFiles%'), "Agent Jack Bauer", "sounds", "24"),
+					os.path.join(os.path.expandvars('%ProgramFiles(x86)%'), "Agent Jack Bauer", "sounds", "24")
 					]
 """
 # To specify a timezone:
