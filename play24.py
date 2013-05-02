@@ -25,8 +25,10 @@ def find_sounds(dirs = soundsdirectories):
 			return d
 	return None
 def get_hourly_soundfile(dir=find_sounds(),
-						 now=datetime.now(tz)
+						 now=None
 						 ):
+	# This is necessary instead of now = datetime.now(tz) above:
+	now = now or datetime.now(tz)
 	assert os.path.isdir(dir)
 	filepath = os.path.join(dir, "{}.mp3".format(now.hour))
 	return filepath if os.path.isfile(filepath) else None

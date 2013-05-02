@@ -1,3 +1,4 @@
+#! env python
 import os.path
 import sys
 
@@ -38,8 +39,6 @@ else:
 		output_filename = f+".avs"
 	except:
 		output_filename = "unknown.avs"
-
-
 s=template.stream(source = source,
 				  numbered_args = list(enumerate(input_filenames)))
 s.dump(output_filename)
