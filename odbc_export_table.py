@@ -7,7 +7,7 @@ import pyodbc as odbc
 
 def get_connection_string(**kwargs):
 	read_only = 1 if kwargs.pop('read_only',None) else 0
-	database_filename = os.path.abspath(kwargs['database_filename'])
+	database_filename = os.path.abspath(os.path.normpath(kwargs['database_filename']))
 	parts = ('DRIVER={Microsoft Access Driver (*.mdb, *.accdb)}',
 			 'DBQ={}'.format(database_filename),
 			 'ReadOnly={}'.format(read_only) ) 
