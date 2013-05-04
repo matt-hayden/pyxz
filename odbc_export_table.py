@@ -6,6 +6,7 @@ import sys
 import pyodbc as odbc
 
 def get_connection_string(**kwargs):
+	exclusive = 1 if kwargs.pop('exclusive',None) else 0
 	read_only = 1 if kwargs.pop('read_only',None) else 0
 	database_filename = os.path.abspath(os.path.normpath(kwargs['database_filename']))
 	parts = ('DRIVER={Microsoft Access Driver (*.mdb, *.accdb)}',
@@ -14,11 +15,11 @@ def get_connection_string(**kwargs):
 	return ';'.join(parts)
 def export_table(*args, **kwargs):
 	"""
-	Understood arguments:
+	Understood keyword arguments:
 		One of the following:
 			database_filename (can be relative)
 			connection_string (passed to pyodbc.connect)
-			connection
+			connection object (need not be via pyodbc)
 			
 		One of the following:
 			table_name
@@ -26,8 +27,8 @@ def export_table(*args, **kwargs):
 		
 		output = a filename or file object, by default screen
 		Modifiers for output:
-			append = False to overwriting existing files
-			overwrite = False to allow overwriting
+			append = False to overwrite existing files
+			overwrite = True to allow overwriting
 	"""
 	if len(args) == 2:
 		kwargs['database_filename'], kwargs['table_name'] = args
@@ -52,5 +53,6 @@ def export_table(*args, **kwargs):
 	sql = kwargs.pop('sql', 'select * from {}'.format(kwargs.pop('table_name')))
 	with closing(connection.cursor()) as cursor:
 		cursor.execute(sql)
-		writer.writerow( [ _[0] for _ in cursor.description ] )
+		headers = [ _[0] for _ in cursor.description ]
+		writer.writerow(headers)
 		writer.writerows(row for row in cursor)
