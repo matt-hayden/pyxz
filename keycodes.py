@@ -11,6 +11,9 @@ from logging import debug, info, warning, error, critical
 import os.path
 import re
 
+### TODO: this section (below) must be updated as new keycodes are assigned
+keycode_ranges_by_study={}
+
 ### Numerical-only format pre-2009:
 extra_keycode_res = [re.compile('\s*'
 								'(?P<keycode>\d+)'
@@ -337,6 +340,15 @@ def splitext(filepath, **kwargs):
 	except:
 		return filepart, ext
 #
+### TODO: this section must be updated as new keycodes are assigned
+keycode_ranges_by_study={
+	'Phoenix-Relog': Keycode('09S301','09S391'),
+	'Roseville': Keycode('09S401','09S416'),
+	'ABCWUA': Keycode('10S401','10S469'),
+	'Westy-2010': Keycode('10S730','10S799'),
+	'REUWS-2': Keycode('12S101','12S1319')+Keycode('13S101','13S215')
+	}
+###
 
 def test():
 	import doctest
@@ -360,17 +372,28 @@ def test():
 						print text, e
 				print
 #
-if __name__=='__main__':
-	if __debug__:
-		test()
-	
+if __name__=='__main__':	
+	from itertools import groupby
 	import sys
-### TODO: this section must be updated as new keycodes are assigned
-keycode_ranges_by_study={
-	'Phoenix-Relog': Keycode('09S301','09S391'),
-	'Roseville': Keycode('09S401','09S416'),
-	'ABCWUA': Keycode('10S401','10S469'),
-	'Westy-2010': Keycode('10S730','10S799'),
-	'REUWS-2': Keycode('12S101','12S1319')+Keycode('13S101','13S215')
-	}
+	
+	from myglob import glob
+	#
+	a=[]
+	args = sys.argv[1:] or ['*']
+	for f in glob(*args):
+		try:
+			a.append((Keycode(f), f))
+		except KeycodeError:
+			pass
+	a.sort()
+	for k, kps in groupby(a, lambda _:_[0]):
+		files = []
+		for k2, p in kps:
+			if os.path.isdir(p):
+				files.append(p+'/')
+			else:
+				files.append(p)
+		print str(k)+":"
+		print '\t', ' '.join(files)
+		print
 ### EOF
