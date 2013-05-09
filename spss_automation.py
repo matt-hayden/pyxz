@@ -1,5 +1,6 @@
 from collections import defaultdict
 from itertools import groupby
+from os.path import commonprefix
 
 import spssaux
 
@@ -32,12 +33,16 @@ def spss_get_common_variables(input_filenames,
 	Input: a list of SAV files
 	Output: a combined list of variables that appear in one or more of those files
 	"""
+	prefix = commonprefix(input_filenames)
 	var_names_by_fileorder = defaultdict(set)
 	for i, f in enumerate(input_filenames, start=1):
-		print " ", i, "=", f 
+		print " ", i, "=", f.replace(prefix,"",1)
 		spssaux.OpenDataFile(f)
 		for v in spssaux.VariableDict():
-			var_names_by_fileorder[name_key(v.VariableName)].add(i)
+			if name_key:
+				var_names_by_fileorder[name_key(v.VariableName)].add(i)
+			else:
+				var_names_by_fileorder[v.VariableName].add(i)
 	###
 	s = var_names_by_fileorder.items() # pairs of variable name, [index of file(s) present]
 	
@@ -47,7 +52,7 @@ def spss_get_common_variables(input_filenames,
 #
 def spss_print_common_variables(input_filenames, 
 								grouper=None,
-								group_seperator='-'):
+								group_seperator=None):
 	"""
 	Input: a list of SAV files
 	Output: a text table of variables sorted by frequency of occurance
@@ -69,8 +74,10 @@ def spss_print_common_variables(input_filenames,
 	# assume spss_get_common_variables(input_filenames) is sorted by frequency of occurrance
 	s=spss_get_common_variables(input_filenames)
 	label_width = max(len(_[0]) for _ in s)
-	#
+	if group_seperator is None:
+		group_seperator = '-'*(label_width+4)
 	for coverage_group, name_fis_tuples in groupby(s, grouper):
-		print group_seperator*(label_width+4)
+		if group_seperator:
+			print group_seperator
 		for name, fis in name_fis_tuples:
 			print form_one_line(name, fis, nticks=number_of_input_files, label_width=label_width)
