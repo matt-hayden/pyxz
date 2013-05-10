@@ -1,6 +1,6 @@
 from collections import defaultdict
 from itertools import groupby
-from os.path import commonprefix
+import os.path
 
 import spssaux
 
@@ -27,16 +27,20 @@ def form_one_line(label, ticks, nticks=None, start=1, missing_symbol='_', tick_s
 def spss_get_common_variables(input_filenames, 
 							  name_key=lambda _: _.lower(), 
 							  sort_key=lambda _: len(_[-1]), 
-							  sort_reverse=True
+							  sort_reverse=True,
+							  prefix=""
 							  ):
 	"""
 	Input: a list of SAV files
 	Output: a combined list of variables that appear in one or more of those files
 	"""
-	prefix = commonprefix(input_filenames)
+	assert hasattr(name_key, '__call__')
+	input_filenames = [ os.path.abspath(_) for _ in input_filenames ]
+	prefix = prefix or os.path.commonprefix(input_filenames)
+	#
 	var_names_by_fileorder = defaultdict(set)
 	for i, f in enumerate(input_filenames, start=1):
-		print " ", i, "=", f.replace(prefix,"",1)
+		print " ", i, "=", f.replace(prefix,"",1) if prefix else f
 		spssaux.OpenDataFile(f)
 		for v in spssaux.VariableDict():
 			if name_key:
@@ -81,3 +85,18 @@ def spss_print_common_variables(input_filenames,
 			print group_seperator
 		for name, fis in name_fis_tuples:
 			print form_one_line(name, fis, nticks=number_of_input_files, label_width=label_width)
+			
+if __name__ == '__main__':
+	from glob import glob
+	import sys
+	#
+	args = sys.argv[1:] or glob('*.SAV')
+	if args:
+		if all(os.path.exists(_) for _ in args):
+			spss_print_common_variables(args)
+		else:
+			for f in input_filenames:
+				print f, "Found" if os.path.exists(f) else "Not Found!"
+	else:
+		print "No .SAV files given"
+		sys.exit(-1)
