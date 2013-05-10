@@ -1,5 +1,6 @@
 from collections import defaultdict
 from itertools import groupby
+import os
 import os.path
 
 import spssaux
@@ -28,7 +29,7 @@ def spss_get_common_variables(input_filenames,
 							  name_key=lambda _: _.lower(), 
 							  sort_key=lambda _: len(_[-1]), 
 							  sort_reverse=True,
-							  prefix=""
+#							  prefix=""
 							  ):
 	"""
 	Input: a list of SAV files
@@ -36,11 +37,12 @@ def spss_get_common_variables(input_filenames,
 	"""
 	assert hasattr(name_key, '__call__')
 	input_filenames = [ os.path.abspath(_) for _ in input_filenames ]
-	prefix = prefix or os.path.commonprefix(input_filenames)
+#	prefix = prefix or os.path.commonprefix(input_filenames+[os.path.abspath(os.curdir)])
 	#
 	var_names_by_fileorder = defaultdict(set)
 	for i, f in enumerate(input_filenames, start=1):
-		print " ", i, "=", f.replace(prefix,"",1) if prefix else f
+#		print " ", i, "=", f.replace(prefix,"",1) if prefix else f
+		print " ", i, "=", os.path.relpath(f)
 		spssaux.OpenDataFile(f)
 		for v in spssaux.VariableDict():
 			if name_key:
@@ -95,7 +97,7 @@ if __name__ == '__main__':
 		if all(os.path.exists(_) for _ in args):
 			spss_print_common_variables(args)
 		else:
-			for f in input_filenames:
+			for f in args:
 				print f, "Found" if os.path.exists(f) else "Not Found!"
 	else:
 		print "No .SAV files given"
