@@ -1,11 +1,57 @@
 from collections import defaultdict
 from itertools import groupby
-import os
+#import os
 import os.path
 
 import spssaux
 
-def form_one_line(label, ticks, nticks=None, start=1, missing_symbol='_', tick_symbol=None, label_width=50):
+def condense_string(text, width):
+	ss = text.split()
+	if not ss:
+		return text
+	mwl = max(len(_) for _ in ss)
+	for wl in range(mwl, 1, -1):
+		ns = [ _[:wl] for _ in ss ]
+		nt = ' '.join(ns)
+		if len(nt) < width:
+			return nt
+	#
+	return text[:width]
+
+def variable_description_tuple(spss_variable,
+							   missing_values_none = (0, None, None, None)
+							   ):
+	"""
+	spss_variable is an element of VariableDict
+	"""
+	my_level = spss_variable.VariableLevel
+	if my_level == 'nominal' and spss_variable.VariableType > 0:
+		my_level = 'string ({})'.format(spss_variable.VariableType)
+	elif my_level == 'scale' and 'units' in spss_variable.Attributes:
+		my_level = 'scale ({})'.format(spss_variable.Attributes['units'].strip())
+	#
+	my_missing = spss_variable.MissingValues2
+	if my_missing == missing_values_none:
+		my_missing = ''
+	return (spss_variable.VariableIndex,
+			   spss_variable.VariableLabel,
+			   spss_variable.VariableName,
+			   my_level,
+			   my_missing)
+def variable_description_string(vdtuple,
+								label_width = 20,
+								name_width = 20,
+								level_width = 20):
+	"""
+	"""
+	id, label, name, level, missing = vdtuple
+	return ' '.join((str(id).rjust(3),
+					 condense_string(label, label_width),
+					 name.ljust(name_width),
+					 level.ljust(level_width),
+					 str(missing) ))
+
+def label_and_tick_string(label, ticks, nticks=None, start=1, missing_symbol='_', tick_symbol=None, label_width=50):
 	"""
 	Input: label, ticks
 		label is a string, usually the name of a variable
@@ -56,6 +102,12 @@ def spss_get_common_variables(input_filenames,
 	s.sort(key=sort_key, reverse=sort_reverse) # descending coverage, by default
 	return s
 #
+def spss_print_variables(filename):
+	spssaux.OpenDataFile(filename)
+	vars = [ variable_description_tuple(_) for _ in spssaux.VariableDict()]
+	for v in vars:
+		print variable_description_string(v)
+#
 def spss_print_common_variables(input_filenames, 
 								grouper=None,
 								group_seperator=None):
@@ -86,7 +138,7 @@ def spss_print_common_variables(input_filenames,
 		if group_seperator:
 			print group_seperator
 		for name, fis in name_fis_tuples:
-			print form_one_line(name, fis, nticks=number_of_input_files, label_width=label_width)
+			print label_and_tick_string(name, fis, nticks=number_of_input_files, label_width=label_width)
 			
 if __name__ == '__main__':
 	from glob import glob
@@ -94,11 +146,14 @@ if __name__ == '__main__':
 	#
 	args = sys.argv[1:] or glob('*.SAV')
 	if args:
-		if all(os.path.exists(_) for _ in args):
-			spss_print_common_variables(args)
+		if len(args) == 1:
+			spss_print_variables(args.pop())
 		else:
-			for f in args:
-				print f, "Found" if os.path.exists(f) else "Not Found!"
+			if all(os.path.exists(_) for _ in args):
+				spss_print_common_variables(args)
+			else:
+				for f in args:
+					print f, "Found" if os.path.exists(f) else "Not Found!"
 	else:
 		print "No .SAV files given"
 		sys.exit(-1)
