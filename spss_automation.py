@@ -5,51 +5,57 @@ import os.path
 
 import spssaux
 
-def condense_string(text, width):
-	ss = text.split()
-	if not ss:
-		return text
-	mwl = max(len(_) for _ in ss)
-	for wl in range(mwl, 1, -1):
-		ns = [ _[:wl] for _ in ss ]
-		nt = ' '.join(ns)
-		if len(nt) < width:
-			return nt
-	#
-	return text[:width]
-
+from console_size import condense_string, get_terminal_size, redirect_terminal
+	
 def variable_description_tuple(spss_variable,
-							   missing_values_none = (0, None, None, None)
-							   ):
+							   flags = None,
+							   missing_values_none = (0, None, None, None)):
 	"""
 	spss_variable is an element of VariableDict
 	"""
+	my_flags = flags.upper() if flags else ""
+	#
 	my_level = spss_variable.VariableLevel
 	if my_level == 'nominal' and spss_variable.VariableType > 0:
 		my_level = 'string ({})'.format(spss_variable.VariableType)
-	elif my_level == 'scale' and 'units' in spss_variable.Attributes:
-		my_level = 'scale ({})'.format(spss_variable.Attributes['units'].strip())
+	#
+	if 'units' in spss_variable.Attributes and 'U' not in my_flags:
+		my_flags += 'U'
+	if 'U' in my_flags:
+		my_units = spss_variable.Attributes.pop('units','unit').strip()
+		my_level += ' ({})'.format(my_units)
 	#
 	my_missing = spss_variable.MissingValues2
 	if my_missing == missing_values_none:
 		my_missing = ''
+	elif 'M' not in my_flags:
+		my_flags += 'M'
+	#
 	return (spss_variable.VariableIndex,
-			   spss_variable.VariableLabel,
-			   spss_variable.VariableName,
-			   my_level,
-			   my_missing)
-def variable_description_string(vdtuple,
-								label_width = 20,
-								name_width = 20,
-								level_width = 20):
+			spss_variable.VariableLabel,
+			spss_variable.VariableName,
+			my_level,
+			my_missing,
+			my_flags)
+def variable_description_string(vdtuple, widths = [0]*6, line_width = None):
 	"""
+	Formats (id, label, name, level, missing, flags) into a sensible fixed-width
+	string.
 	"""
-	id, label, name, level, missing = vdtuple
-	return ' '.join((str(id).rjust(3),
-					 condense_string(label, label_width),
-					 name.ljust(name_width),
-					 level.ljust(level_width),
-					 str(missing) ))
+	id, label, name, level, missing, flags = vdtuple
+	text = ' '.join((str(id).rjust(widths[0] or 4)+flags.ljust(widths[5] or 3),
+					 name.ljust(widths[2] or 20),
+					 level.ljust(widths[3] or 10),
+					 str(missing),
+					 label
+					 ))
+	if line_width:
+		too_long = len(text) - line_width
+		if too_long > 0:
+			label_width = len(label)
+			new_label = condense_string(label, label_width-too_long)
+			return variable_description_string((id, new_label, name, level, missing, flags), widths, line_width)
+	return text
 
 def label_and_tick_string(label, ticks, nticks=None, start=1, missing_symbol='_', tick_symbol=None, label_width=50):
 	"""
@@ -102,11 +108,20 @@ def spss_get_common_variables(input_filenames,
 	s.sort(key=sort_key, reverse=sort_reverse) # descending coverage, by default
 	return s
 #
-def spss_print_variables(filename):
+def spss_print_variables(filename, key=None, line_width=None):
+	"""
+	SPSS v20 seems to print a lot to stdout. This function discards that output.
+	"""
 	spssaux.OpenDataFile(filename)
-	vars = [ variable_description_tuple(_) for _ in spssaux.VariableDict()]
+	with redirect_terminal(stdout=os.devnull):
+		# id, label, name, level, missing, flags
+		vars = [ variable_description_tuple(_) for _ in spssaux.VariableDict()]
+	widths = {}
+	widths[0] = len(str(vars[-1][0]))
+	for i in range(1,6):
+		widths[i] = max(len(_[i]) for _ in vars)
 	for v in vars:
-		print variable_description_string(v)
+		print variable_description_string(v, widths=widths, line_width=line_width)
 #
 def spss_print_common_variables(input_filenames, 
 								grouper=None,
@@ -144,10 +159,17 @@ if __name__ == '__main__':
 	from glob import glob
 	import sys
 	#
+	from console_size import get_terminal_size
+	#
 	args = sys.argv[1:] or glob('*.SAV')
+	if sys.stdout.isatty():
+		rows, columns = get_terminal_size()
+	else:
+		rows, columns = None, None
+	#
 	if args:
 		if len(args) == 1:
-			spss_print_variables(args.pop())
+			spss_print_variables(args.pop(), line_width=columns-1 if columns else None)
 		else:
 			if all(os.path.exists(_) for _ in args):
 				spss_print_common_variables(args)
