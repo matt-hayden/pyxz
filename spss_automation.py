@@ -82,34 +82,43 @@ def spss_get_common_variables(input_filenames,
 							  name_key=lambda _: _.lower(), 
 							  sort_key=lambda _: len(_[-1]), 
 							  sort_reverse=True,
-#							  prefix=''
+							  cached=True
 							  ):
 	"""
 	Input: a list of SAV files
 	Output: a combined list of variables that appear in one or more of those files
 	"""
-	assert hasattr(name_key, '__call__')
-	input_filenames = [ os.path.abspath(_) for _ in input_filenames ]
-#	prefix = prefix or os.path.commonprefix(input_filenames+[os.path.abspath(os.curdir)])
+	if name_key:
+		assert hasattr(name_key, '__call__')
+#	input_filenames = [ os.path.abspath(_) for _ in input_filenames ]
 	#
 	var_names_by_fileorder = defaultdict(set)
-	for i, f in enumerate(input_filenames, start=1):
-#		print " ", i, "=", f.replace(prefix,'',1) if prefix else f
-		print " ", i, "=", os.path.relpath(f)
-		spssaux.OpenDataFile(f)
-		for v in spssaux.VariableDict():
-			if name_key:
-				var_names_by_fileorder[name_key(v.VariableName)].add(i)
-			else:
-				var_names_by_fileorder[v.VariableName].add(i)
+	###
+	if cached:
+		for i, f in enumerate(input_filenames, start=1):
+			print " ", i, "=", os.path.relpath(f)
+			vars = spss_load_variables(f)
+			for (id, label, name, level, missing, flags) in vars:
+				if name_key:
+					var_names_by_fileorder[name_key(name)].add(i)
+				else:
+					var_names_by_fileorder[name].add(i)
+	else:
+		for i, f in enumerate(input_filenames, start=1):
+			print " ", i, "=", os.path.relpath(f)
+			spssaux.OpenDataFile(os.path.normpath(f))
+			for v in spssaux.VariableDict():
+				if name_key:
+					var_names_by_fileorder[name_key(v.VariableName)].add(i)
+				else:
+					var_names_by_fileorder[v.VariableName].add(i)
 	###
 	s = var_names_by_fileorder.items() # pairs of variable name, [index of file(s) present]
-	
 	s.sort()
 	s.sort(key=sort_key, reverse=sort_reverse) # descending coverage, by default
 	return s
 #
-def spss_print_variables(filename, pickle_filename = '', key=None, line_width=None):
+def spss_load_variables(filename, pickle_filename = '', save=True):
 	"""
 	SPSS v20 seems to print a lot to stdout. This function discards that output.
 	"""
@@ -123,15 +132,23 @@ def spss_print_variables(filename, pickle_filename = '', key=None, line_width=No
 		except Exception as e:
 			info("Loading {} failed: {}".format(pickle_filename, e))
 	if not vars:
-		spssaux.OpenDataFile(filename)
+		spssaux.OpenDataFile(os.path.normpath(filename))
 		with redirect_terminal(stdout=os.devnull):
 			# id, label, name, level, missing, flags
 			vars = [ variable_description_tuple(_) for _ in spssaux.VariableDict()]
-		try:
-			with open(pickle_filename, 'wb') as fo:
-				pickle.dump(vars, fo)
-		except Exception as e:
-			info("Saving {} failed: {}".format(pickle_filename, e))
+		if save:
+			try:
+				with open(pickle_filename, 'wb') as fo:
+					pickle.dump(vars, fo)
+			except Exception as e:
+				info("Saving {} failed: {}".format(pickle_filename, e))
+	return vars
+#
+def spss_print_variables(filename, key=None, line_width=None):
+	"""
+	SPSS v20 seems to print a lot to stdout. This function discards that output.
+	"""
+	vars = spss_load_variables(filename)
 	widths = {}
 	widths[0] = len(str(vars[-1][0]))
 	for i in range(1,6):
