@@ -1,7 +1,8 @@
 from collections import defaultdict
 from itertools import groupby
-#import os
+from logging import debug, info, warning, error, critical
 import os.path
+import cPickle as pickle
 
 import spssaux
 
@@ -11,9 +12,9 @@ def variable_description_tuple(spss_variable,
 							   flags = None,
 							   missing_values_none = (0, None, None, None)):
 	"""
-	spss_variable is an element of VariableDict
+	Returns (id, label, name, level, missing, flags)
 	"""
-	my_flags = flags.upper() if flags else ""
+	my_flags = flags.upper() if flags else ''
 	#
 	my_level = spss_variable.VariableLevel
 	if my_level == 'nominal' and spss_variable.VariableType > 0:
@@ -81,7 +82,7 @@ def spss_get_common_variables(input_filenames,
 							  name_key=lambda _: _.lower(), 
 							  sort_key=lambda _: len(_[-1]), 
 							  sort_reverse=True,
-#							  prefix=""
+#							  prefix=''
 							  ):
 	"""
 	Input: a list of SAV files
@@ -93,7 +94,7 @@ def spss_get_common_variables(input_filenames,
 	#
 	var_names_by_fileorder = defaultdict(set)
 	for i, f in enumerate(input_filenames, start=1):
-#		print " ", i, "=", f.replace(prefix,"",1) if prefix else f
+#		print " ", i, "=", f.replace(prefix,'',1) if prefix else f
 		print " ", i, "=", os.path.relpath(f)
 		spssaux.OpenDataFile(f)
 		for v in spssaux.VariableDict():
@@ -108,14 +109,29 @@ def spss_get_common_variables(input_filenames,
 	s.sort(key=sort_key, reverse=sort_reverse) # descending coverage, by default
 	return s
 #
-def spss_print_variables(filename, key=None, line_width=None):
+def spss_print_variables(filename, pickle_filename = '', key=None, line_width=None):
 	"""
 	SPSS v20 seems to print a lot to stdout. This function discards that output.
 	"""
-	spssaux.OpenDataFile(filename)
-	with redirect_terminal(stdout=os.devnull):
-		# id, label, name, level, missing, flags
-		vars = [ variable_description_tuple(_) for _ in spssaux.VariableDict()]
+	pickle_filename = pickle_filename or filename+'.variables'
+	vars = []
+	#
+	if os.path.exists(pickle_filename) and (os.path.getmtime(filename) <= os.path.getmtime(pickle_filename)):
+		try:
+			with open(pickle_filename, 'rb') as fi:
+				vars = pickle.load(fi)
+		except Exception as e:
+			info("Loading {} failed: {}".format(pickle_filename, e))
+	if not vars:
+		spssaux.OpenDataFile(filename)
+		with redirect_terminal(stdout=os.devnull):
+			# id, label, name, level, missing, flags
+			vars = [ variable_description_tuple(_) for _ in spssaux.VariableDict()]
+		try:
+			with open(pickle_filename, 'wb') as fo:
+				pickle.dump(vars, fo)
+		except Exception as e:
+			info("Saving {} failed: {}".format(pickle_filename, e))
 	widths = {}
 	widths[0] = len(str(vars[-1][0]))
 	for i in range(1,6):
