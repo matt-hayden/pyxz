@@ -159,8 +159,8 @@ def spss_load_variables(filename, pickle_filename = '', save=True):
 			info("Filter variable '{}'".format(filter_var))
 			weight_var = spssaux.GetDatasetInfo('Weight')
 			info("Weight variable '{}'".format(weight_var))
-			split_var = spssaux.GetDatasetInfo('SplitFile')
-			info("Split variable '{}'".format(split_var))
+			split_vars = [_.strip() for _ in spssaux.GetDatasetInfo('SplitFile').split(',')]
+			info("Split variable(s) '{}'".format(split_vars))
 			for v in spssaux.VariableDict():
 				flags = ''
 				n = v.VariableName
@@ -168,7 +168,7 @@ def spss_load_variables(filename, pickle_filename = '', save=True):
 					flags += 'F'
 				if n == weight_var:
 					flags += 'W'
-				if n == split_var:
+				if n in split_vars:
 					flags += 'S'
 				vars.append(vdtuple(v, flags=flags))
 		if save:
