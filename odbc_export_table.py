@@ -5,7 +5,7 @@ import csv
 import os.path
 import sys
 
-import pyodbc as odbc
+from pyodbc import connect
 
 from sanitize_strings import *
 	
@@ -43,12 +43,10 @@ def get_table(*args, **kwargs):
 		kwargs['database_filename'], kwargs['table_name'] = args
 	elif l == 1:
 		kwargs['database_filename'] = args[0]
-	#
-	input_found = os.path.isfile(kwargs['database_filename'])
 	connection = kwargs.pop('connection', None)
 	if not connection:
 		connection_string = kwargs.pop('connection_string', get_connection_string(read_only=True, **kwargs))
-		connection = odbc.connect(connection_string)
+		connection = connect(connection_string)
 	if 'sql' in kwargs:
 		sql = kwargs.pop('sql')
 	elif 'table_name' in kwargs:
