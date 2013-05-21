@@ -67,25 +67,14 @@ def spss_get_common_variables(args,
 	#
 	var_names_by_fileorder = defaultdict(set)
 	###
-	if cached:
-		for i, f in enumerate(input_filenames, start=1):
-			print " ", i, "=", os.path.relpath(f)
-			vars = spss_load_variables(f)
-			for order, label, name, level, missing, flags in vars:
-				if name_key:
-					var_names_by_fileorder[name_key(name)].add(i)
-				else:
-					var_names_by_fileorder[name].add(i)
-	else:
-		for i, f in enumerate(input_filenames, start=1):
-			print " ", i, "=", os.path.relpath(f)
-			spssaux.OpenDataFile(os.path.normpath(f))
-			for v in spssaux.VariableDict():
-				if name_key:
-					var_names_by_fileorder[name_key(v.VariableName)].add(i)
-				else:
-					var_names_by_fileorder[v.VariableName].add(i)
-	###
+	for i, f in enumerate(input_filenames, start=1):
+		print " ", i, "=", os.path.relpath(f)
+		vars = spss_load_variables(f)
+		for order, label, name, level, missing, flags in vars:
+			if name_key:
+				var_names_by_fileorder[name_key(name)].add(i)
+			else:
+				var_names_by_fileorder[name].add(i)
 	return var_names_by_fileorder.items() # pairs of variable name, [index of file(s) present]
 #
 def spss_load_variables(filename, pickle_filename = '', save=True):
@@ -130,4 +119,39 @@ def spss_load_variables(filename, pickle_filename = '', save=True):
 			except IOError as e:
 				info("Saving {} failed: {}".format(pickle_filename, e))
 	return vars
+#
+def spss_get_colliding_variables(args,
+								 only_collisions=True,
+								 collision_key=None
+								 ):
+	"""
+	Input: a list of SAV files
+	"""
+	input_filenames = list(args)
+	if collision_key:
+		assert hasattr(collision_key, '__call__')
+	else:
+		def collision_key(vdtuple):
+			return (vdtuple.NAME.lower(), vdtuple.LEVEL, vdtuple.MISSING)
+	collisions_by_fileorder = defaultdict(set) # lookup file(s) for a rough variable description
+	filenames_by_order = {} # lookup filename by index
+	###
+	for i, f in enumerate(input_filenames, start=1):
+		filenames_by_order[i] = os.path.relpath(f)
+		for v in spss_load_variables(f):
+			collisions_by_fileorder[collision_key(v)].add(i)
+	occurrences_by_property = defaultdict(list)
+	for k, v in collisions_by_fileorder.iteritems():
+		occurrences_by_property[k[0].lower()].append(k)
+	for varname,occurrences in occurrences_by_property.iteritems():
+		n = len(occurrences)
+		if n==1 and only_collisions:
+			continue
+		### _ is a set and not hashable here:
+		#occurrences_by_file = [ (filenames_by_order[collisions_by_fileorder[_]], _) for _ in occurrences ]
+		occurrences_by_file = []
+		for o in occurrences:
+			for prop in collisions_by_fileorder[o]:
+				occurrences_by_file.append((filenames_by_order[prop], o))
+		yield varname, occurrences_by_file
 #

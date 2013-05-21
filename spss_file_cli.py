@@ -3,11 +3,12 @@
 from spss_file import *
 
 from console_size import condense_string # this function is probably misplaced
-
+#
 def variable_description_string(vdtuple, widths = [0]*6, line_width = None):
 	"""
-	Formats (order, label, name, level, missing, flags) into a sensible fixed-width
-	string.
+	Formats (order, label, name, level, missing, flags) into a sensible
+	fixed-width string. The display widths can be controlled by widths[], 
+	which is ordered like above.	
 	"""
 	order, label, name, level, missing, flags = vdtuple
 	text = ' '.join((str(order).rjust(widths[0] or 4)+flags.ljust(widths[5] or 3),
@@ -95,8 +96,8 @@ def spss_print_common_variables_by_file(args,
 	return spss_print_common_variables(input_filenames, key=key, reverse=reverse)
 #
 def spss_print_common_variable_coverage(args,
-								key=None,
-								reverse=False):
+										key=None,
+										reverse=False):
 	"""
 	Input: multiple files
 	Output: text like spss_print_common_variables_by_file, but sorted by frequency
@@ -109,6 +110,22 @@ def spss_print_common_variable_coverage(args,
 			return (len(fis), [ _ in fis for _ in indices ])
 		reverse=True
 	return spss_print_common_variables(input_filenames, key=key, reverse=reverse)
+#
+def spss_print_colliding_variables(args = [], **kwargs):
+	slist = kwargs.pop('varname_descriptions', None)
+	if not slist:
+		slist = sorted(spss_get_colliding_variables(args, **kwargs))
+		if not slist:
+			return
+	namewidth = max(len(name) for name, collisions in slist)
+	filenamewidth = max(len(filename) for varname, _ in slist for filename, collisions in _ )
+	indent = ''.rjust(namewidth)
+	for varname, collisions in slist:
+		rhs = varname.rjust(namewidth)
+		for filename, (myname, mytype, mymissing) in sorted(collisions):
+			print rhs, "\t".join((filename.ljust(filenamewidth), mytype, str(mymissing)))
+			rhs = indent
+		print
 #
 if __name__ == '__main__':
 	from glob import glob
