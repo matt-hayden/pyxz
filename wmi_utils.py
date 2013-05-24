@@ -1,6 +1,6 @@
 #! env python
 import datetime
-from math import floor
+#from math import floor
 import os.path
 import sys
 
@@ -9,8 +9,7 @@ commands = 'blkid df free mount swaps uptime'.split()
 try:
 	import wmi
 except:
-	print >>sys.stderr, "Error: WMI module not installed"
-	print >>sys.stderr, "pip install WMI"
+	print >>sys.stderr, "Error: WMI module (or maybe win32com.client module) not installed"
 	sys.exit(-1)
 #
 # Unused:?
@@ -24,11 +23,20 @@ DriveType_desc = {	0: "Unknown",
 #
 class wmi_utils_Error(Exception):
 	pass
-def wmi_show_mounts(*args, **kwargs):
-	c = wmi.WMI(kwargs.pop('machine', None) )
+#
+def _partition_warning():
 	print >> sys.stderr,  "Warning: logical partitions within a MSDOS extended partition appear to share DeviceID"
-	for pl in c.Win32_LogicalDiskToPartition():
-		Antecedent, Dependent = pl.Antecedent, pl.Dependent
+#
+def wmi_show_mounts(*args, **kwargs):
+	if args:
+		plist = args
+	else:
+		c = wmi.WMI(kwargs.pop('machine', None) )
+		plist = [ (_.Antecedent, _.Dependent) for _ in c.Win32_LogicalDiskToPartition() ]
+	assert plist
+	#
+	_partition_warning()
+	for Antecedent, Dependent in plist:
 		flags = []
 		if Antecedent.BootPartition:
 			flags += "boot",
@@ -39,28 +47,41 @@ def wmi_show_mounts(*args, **kwargs):
 		if Dependent.SupportsDiskQuotas and not Dependent.QuotasDisabled:
 			flags += "quota",
 		label = Dependent.VolumeName
-		print Antecedent.DeviceID, "["+label+"]" if label else "", "on", Dependent.DeviceID, "type", Dependent.FileSystem, "("+" ".join(flags)+")"
+		print Antecedent.DeviceID+(" ["+label+"]" if label else ""), "on", Dependent.DeviceID, "type", Dependent.FileSystem, "("+" ".join(flags)+")"
 def wmi_swaps(*args, **kwargs):
 	c = wmi.WMI(kwargs.pop('machine', None) )
 	pfu = c.Win32_PageFileUsage()
 	for inst in pfu:
 		print inst.AllocatedBaseSize, inst.CurrentUsage, inst.Name
 def wmi_blkid(*args, **kwargs):
-	c = wmi.WMI(kwargs.pop('machine', None) )
-	print >> sys.stderr,  "Warning: logical partitions within a MSDOS extended partition appear to share DeviceID"
-	for pl in c.Win32_LogicalDiskToPartition():
-		Antecedent, Dependent = pl.Antecedent, pl.Dependent
-		label = Dependent.VolumeName
-		print Antecedent.DeviceID, "["+label+"]" if label else "",":","Serial="+Dependent.VolumeSerialNumber if Dependent.VolumeSerialNumber else "", "Type="+Dependent.FileSystem if Dependent.FileSystem else ""
+	show_unknown_serials = kwargs.pop('show_unknown_serials',True)
+	if args:
+		plist = args
+	else:
+		c = wmi.WMI(kwargs.pop('machine', None) )
+		plist = [ (_.Antecedent, _.Dependent) for _ in c.Win32_LogicalDiskToPartition() ]
+	assert plist
+	#
+	_partition_warning()
+	for Antecedent, Dependent in plist:
+		label, serial, fstype = Dependent.VolumeName or "", Dependent.VolumeSerialNumber or "", Dependent.FileSystem or ""
+		if serial or show_unknown_serials:
+			print Antecedent.DeviceID, "["+label+"]" if label else "",":","Serial="+serial, "Type="+fstype
+#		print Antecedent.DeviceID, "["+label+"]" if label else "",":","Serial="+Dependent.VolumeSerialNumber if Dependent.VolumeSerialNumber else "", "Type="+Dependent.FileSystem if Dependent.FileSystem else ""
+		
 def wmi_df(*args, **kwargs):
 	block_divisor = kwargs.pop('block_divisor', 1024L)
 	show_unknown_filesystems = kwargs.pop('show_unknown_filesystems',True)
 	widths = kwargs.pop('widths', [40, 11, 11, 11, 8, 10])
-	c = wmi.WMI(kwargs.pop('machine', None) )
-	plist = args or [ (_.Antecedent, _.Dependent) for _ in c.Win32_LogicalDiskToPartition() ]
+	#
+	if args:
+		plist = args
+	else:
+		c = wmi.WMI(kwargs.pop('machine', None) )
+		plist = [ (_.Antecedent, _.Dependent) for _ in c.Win32_LogicalDiskToPartition() ]
 	assert plist
 	#
-	print >> sys.stderr, "Warning: logical partitions within a MSDOS extended partition appear to share DeviceID"
+	_partition_warning()
 	print "Filesystem".ljust(widths[0]), \
 		   "blocks".rjust(widths[1]), \
 		   "Used".rjust(widths[2]), \
