@@ -54,28 +54,33 @@ def wmi_blkid(*args, **kwargs):
 		print Antecedent.DeviceID, "["+label+"]" if label else "",":","Serial="+Dependent.VolumeSerialNumber if Dependent.VolumeSerialNumber else "", "Type="+Dependent.FileSystem if Dependent.FileSystem else ""
 def wmi_df(*args, **kwargs):
 	block_divisor = kwargs.pop('block_divisor', 1024L)
+	widths = kwargs.pop('widths', [40, 11, 11, 11, 8, 10])
 	c = wmi.WMI(kwargs.pop('machine', None) )
+	plgen = args or c.Win32_LogicalDiskToPartition()
+	assert plgen
+	#
 	print >> sys.stderr, "Warning: logical partitions within a MSDOS extended partition appear to share DeviceID"
-	print "Filesystem".ljust(40), \
-		   "blocks".rjust(11), \
-		   "Used".rjust(11), \
-		   "Available".rjust(11), \
-		   "Capacity".rjust(8), \
-		   "Mounted on".ljust(10)
-	for pl in c.Win32_LogicalDiskToPartition():
+	print "Filesystem".ljust(widths[0]), \
+		   "blocks".rjust(widths[1]), \
+		   "Used".rjust(widths[2]), \
+		   "Available".rjust(widths[3]), \
+		   "Capacity".rjust(widths[4]), \
+		   "Mounted on".ljust(widths[5])
+	for pl in plgen:
 		Antecedent, Dependent = pl.Antecedent, pl.Dependent
 		# part_size = float(Antecedent.Size)/block_divisor # reports size of extended partition
 		fs_size, avail = float(Dependent.Size or 0)/block_divisor, float(Dependent.FreeSpace or 0)/block_divisor
 		used = fs_size - avail
 		capacity = 100.0*used/fs_size if fs_size else 100
 		label = Dependent.VolumeName
-		name = Antecedent.DeviceID + " ["+label+"]" if label else "(unknown)"
-		print  name.ljust(40), \
-			  ("%d" % fs_size).rjust(11), \
-			  ("%d" % used).rjust(11), \
-			  ("%d" % avail).rjust(11), \
-			  ("%d%%" % capacity).rjust(8), \
-			  Dependent.DeviceID.ljust(10)
+		if label or kwargs.pop('show_unknown_filesystems',True):
+			name = Antecedent.DeviceID + " ["+label+"]" if label else "(unknown)"
+			print  name.ljust(widths[0]), \
+				  ("%d" % fs_size).rjust(widths[1]), \
+				  ("%d" % used).rjust(widths[2]), \
+				  ("%d" % avail).rjust(widths[3]), \
+				  ("%d%%" % capacity).rjust(widths[4]), \
+				  Dependent.DeviceID.ljust(widths[5])
 #
 def wmi_free(*args, **kwargs):
 	width=12
