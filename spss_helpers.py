@@ -56,3 +56,20 @@ def sjoin(*args, **kwargs):
 		# if s:
 			# print "'{}' not converted".format(s)
 		# return None
+def find_numbers(text):
+	numbers = []
+	for t in text.split():
+		if t[-1] not in '0123456789':
+			t=t[:-1]
+		try:
+			numbers.append(float(t))
+		except ValueError:
+			if t:
+				print "'{}' not a number".format(t)
+	return numbers
+def keyword_matches(text, *keywords):
+	if keywords:
+		text = text.upper()
+		return [_.upper() in text for _ in keywords]
+	else:
+		return []

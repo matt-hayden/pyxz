@@ -50,7 +50,7 @@ def get_table(*args, **kwargs):
 	if 'sql' in kwargs:
 		sql = kwargs.pop('sql')
 	elif 'table_name' in kwargs:
-		sql = 'select * from {}'.format(kwargs.pop('table_name'))
+		sql = 'select * from [{}]'.format(kwargs.pop('table_name'))
 	with closing(connection.cursor()) as cursor:
 		if 'parameters' in kwargs:
 			cursor.execute(sql, kwargs.pop('parameters'))
