@@ -41,7 +41,7 @@ def events_by_day(table, **kwargs):
 def indooroutdoor_by_day(table, **kwargs):
 	for day, eg1 in events_by_day(table):
 		events = sorted(eg1, key=indooroutdoor_key, **kwargs)
-		yield (day, [(category, list(eg2)) for category, eg2 in groupby(events, key=key) if category])
+		yield (day, [(category, list(eg2)) for category, eg2 in groupby(events, key=indooroutdoor_key) if category])
 def events_by_hod(table, **kwargs):
 	def key(row):
 		return row.StartTime.hour

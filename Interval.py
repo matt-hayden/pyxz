@@ -1,12 +1,13 @@
 #!env python
 
-class Interval:
+class Interval(object):
 	"""
 	Closed one-dimensional interval object. Arithmetic will not work on ordered
 	pairs.
 	"""
-	def __init__(self, *args, **kwargs):
-		self.min, self.max = args
+	__slots__ = ['min', 'max']
+	def __init__(self, min, max):
+		self.min, self.max = min, max
 	def to_tuple(self):
 		return (self.min, self.max)
 	@property
@@ -63,7 +64,7 @@ class Interval:
 		[]
 		"""
 		return intersection(self, other) and cover(self, other)
-	def __rmul__(self, scalar):
+	def __rmul__(self, scalar): # left-to-right is reversed here
 		"""
 		>>> 6*Interval(1,2)
 		Interval(6, 12)

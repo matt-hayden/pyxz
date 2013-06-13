@@ -50,11 +50,11 @@ def _load_csv_gen(iterable,
 	if headers:
 		Row=namedtuple('Row', headers)
 		for line_num, row in enumerate(reader, start=1+skiprows):
-			debug("Line {}: '{}'".format(line_num, row))
+			debug("load_csv line {}: '{}'".format(line_num, row))
 			yield Row(*row)
 	else:
 		for line_num, row in enumerate(reader, start=1+skiprows):
-			debug("Line {}: '{}'".format(line_num, row))
+			debug("load_csv line {}: '{}'".format(line_num, row))
 			yield row
 		
 if __name__=='__main__':
