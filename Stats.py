@@ -2,16 +2,16 @@
 import numpy
 import scipy.stats
 
-from Interval import Interval
+from Interval import IntervalBase, Interval
 
-class StatsBase(Interval):
+class StatsBase(IntervalBase):
 	dtype = numpy.dtype('float')
 	print_format = '.2f'
 	#
-	def __init__(self):
-		self.df = 1
 	def __len__(self):
-		return self.n
+		try: return self.n
+		except AttributeError:
+			raise ValueError("Empty distribution")
 	def __nonzero__(self):
 		try: return self.n > 0
 		except: return False
@@ -30,7 +30,10 @@ class Stats(StatsBase):
 		self.from_numbers(*args, **kwargs)
 	def from_numbers(self, *args, **kwargs):
 		if args:
-			a = numpy.fromiter(*args, dtype=self.dtype, **kwargs)
+			if hasattr(args[0], '__iter__'):
+				a = numpy.fromiter(*args, dtype=self.dtype, **kwargs)
+			else:
+				a = numpy.array(args, dtype=self.dtype, **kwargs)
 			if len(a):
 				try:
 					self.n, (self.min, self.max), my_mean, my_var, self.skew, self.kurt = scipy.stats.describe(a)
@@ -45,31 +48,92 @@ class Stats(StatsBase):
 		>>> Stats(range(100)).mean
 		49.5
 		"""
-		return self.sum/len(self)
+		if self.sum: return self.sum/len(self)
+		else: return 0.0
 	@property
 	def variance(self):
-		return self.ss/len(self)-self.mean**2
+		"""
+		>>> Stats(range(100)).variance
+		833.25
+		"""
+		n = len(self)
+		if n > 1:
+			v = self.ss/n-self.mean**2
+			if v > 0: return v
+		return 0.0
 	@property
 	def sample_variance(self):
-		return self.ss/(len(self)-1)-self.mean**2
+		"""
+		Unbiased sample variance, an estimation of the variance of the
+		population.
+		
+		>>> Stats([1,2,3]).sample_variance
+		3.0
+		>>> Stats([1,2]).sample_variance
+		0.0
+		>>> Stats([1]).sample_variance
+		Traceback (most recent call last):
+		  ...
+		ZeroDivisionError: invalid calculation for sample variance
+		"""
+		n = len(self)
+		if n > 2:
+			v = self.ss/(n-1)-self.mean**2
+			return v if v > 0 else 0.0
+		elif 1 < n <= 2:
+			return 0.0
+		else: # Excel raises an error in this case, too
+			raise ZeroDivisionError('invalid calculation for sample variance')
 	@property
 	def stdev(self):
 		return numpy.sqrt(self.variance)
 	@property
 	def sample_stdev(self):
 		return numpy.sqrt(self.sample_variance)
-	def confidence(self, alpha):
-		return Interval(*scipy.stats.norm.interval(alpha, loc=self.mean, scale=self.stdev))
+	@property
+	def cv(self):
+		"""
+		Mean-centered coefficient of variation
+		
+		>>> s = Stats(range(100))
+		>>> s.cv == 1/s.snr
+		True
+		"""
+		if self.mean:
+			return self.stdev/self.mean
+	@property
+	def snr(self):
+		"""
+		Signal-to-noise ratio
+		
+		>>> s = Stats(range(100))
+		>>> s.snr == 1/s.cv
+		True
+		"""
+		if self.variance:
+			return self.mean/self.stdev
+	def confidence(self, alpha, **kwargs):
+		"""
+		Produce the confidence interval around the mean
+		
+		>>> s=Stats([1,2,3])
+		>>> i=s.confidence(0.05)
+		>>> s.mean in i
+		True
+		>>> a,b=i
+		>>> a,b
+		(1.9488001302083717, 2.051199869791628)
+		"""
+		return Interval(*scipy.stats.norm.interval(alpha, loc=self.mean, scale=self.stdev, **kwargs))
 	#
 	def __and__(self, other):
 		"""
 		This is how you combine two statistical runs into one:
 		
 		>>> Stats([1,2,3]) & Stats([-3,-2,-1])
-		n=6.00 min=-3.00 mean=0.00 max=3.00 stdev=2.16
+		n=6.00 min=-3.00 mean=0.00 max=3.00 stdev=2.16 total=0.00
 		"""
 		r = Stats()
-		r.df = self.df+other.df
 		r.n = self.n+other.n
 		r.sum = self.sum+other.sum
 		r.ss = self.ss+other.ss
@@ -83,7 +147,7 @@ class Stats(StatsBase):
 		>>> s = Stats([4,5,6])
 		>>> s &= Stats([1,2,3])
 		>>> s
-		n=6.00 min=1.00 mean=3.50 max=6.00 stdev=1.71
+		n=6.00 min=1.00 mean=3.50 max=6.00 stdev=1.71 total=21.00
 		
 		"""
 		self.n += other.n
@@ -104,7 +168,7 @@ class Stats(StatsBase):
 					 ('total', self.sum))
 			return ' '.join("{0}={1:{2}}".format(x,y,self.print_format) for x,y in parts)
 		else:
-			return "Empty statistics"
+			return "Empty distribution"
 class Distribution(Stats):
 	"""
 		frequencies:	a list of (score, freq) pairs, not necessarily unique
@@ -121,6 +185,9 @@ class Distribution(Stats):
 				self.frequencies = scipy.stats.itemfreq(a)
 	def histogram(self, **kwargs):
 		return scipy.stats.histogram([_[0] for _ in self.frequencies], weights=[_[1] for _ in self.frequencies], **kwargs)
+###
+### These are very, very slow:
+###
 	def filter(self, filter_function):
 		values = ()
 		for score, freq in self.frequencies:
@@ -133,6 +200,9 @@ class Distribution(Stats):
 		for score, freq in self.frequencies:
 			values += (score,)*freq
 		return values
+###
+###
+###
 	def percentile(self, per, **kwargs):
 		return scipy.stats.scoreatpercentile(self.values, per, **kwargs)
 	def __mod__(self, per):
@@ -164,29 +234,61 @@ class RatioStats(StatsBase):
 		if args:
 			self.from_num_denom(*args, **kwargs)
 	def from_num_denom(self, num, denom, **kwargs):
-		self.df = 0
-		#
 		if hasattr(num, '__iter__'):
 			my_num = numpy.fromiter(num, dtype=self.dtype, **kwargs)
-			self.numerator = Stats(my_num)
+			self.numerator = Distribution(my_num)
 			assert self.numerator
-			self.df = 1
-			self.n = len(self.numerator)
 		else:
-			my_num = float(num)
+			self.numerator = my_num = float(num)
 		if hasattr(denom, '__iter__'):
 			my_denom = numpy.fromiter(denom, dtype=self.dtype, **kwargs)
-			self.denominator = Stats(my_denom)
+			self.denominator = Distribution(my_denom)
 			assert self.denominator
-			self.df += 1
-			assert len(self) == len(self.denominator)
 		else:
-			my_num = float(num)
-		self.ratio_stats = Stats(my_num/my_denom)
-		assert self.ratio_stats
+			self.denominator = my_denom = float(denom)
+		self.ratio_stats = Distribution(my_num/my_denom)
+		self.n = len(self.ratio_stats)
 	@property
-	def mean_rate(self):
-		return self.numerator.sum/self.denominator.sum
+	def min(self):
+		return self.ratio_stats.min
+	@property
+	def max(self):
+		return self.ratio_stats.max
+	@property
+	def range(self):
+		return self.ratio_stats.range
+	@property
+	def median(self):
+		return self.ratio_stats % 50
+	@property
+	def prd(self):
+		"Price-related differential"
+		return self.ratio_stats.mean/self.weighted_mean
+	@property
+	def weighted_mean(self):
+		return self.numerator.mean/self.denominator.mean
+#	def confidence(self, alpha):
+#		"""
+#		Case 2 of Feiller's approximation. Assumes joint normality (jikes).
+#		"""
+#		if 0 in self.denominator.confidence(alpha):
+#			raise ZeroDivisionError("Denominator confidence interval spans 0")
+#		df = len(self)
+#		critical_t = scipy.stats.t.isf(alpha, df)
+#		g = (critical_t/self.denominator.mean)**2*self.denominator.variance
+	def __repr__(self):
+		"""
+		>>> print RatioStats(range(100), range(100,200))
+		numerator: n=100.00 min=0.00 mean=49.50 max=99.00 stdev=28.87 total=4950.00
+		denominator: n=100.00 min=100.00 mean=149.50 max=199.00 stdev=28.87 total=14950.00
+		ratio: n=100.00 min=0.00 mean=0.30 max=0.50 stdev=0.14 total=30.43
+		"""
+		parts = (('numerator', repr(self.numerator)),
+				 ('denominator', repr(self.denominator)),
+				 ('ratio', repr(self.ratio_stats)),
+				 ('weighted mean', self.weighted_mean))
+		return '\n'.join("{0}: {1}".format(x,y) for x,y in parts)
+#
 #
 if __name__ == '__main__':
 	import doctest
