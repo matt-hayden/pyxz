@@ -166,7 +166,10 @@ class Stats(StatsBase):
 					 ('max', self.max),
 					 ('stdev', self.stdev),
 					 ('total', self.sum))
-			return ' '.join("{0}={1:{2}}".format(x,y,self.print_format) for x,y in parts)
+			try:
+				return ' '.join("{0}={1:{2}}".format(x,y,self.print_format) for x,y in parts)
+			except:
+				return ' '.join("{0}={1}".format(x,y) for x,y in parts)
 		else:
 			return "Empty distribution"
 class Distribution(Stats):
@@ -196,15 +199,19 @@ class Distribution(Stats):
 		return Distribution(values)
 	@property
 	def values(self):
+		for score, freq in self.frequencies:
+			for i in xrange(int(freq)):
+				yield score
+	def map(self, map_function):
 		values = ()
 		for score, freq in self.frequencies:
-			values += (score,)*freq
-		return values
-###
-###
-###
+			values += (map_function(score),)*freq
+		return Distribution(values)
 	def percentile(self, per, **kwargs):
-		return scipy.stats.scoreatpercentile(self.values, per, **kwargs)
+		return scipy.stats.scoreatpercentile(list(self.values), per, **kwargs)
+###
+###
+###
 	def __mod__(self, per):
 		return self.percentile(per)
 	@property

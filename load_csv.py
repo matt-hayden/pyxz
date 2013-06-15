@@ -49,9 +49,17 @@ def _load_csv_gen(iterable,
 		headers = [sanitizer(_) for _ in header]
 	if headers:
 		Row=namedtuple('Row', headers)
+		num_fields = len(headers)
 		for line_num, row in enumerate(reader, start=1+skiprows):
 			debug("load_csv line {}: '{}'".format(line_num, row))
-			yield Row(*row)
+			try:
+				yield Row(*row)
+			except TypeError as e:
+				df = len(row) - num_fields
+				if df: error("Row {} has too {} fields".format(row, "many" if df > 0 else "few"))
+				else: raise e
+				if df < 0: row.extend([None]*(-df))
+				yield Row(*row[:num_fields])
 	else:
 		for line_num, row in enumerate(reader, start=1+skiprows):
 			debug("load_csv line {}: '{}'".format(line_num, row))
