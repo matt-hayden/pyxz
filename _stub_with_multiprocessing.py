@@ -6,7 +6,6 @@ DocString description goes here.
 
 # these are the minimum imports for the stub:
 import logging
-from multiprocessing import Pool, freeze_support
 from optparse import OptionParser, OptParseError
 import os.path
 import sys
@@ -15,23 +14,6 @@ from logging import debug, info, warning, error, critical
 
 usage = '%prog [options] input [output]'
 __version__ = 0.0
-
-##
-from datetime import datetime
-import time
-def check_size(filename):
-	s = os.path.getsize(filename)
-#	time.sleep(0.1)
-	if s:
-		return "Input file {} is {} bytes".format(filename, s)
-		debug("Input file {} is {} bytes".format(filename, s))
-	else:
-		return "Empty input file {}".format(filename)
-		error("Empty input file {}".format(filename))
-starttime=datetime.now()
-def timeprint(line):
-	print datetime.now()-starttime, line
-##
 
 def main(*args):
 	if not args: args = sys.argv[1:]
@@ -42,8 +24,7 @@ def main(*args):
 								'has_output':		False,
 								'allow_overwrite':	False,
 								'save_mode':		'w+',
-								'tempfile':			None,
-								'timeout':			60*60
+								'tempfile':			None
 							   })
 	log_level = options.log_level
 	if log_level < logging.ERROR: log_level += -10*(options.verbose or 0)
@@ -64,19 +45,16 @@ def main(*args):
 				with open(options.list_of_input_filenames, options.open_mode) as fi:
 					options.input_filenames.extend(_.rstrip() for _ in fi)
 		for ifn in options.input_filenames:
-			assert (os.path.isfile(ifn) and os.path.getsize(ifn)) or ifn in ('-')
+			info("Input file:"+ifn)
 	if options.has_output:
 		info("Output:"+options.output_filename)
 	if options.tempfile is not None:
 		debug("Using temporary file {}".format(tempfile))
 	try:
-		mp = Pool()
-#		results = mp.map_async(check_size, options.input_filenames)
-#		print results.get(timeout=options.timeout)
-		for result in mp.imap_unordered(check_size, options.input_filenames):
-			timeprint(result)
+		print "Fin"
 	except KeyboardInterrupt:
 		warning("Ended with user intervention")
+		return -1
 	finally:
 		logging.shutdown()
 	###
@@ -133,12 +111,8 @@ def get_parser(defaults = {}, **kwargs):
 	parser.add_option('--tempfile',
 					  dest='temp', metavar='FILE',
 					  help="Use the specified file as a place to dump output before moving it over the output file.")
-	parser.add_option('-t', '--timeout',
-					  dest='timeout', type='int',
-					  help="Number of seconds to run")
 	if defaults: parser.set_defaults(**defaults)
 	return parser.parse_args()
 ###
 if __name__ == '__main__':
-	freeze_support()
 	sys.exit(main() or 0)
