@@ -6,7 +6,7 @@ DocString description goes here.
 
 # these are the minimum imports for the stub:
 import logging
-from multiprocessing import Pool, freeze_support
+from multiprocessing import Pool, freeze_support, get_logger
 from optparse import OptionParser, OptParseError
 import os.path
 import sys
@@ -16,22 +16,43 @@ from logging import debug, info, warning, error, critical
 usage = '%prog [options] input [output]'
 __version__ = 0.0
 
-##
+###
+# Example code:
+# my_hourglass wraps the code for parallel execution. It must 
+###
 from datetime import datetime
 import time
-def check_size(filename):
+
+class Namespace(dict):
+    def __init__(self, *args, **kwargs):
+        super(Namespace, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+class NamespaceCreated(dict):
+	now=datetime.now
+	def __init__(self, *args, **kwargs):
+		super(NamespaceCreated, self).__init__(*args, **kwargs)
+		self.__dict__ = self
+		self['created']=self.now()
+	@property
+	def age(self):
+		return self.now()-self['created']
+		
+class State(NamespaceCreated):
+	pass
+#log = get_logger()
+def my_hourglass(filename):
+	r = State(filename=filename)
 	s = os.path.getsize(filename)
-#	time.sleep(0.1)
-	if s:
-		return "Input file {} is {} bytes".format(filename, s)
-		debug("Input file {} is {} bytes".format(filename, s))
-	else:
-		return "Empty input file {}".format(filename)
-		error("Empty input file {}".format(filename))
-starttime=datetime.now()
-def timeprint(line):
-	print datetime.now()-starttime, line
-##
+	time.sleep(s/(6*10**3))
+	r.size=s
+	return r
+starttime = datetime.now()
+def my_callback(state):
+	now = datetime.now()
+	total_clock = now-starttime
+	instance_clock = state.age
+	print total_clock, state.age, state.filename, state.size
+###
 
 def main(*args):
 	if not args: args = sys.argv[1:]
@@ -43,7 +64,9 @@ def main(*args):
 								'allow_overwrite':	False,
 								'save_mode':		'w+',
 								'tempfile':			None,
-								'timeout':			60*60
+								'timeout':			60*60,
+								'hourglass':		my_hourglass,
+								'callback':			my_callback
 							   })
 	log_level = options.log_level
 	if log_level < logging.ERROR: log_level += -10*(options.verbose or 0)
@@ -51,9 +74,6 @@ def main(*args):
 		logging.basicConfig(filename=options.logfile, level=log_level)
 	else:
 		logging.basicConfig(level=log_level)
-	###
-	# Example code:
-	###
 	debug("{} version {} started".format(__file__, __version__))
 	if options.has_input:
 		options.input_filenames.extend(args)
@@ -70,16 +90,14 @@ def main(*args):
 	if options.tempfile is not None:
 		debug("Using temporary file {}".format(tempfile))
 	try:
+		hourglass, callback = options.hourglass, options.callback
 		mp = Pool()
-#		results = mp.map_async(check_size, options.input_filenames)
-#		print results.get(timeout=options.timeout)
-		for result in mp.imap_unordered(check_size, options.input_filenames):
-			timeprint(result)
+		for result in mp.imap_unordered(hourglass, options.input_filenames):
+			callback(result)
 	except KeyboardInterrupt:
 		warning("Ended with user intervention")
 	finally:
 		logging.shutdown()
-	###
 def get_parser(defaults = {}, **kwargs):
 	defaults.update(kwargs)
 	parser=OptionParser(usage=usage,
