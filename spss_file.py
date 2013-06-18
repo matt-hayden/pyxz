@@ -1,6 +1,7 @@
 from collections import defaultdict, namedtuple
 from logging import debug, info, warning, error, critical
 import os.path
+import re
 import cPickle as pickle
 
 import spssaux
@@ -9,29 +10,34 @@ from console_size import redirect_terminal
 
 ### both name and factory need to have the same name for pickle
 SPSS_Variable_Description = namedtuple('SPSS_Variable_Description',
-	[ 'ORDER', 'LABEL', 'NAME', 'LEVEL', 'MISSING', 'FLAGS' ])
+	[ 'ORDER', 'LABEL', 'NAME', 'TYPE', 'LEVEL', 'MISSING', 'FLAGS' ])
 #
 def vdtuple(spss_variable,
 			flags = None,
 			missing_values_none = (0, None, None, None),
-			factory = SPSS_Variable_Description):
+			factory = SPSS_Variable_Description,
+			string_format = 'string ({})'):
 	"""
 	Recasts SPSS variables for compactness and serialization, returning
 	(order, label, name, level, missing, flags)
+	This spackles over some of the warts in SPSS python implementation and
+	detects our custom variable attribute 'units'.
 	"""
 	my_flags = flags.upper() if flags else ''
 	#
 	my_level = spss_variable.VariableLevel
-	if my_level == 'nominal' and spss_variable.VariableType > 0:
-#		my_level = 'string ({:3d})'.format(spss_variable.VariableType)
-		my_level = 'string ({})'.format(spss_variable.VariableType)
-	#
+	if my_level == 'nominal' and spss_variable.VariableType > 0: # then string
+		my_type = 'string'
+		my_level = string_format.format(spss_variable.VariableType)
+	else:
+		my_type = 'numeric'
+	# if the special attribute units is present, it's tacked on to the end of LEVEL
 	if 'units' in spss_variable.Attributes and 'U' not in my_flags:
 		my_flags += 'U'
 	if 'U' in my_flags:
 		my_units = spss_variable.Attributes.pop('units','unit').strip()
 		my_level += ' ({})'.format(my_units)
-	#
+	# Having no missing values is indicated by (0, None, None, None)
 	my_missing = spss_variable.MissingValues2
 	if my_missing == missing_values_none:
 		my_missing = ''
@@ -41,6 +47,7 @@ def vdtuple(spss_variable,
 	return factory(spss_variable.VariableIndex,
 				   spss_variable.VariableLabel,
 				   spss_variable.VariableName,
+				   my_type,
 				   my_level,
 				   my_missing,
 				   my_flags)
@@ -70,29 +77,41 @@ def spss_get_common_variables(args,
 	for i, f in enumerate(input_filenames, start=1):
 		print " ", i, "=", os.path.relpath(f)
 		vars = spss_load_variables(f)
-		for order, label, name, level, missing, flags in vars:
+		for order, label, name, vtype, level, missing, flags in vars:
 			if name_key:
 				var_names_by_fileorder[name_key(name)].add(i)
 			else:
 				var_names_by_fileorder[name].add(i)
 	return var_names_by_fileorder.items() # pairs of variable name, [index of file(s) present]
 #
-def spss_load_variables(filename, pickle_filename = '', save=True):
+def spss_load_variables(filename,
+						pickle_filename = '',
+						load_cached=True,
+						save_cached=True,
+						factory=vdtuple):
 	"""
 	Input: one file
-	Output: a list of (order, label, name, level, missing, flags)
+	Arguments:
+		filename
+		pickle_filename:	By default, filename+'.variables'
+		load_cached:		Whether to try loading previously saved variable descriptions
+		save_cached:		Whether to try saving variable descriptions to pickle_filename
+		
+	Output: a list of (order, label, name, type, level, missing, flags)
 	
 	Note: SPSS v20 seems to print a lot to stdout. This function discards that output.
 	"""
 	pickle_filename = pickle_filename or filename+'.variables'
 	vars = []
 	#
-	if os.path.exists(pickle_filename) and (os.path.getmtime(filename) <= os.path.getmtime(pickle_filename)):
-		try:
-			with open(pickle_filename, 'rb') as fi:
-				vars = pickle.load(fi)
-		except Exception as e:
-			info("Loading {} failed: {}".format(pickle_filename, e))
+	if load_cached and os.path.exists(pickle_filename):
+		info("{} exists".format(pickle_filename))
+		if (os.path.getmtime(filename) <= os.path.getmtime(pickle_filename)):
+			try:
+				with open(pickle_filename, 'rb') as fi:
+					vars = pickle.load(fi)
+			except Exception as e:
+				info("Loading {} failed: {}".format(pickle_filename, e))
 	if not vars:
 		spssaux.OpenDataFile(os.path.normpath(filename))
 		with redirect_terminal(stdout=os.devnull):
@@ -111,28 +130,29 @@ def spss_load_variables(filename, pickle_filename = '', save=True):
 					flags += 'W'
 				if n in split_vars:
 					flags += 'S'
-				vars.append(vdtuple(v, flags=flags))
-		if save:
+				vars.append(factory(v, flags=flags))
+		if save_cached:
 			try:
 				with open(pickle_filename, 'wb') as fo:
 					pickle.dump(vars, fo)
 			except IOError as e:
-				info("Saving {} failed: {}".format(pickle_filename, e))
+				warning("Saving {} failed: {}".format(pickle_filename, e))
 	return vars
 #
 def spss_get_colliding_variables(args,
 								 only_collisions=True,
-								 collision_key=None
-								 ):
+								 collision_key=None):
 	"""
 	Input: a list of SAV files
+	Output: a list of (variable name, [ (filename, (variable name, type, missing values)), ... ])
 	"""
 	input_filenames = list(args)
 	if collision_key:
 		assert hasattr(collision_key, '__call__')
 	else:
 		def collision_key(vdtuple):
-			return (vdtuple.NAME.lower(), vdtuple.LEVEL, vdtuple.MISSING)
+			comparison_type = vdtuple.LEVEL if vdtuple.TYPE == 'string' else vdtuple.TYPE
+			return (vdtuple.NAME.lower(), comparison_type, vdtuple.MISSING)
 	collisions_by_fileorder = defaultdict(set) # lookup file(s) for a rough variable description
 	filenames_by_order = {} # lookup filename by index
 	###
@@ -155,3 +175,54 @@ def spss_get_colliding_variables(args,
 				occurrences_by_file.append((filenames_by_order[prop], o))
 		yield varname, occurrences_by_file
 #
+def fix_colliding_variables_to_numbers(*args, **kwargs):
+	number_format = kwargs.pop('number_format', 'F2.0')
+	if not (number_format.startswith('(') and number_format.endswith(')')):
+		number_format = '({})'.format(number_format)
+	#
+	vars_by_filename = defaultdict(list)
+	for varname, occurrences in spss_get_colliding_variables(*args, **kwargs):
+		for filename, (_, vtype, missing) in occurrences:
+			if 'string' in vtype:
+				vars_by_filename[filename].append(varname)
+	if kwargs.pop('one_line', False):
+		return {filename:'alter type {} {}.'.format(' '.join(vs), number_format) for filename, vs in vars_by_filename.items()}
+	else:
+		return {filename:['alter type {} {}.'.format(v, number_format) for v in vs] for filename, vs in vars_by_filename.items()}
+#
+def fix_colliding_variables_to_strings(*args, **kwargs):
+	string_pattern = re.compile(r'string \((\d+)\)')
+	preferred_string_format = kwargs.pop('string_format', None)
+	#
+	def string_format_from_size(length):
+		if 50 < length < 255:
+			return '(A255)'
+		elif length <= 1:
+			return 'AMIN'
+		else:
+			return '(A{})'.format(length)
+	#
+	syntax_by_filename = defaultdict(list)
+	for varname, occurrences in spss_get_colliding_variables(*args, **kwargs):
+		all_numeric = False
+		if preferred_string_format:
+			string_format = preferred_string_format
+		else:
+			max_length = 0
+			for filename, (_, vtype, missing) in occurrences:
+				m = string_pattern.match(vtype)
+				if m:
+					length = int(m.groups()[0])
+					if max_length < length: max_length = length
+			if max_length:
+				string_format = string_format_from_size(max_length)
+			else:
+				all_numeric = True
+		if all_numeric: # TODO: maybe the user wants to alter it?
+			warning("Variable {} ignored because it's apparently only found as numeric".format(varname))
+		else:
+			for filename, (_, vtype, missing) in occurrences:
+				if 'string' in vtype:
+					syntax_by_filename[filename].append('alter type {} {}.'.format(varname, string_format))
+	return syntax_by_filename
+					

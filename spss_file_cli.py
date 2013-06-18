@@ -111,15 +111,20 @@ def spss_print_common_variable_coverage(args,
 		reverse=True
 	return spss_print_common_variables(input_filenames, key=key, reverse=reverse)
 #
-def spss_print_colliding_variables(args = [], **kwargs):
+def spss_print_colliding_variables(*args, **kwargs):
+	"""
+	A wrapper for spss_get_colliding_variables() for the command-line.
+	"""
 	slist = kwargs.pop('varname_descriptions', None)
 	if not slist:
-		slist = sorted(spss_get_colliding_variables(args, **kwargs))
-		if not slist:
-			return
+		slist = sorted(spss_get_colliding_variables(*args, **kwargs))
+	if not slist:
+		return
 	namewidth = max(len(name) for name, collisions in slist)
 	filenamewidth = max(len(filename) for varname, _ in slist for filename, collisions in _ )
 	indent = ''.rjust(namewidth)
+	print
+	print "{} variables found to have incompatible types or missing values".format(len(slist))
 	for varname, collisions in slist:
 		rhs = varname.rjust(namewidth)
 		for filename, (myname, mytype, mymissing) in sorted(collisions):
