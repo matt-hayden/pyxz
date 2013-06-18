@@ -41,7 +41,17 @@ class Stats(StatsBase):
 					self.n, self.min, self.max = len(a), numpy.min(a), numpy.max(a)
 				self.sum, self.ss = numpy.sum(a), numpy.sum(a**2)
 	def update(self, *args, **kwargs):
-		self &= Stats(*args, **kwargs)
+		for other in args:
+			if isinstance(other, Stats):
+				self.n += other.n
+				self.sum += other.sum
+				self.ss += other.ss
+				if other.min < self.min:
+					self.min = other.min
+				if self.max < other.max:
+					self.max = other.max
+			else:
+				self.update(Stats(other))
 	@property
 	def mean(self):
 		"""
@@ -150,13 +160,7 @@ class Stats(StatsBase):
 		n=6.00 min=1.00 mean=3.50 max=6.00 stdev=1.71 total=21.00
 		
 		"""
-		self.n += other.n
-		self.sum += other.sum
-		self.ss += other.ss
-		if other.min < self.min:
-			self.min = other.min
-		if self.max < other.max:
-			self.max = other.max
+		self.update(other)
 		return self
 	def __repr__(self):
 		if self:
@@ -188,6 +192,13 @@ class Distribution(Stats):
 				self.frequencies = scipy.stats.itemfreq(a)
 	def histogram(self, **kwargs):
 		return scipy.stats.histogram([_[0] for _ in self.frequencies], weights=[_[1] for _ in self.frequencies], **kwargs)
+	def update(self, *args, **kwargs):
+		for other in args:
+			if isinstance(other, Distribution):
+				self.n += other.n
+				self.frequencies = numpy.concatenate((self.frequencies, other.frequencies))
+			else:
+				self.update(Distribution(other))
 ###
 ### These are very, very slow:
 ###
@@ -255,6 +266,10 @@ class RatioStats(StatsBase):
 			self.denominator = my_denom = float(denom)
 		self.ratio_stats = Distribution(my_num/my_denom)
 		self.n = len(self.ratio_stats)
+	def update(self, num, denom):
+		self.numerator.update(num)
+		self.denominator.update(denom)
+		self.ratio_stats.update(num/denom)
 	@property
 	def min(self):
 		return self.ratio_stats.min
@@ -289,6 +304,7 @@ class RatioStats(StatsBase):
 		numerator: n=100.00 min=0.00 mean=49.50 max=99.00 stdev=28.87 total=4950.00
 		denominator: n=100.00 min=100.00 mean=149.50 max=199.00 stdev=28.87 total=14950.00
 		ratio: n=100.00 min=0.00 mean=0.30 max=0.50 stdev=0.14 total=30.43
+		weighted mean: 0.33110367893
 		"""
 		parts = (('numerator', repr(self.numerator)),
 				 ('denominator', repr(self.denominator)),
