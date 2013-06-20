@@ -254,17 +254,17 @@ class RatioStats(StatsBase):
 	def from_num_denom(self, num, denom, **kwargs):
 		if hasattr(num, '__iter__'):
 			my_num = numpy.fromiter(num, dtype=self.dtype, **kwargs)
-			self.numerator = Distribution(my_num)
+			self.numerator = Stats(my_num)
 			assert self.numerator
 		else:
 			self.numerator = my_num = float(num)
 		if hasattr(denom, '__iter__'):
 			my_denom = numpy.fromiter(denom, dtype=self.dtype, **kwargs)
-			self.denominator = Distribution(my_denom)
+			self.denominator = Stats(my_denom)
 			assert self.denominator
 		else:
 			self.denominator = my_denom = float(denom)
-		self.ratio_stats = Distribution(my_num/my_denom)
+		self.ratio_stats = Stats(my_num/my_denom)
 		self.n = len(self.ratio_stats)
 	def update(self, num, denom):
 		self.numerator.update(num)
