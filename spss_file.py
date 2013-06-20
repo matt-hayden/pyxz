@@ -140,13 +140,17 @@ def spss_load_variables(filename,
 	return vars
 #
 def spss_get_colliding_variables(args,
-								 only_collisions=True,
-								 collision_key=None):
+								 collision_key=None,
+								 ignore_vars=[],
+								 **kwargs):
 	"""
 	Input: a list of SAV files
 	Output: a list of (variable name, [ (filename, (variable name, type, missing values)), ... ])
 	"""
 	input_filenames = list(args)
+	if isinstance(ignore_vars, basestring): ignore_vars = ignore_vars.split()
+	ignore_vars = [_.lower() for _ in ignore_vars if _ != '']
+	
 	if collision_key:
 		assert hasattr(collision_key, '__call__')
 	else:
@@ -158,15 +162,17 @@ def spss_get_colliding_variables(args,
 	###
 	for i, f in enumerate(input_filenames, start=1):
 		filenames_by_order[i] = os.path.relpath(f)
-		for v in spss_load_variables(f):
-			collisions_by_fileorder[collision_key(v)].add(i)
+		for v in spss_load_variables(f, **kwargs):
+			if v.NAME.lower() in ignore_vars:
+				debug("Variable {} skipped".format(v.NAME))
+			else:
+				collisions_by_fileorder[collision_key(v)].add(i)
 	occurrences_by_property = defaultdict(list)
-	for k, v in collisions_by_fileorder.iteritems():
+	for k, v in collisions_by_fileorder.items():
 		occurrences_by_property[k[0].lower()].append(k)
-	for varname,occurrences in occurrences_by_property.iteritems():
+	for varname,occurrences in occurrences_by_property.items():
 		n = len(occurrences)
-		if n==1 and only_collisions:
-			continue
+		if n==1: continue
 		### _ is a set and not hashable here:
 		#occurrences_by_file = [ (filenames_by_order[collisions_by_fileorder[_]], _) for _ in occurrences ]
 		occurrences_by_file = []
@@ -222,7 +228,6 @@ def fix_colliding_variables_to_strings(*args, **kwargs):
 			warning("Variable {} ignored because it's apparently only found as numeric".format(varname))
 		else:
 			for filename, (_, vtype, missing) in occurrences:
-				if 'string' in vtype:
-					syntax_by_filename[filename].append('alter type {} {}.'.format(varname, string_format))
+				syntax_by_filename[filename].append('alter type {} {}.'.format(varname, string_format))
 	return syntax_by_filename
 					
