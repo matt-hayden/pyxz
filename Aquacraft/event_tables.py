@@ -14,10 +14,13 @@ class AquacraftEventTable8(MDB_File):
 	Returns a specific numpy format:
 		'Fixture', 'StartTime', 'Duration', 'Peak', 'Volume', 'Mode', 'FirstCycle'
 	
-	>>> fn  = r'Z:\Projects\IRWD SF Study 2005\T4 FT and DB\+All Sites_CalSF\Cal_SF_2011.mdb'
-	>>> tn  = 'qunionCombinedAllEvents'
+	>>> fn  = r'Z:\Projects\SLC New Home Study\T7_StatAnalysis\Indoor Analysis\HE_homes\he_home_stats.mdb'
+	>>> tn  = 'qryAllTracesByKeycode'
 	>>> db  = AquacraftEventTable8(fn)
 	>>> ets = db.generate_event_tables(tn)
+	>>> t=ets['09S408']
+	>>> len(t)
+	703
 	"""
 	event_table_sql = 'select {1} from {0} where (SumAs is not NULL) order by Keycode, StartTime, Duration;'
 	input_field_names = 'Keycode SumAs CountAs StartTime Duration Peak Volume Mode'.split()
@@ -59,14 +62,13 @@ class AquacraftEventTable8(MDB_File):
 		Output:	a dict of {'Keycode':table, ...}
 		"""
 		tables = {}
-		with self.execute(*args, **kwargs) as cursor:
-			print cursor.fetchone()
-			for keycode, rows in groupby(cursor, lambda _:_[0]):
-				assert keycode not in tables
-				fr = rows.next()
-				print len(fr), fr
-				tables[keycode] = np.fromiter((self.row_factory(*_) for _ in rows),
-											  dtype=self.output_dtype)
+		for arg in args:
+			sql = self.event_table_sql.format(arg, ', '.join(self.input_field_names))
+			with self.execute(sql, **kwargs) as cursor:
+				for keycode, rows in groupby(cursor, lambda _:_[0]):
+					assert keycode not in tables
+					tables[keycode] = np.fromiter((self.row_factory(*_) for _ in rows),
+												  dtype=self.output_dtype)
 		return tables
 class AquacraftEventTable9(AquacraftEventTable8):
 	"""
@@ -77,10 +79,13 @@ class AquacraftEventTable9(AquacraftEventTable8):
 	
 	Returns the same format as AquacraftEventTable8
 	
-	>>> fn  = r'Z:\Projects\IRWD SF Study 2005\T4 FT and DB\+All Sites_CalSF\Cal_SF_2011.mdb'
-	>>> tn  = 'qunionCombinedAllEvents'
+	>>> fn  = r'Z:\Projects\SLC New Home Study\T7_StatAnalysis\Indoor Analysis\HE_homes\he_home_stats.mdb'
+	>>> tn  = 'qryAllTracesByKeycode'
 	>>> db  = AquacraftEventTable9(fn)
 	>>> ets = db.generate_event_tables(tn)
+	>>> t=ets['09S408']
+	>>> len(t)
+	703
 	"""
 	input_field_names = 'Keycode SumAs CountAs StartTime Duration Peak Volume Mode ModeFreq'.split()
 	output_dtype = np.dtype([('Fixture',		('S', 15)),
@@ -89,6 +94,7 @@ class AquacraftEventTable9(AquacraftEventTable8):
 							 ('Peak',			np.float),
 							 ('Volume',			np.float),
 							 ('Mode',			np.float),
+							 ('ModeFreq',		np.int),
 							 ('FirstCycle',		np.bool)])
 class REUWS1999EventTable(AquacraftEventTable9):
 	"""
@@ -99,3 +105,6 @@ class REUWS1999EventTable(AquacraftEventTable9):
 	"""
 	def row_factory(*row):
 		pass ### TODO
+if __name__ == '__main__':
+	import doctest
+	doctest.testmod()
