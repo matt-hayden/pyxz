@@ -5,6 +5,8 @@ import numpy as np
 
 from TraceWizard4.MDB_numpy import MDB_File
 
+from np_support import *
+
 class AquacraftEventTable8(MDB_File):
 	"""
 	Expects a specific 8-field row:
@@ -59,17 +61,21 @@ class AquacraftEventTable8(MDB_File):
 	def generate_event_tables(self, *args, **kwargs):
 		"""
 		Input:	a table or sql statement with a very specific Aquacraft format
-		Output:	a dict of {'Keycode':table, ...}
+		Output:	an iterable of ('Keycode', array-like) ...
 		"""
-		tables = {}
+		named = kwargs.pop('named', False)
 		for arg in args:
 			sql = self.event_table_sql.format(arg, ', '.join(self.input_field_names))
 			with self.execute(sql, **kwargs) as cursor:
 				for keycode, rows in groupby(cursor, lambda _:_[0]):
-					assert keycode not in tables
-					tables[keycode] = np.fromiter((self.row_factory(*_) for _ in rows),
-												  dtype=self.output_dtype)
-		return tables
+					table = np.fromiter((self.row_factory(*_) for _ in rows),
+										dtype=self.output_dtype)
+					yield keycode, np_attributize(table) if named else table
+	def save_event_table_bundle(self, filename, tables):
+		labeled_elements = dict((k,t) for k, t in self.generate_event_tables(tables))
+		for k, t in labeled_elements.iteritems():
+			print k, len(t)
+		np.savez_compressed(filename, **labeled_elements)
 class AquacraftEventTable9(AquacraftEventTable8):
 	"""
 	Expects a specific 9-field row:

@@ -10,14 +10,14 @@ connection_string_template = ';'.join(
     ["Driver={Microsoft Access Driver (*.mdb)}",
     "Dbq=%s",
     "File Mode=Read Only"])
-flow_rate_by_raw_sql_header = \
+flow_rate_by_raw_sql_field_names = \
     [ 'RawData', 'Intervals', 'Average Flow Rate', 'Total Volume' ]
 flow_rate_by_raw_sql = "SELECT RawData, Count(*) As Intervals," + \
     " Avg(RateData) AS MidPointGPM, Sum(RateData)/6 AS TotalVolumeGal" + \
     " FROM MMData where RawData > 0 GROUP BY RawData;"
-meter_type_sql_header = [ 'Make', 'Model', 'Size', 'Unit',
+meter_type_sql_field_names = [ 'Make', 'Model', 'Size', 'Unit',
                           'StorageInterval' ]
-meter_type_sql = "SELECT "+' ,'.join(meter_type_sql_header)+" FROM MeterInfo;"
+meter_type_sql = "SELECT "+' ,'.join(meter_type_sql_field_names)+" FROM MeterInfo;"
 ##
 def findfiles(search_me, extensions = [ '.MDB', 'MDB' ]):
     """Extensions must be upper-case.

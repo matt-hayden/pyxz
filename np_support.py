@@ -63,11 +63,12 @@ def load_one_np(*args, **kwargs):
 			table = loaded[element_name] 
 	else:
 		table = loaded
-	names = table.dtype.names
+	return np_attributize(table)
+#
+def np_attributize(arraylike):
+	names = arraylike.dtype.names
 	if names:
 		factory = namedtuple('Row', names, rename=True)
-		for row in table:
-			yield factory(*row)
+		return (factory(*row) for row in arraylike)
 	else:
-		for row in table:
-			yield row
+		return arraylike
