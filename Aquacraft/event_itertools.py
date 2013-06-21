@@ -5,6 +5,7 @@ from itertools import groupby
 indoor_outdoor_by_fixture = defaultdict(lambda:'')
 indoor_outdoor_by_fixture['Bathtub']		=	'Indoor'
 indoor_outdoor_by_fixture['Clothes washer']	=	'Indoor'
+indoor_outdoor_by_fixture['Clotheswasher']	=	'Indoor'
 indoor_outdoor_by_fixture['Cooler']			=	'Indoor'
 indoor_outdoor_by_fixture['Dishwasher']		=	'Indoor'
 indoor_outdoor_by_fixture['Faucet']			=	'Indoor'
