@@ -1,10 +1,12 @@
 #!env python
+from datetime import datetime
 from itertools import groupby
 
 import numpy as np
 
 from TraceWizard4.MDB_numpy import MDB_File
 
+from Stats import RatioStats
 from np_support import *
 
 class AquacraftEventTable8(MDB_File):
@@ -62,6 +64,8 @@ class AquacraftEventTable8(MDB_File):
 		"""
 		Input:	a table or sql statement with a very specific Aquacraft format
 		Output:	an iterable of ('Keycode', array-like) ...
+		
+		This assumes input is sorted correctly
 		"""
 		named = kwargs.pop('named', False)
 		for arg in args:
@@ -71,10 +75,22 @@ class AquacraftEventTable8(MDB_File):
 					table = np.fromiter((self.row_factory(*_) for _ in rows),
 										dtype=self.output_dtype)
 					yield keycode, np_attributize(table) if named else table
+	def generate_events_by_fixture(self, *args, **kwargs):
+		"""
+		This assumes input is sorted correctly
+		"""
+		for keycode, events in self.generate_event_tables(*args, **kwargs):
+			fixture_names = np.unique(events['Fixture'])
+			ts = events['StartTime'].astype(datetime)
+			begins, ends = ts[0].date(), ts[-1].date()
+			d = {}
+			for name in fixture_names:
+				if name:
+					slice = events[events['Fixture']==name]
+					d[name] = slice
+			yield keycode, (begins, ends, (ends-begins).days), d
 	def save_event_table_bundle(self, filename, tables):
-		labeled_elements = dict((k,t) for k, t in self.generate_event_tables(tables))
-		for k, t in labeled_elements.iteritems():
-			print k, len(t)
+		labeled_elements = dict((str(k),t) for k, t in self.generate_event_tables(tables))
 		np.savez_compressed(filename, **labeled_elements)
 class AquacraftEventTable9(AquacraftEventTable8):
 	"""
