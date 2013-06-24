@@ -1,11 +1,11 @@
 #!env python
-import numpy
+import numpy as np
 import scipy.stats
 
 from Interval import IntervalBase, Interval
 
 class StatsBase(IntervalBase):
-	dtype = numpy.dtype('float')
+	dtype = np.dtype('float')
 	print_format = '.2f'
 	#
 	def __len__(self):
@@ -15,6 +15,9 @@ class StatsBase(IntervalBase):
 	def __nonzero__(self):
 		try: return self.n > 0
 		except: return False
+	def __iand__(self, other):
+		self.update(other)
+		return self
 class Stats(StatsBase):
 	"""
 	Maintains these:
@@ -24,42 +27,53 @@ class Stats(StatsBase):
 		n		Equals len(_)
 		sum
 		ss		Sum of squared values
+	
+	Examples:
+	Combine another statistical run with this one:
+	
+	>>> s = Stats([4,5,6])
+	>>> s &= Stats([1,2,3])
+	>>> s
+	n=6.00 min=1.00 mean=3.50 max=6.00 stdev=1.71 total=21.00
 	"""
 	def __init__(self, *args, **kwargs):
-		super(Stats, self).__init__()
-		self.from_numbers(*args, **kwargs)
+		if len(args) == 1 and isinstance(args[0], self.__class__):
+			self = args[0]
+		elif args:
+			self.from_numbers(*args, **kwargs)
 	def from_numbers(self, *args, **kwargs):
 		if args:
-			if hasattr(args[0], '__iter__'):
-				a = numpy.fromiter(*args, dtype=self.dtype, **kwargs)
+			if hasattr(args[0], '__iter__'): # Hmm
+				a = np.fromiter(*args, dtype=self.dtype, **kwargs)
 			else:
-				a = numpy.array(args, dtype=self.dtype, **kwargs)
+				a = np.array(args, dtype=self.dtype, **kwargs)
 			if len(a):
-				try:
-					self.n, (self.min, self.max), my_mean, my_var, self.skew, self.kurt = scipy.stats.describe(a)
-				except:
-					self.n, self.min, self.max = len(a), numpy.min(a), numpy.max(a)
-				self.sum, self.ss = numpy.sum(a), numpy.sum(a**2)
+				self.n, self.min, self.max = len(a), np.min(a), np.max(a)
+				self.sum, self.ss = np.sum(a), np.sum(a**2)
 	def update(self, *args, **kwargs):
+		if not self:
+			self, args = Stats(args[0]), args[1:]
 		for other in args:
-			if isinstance(other, Stats):
-				self.n += other.n
-				self.sum += other.sum
-				self.ss += other.ss
-				if other.min < self.min:
-					self.min = other.min
-				if self.max < other.max:
-					self.max = other.max
-			else:
-				self.update(Stats(other))
+			if isinstance(other, Stats): self._merge(other)
+			else: self.update(Stats(other))
+	def _merge(self, other):
+		self.n += other.n
+		self.sum += other.sum
+		self.ss += other.ss
+		if other.min < self.min:
+			self.min = other.min
+		if self.max < other.max:
+			self.max = other.max
 	@property
 	def mean(self):
 		"""
 		>>> Stats(range(100)).mean
 		49.5
 		"""
-		if self.sum: return self.sum/len(self)
-		else: return 0.0
+		try:
+			return self.sum/len(self)
+		except AttributeError:
+			return None
 	@property
 	def variance(self):
 		"""
@@ -96,10 +110,10 @@ class Stats(StatsBase):
 			raise ZeroDivisionError('invalid calculation for sample variance')
 	@property
 	def stdev(self):
-		return numpy.sqrt(self.variance)
+		return np.sqrt(self.variance)
 	@property
 	def sample_stdev(self):
-		return numpy.sqrt(self.sample_variance)
+		return np.sqrt(self.sample_variance)
 	@property
 	def cv(self):
 		"""
@@ -136,32 +150,6 @@ class Stats(StatsBase):
 		"""
 		return Interval(*scipy.stats.norm.interval(alpha, loc=self.mean, scale=self.stdev, **kwargs))
 	#
-	def __and__(self, other):
-		"""
-		This is how you combine two statistical runs into one:
-		
-		>>> Stats([1,2,3]) & Stats([-3,-2,-1])
-		n=6.00 min=-3.00 mean=0.00 max=3.00 stdev=2.16 total=0.00
-		"""
-		r = Stats()
-		r.n = self.n+other.n
-		r.sum = self.sum+other.sum
-		r.ss = self.ss+other.ss
-		r.min = min(self.min, other.min)
-		r.max = max(self.max, other.max)
-		return r
-	def __iand__(self, other):
-		"""
-		Combine another statistical run with this one:
-		
-		>>> s = Stats([4,5,6])
-		>>> s &= Stats([1,2,3])
-		>>> s
-		n=6.00 min=1.00 mean=3.50 max=6.00 stdev=1.71 total=21.00
-		
-		"""
-		self.update(other)
-		return self
 	def __repr__(self):
 		if self:
 			parts = (('n', self.n),
@@ -171,105 +159,139 @@ class Stats(StatsBase):
 					 ('stdev', self.stdev),
 					 ('total', self.sum))
 			try:
-				return ' '.join("{0}={1:{2}}".format(x,y,self.print_format) for x,y in parts)
+				return ' '.join("{0}={1:{2}}".format(p,v,self.print_format) for p,v in parts)
 			except:
-				return ' '.join("{0}={1}".format(x,y) for x,y in parts)
+				return ' '.join("{0}={1}".format(p,v) for p,v in parts)
 		else:
 			return "Empty distribution"
 class Distribution(Stats):
 	"""
-		frequencies:	a list of (score, freq) pairs, not necessarily unique
 	"""
 	def from_numbers(self, *args, **kwargs):
+		self.edges = np.array(kwargs.pop('bins', []))
 		if args:
-			a = numpy.fromiter(*args, dtype=self.dtype, **kwargs)
-			if len(a):
-				try:
-					self.n, (my_min, my_max), my_mean, my_var, self.skew, self.kurt = scipy.stats.describe(a)
-				except:
-					self.n = len(a)
-				self.sum, self.ss = numpy.sum(a), numpy.sum(a**2)
-				self.frequencies = scipy.stats.itemfreq(a)
-	def histogram(self, **kwargs):
-		return scipy.stats.histogram([_[0] for _ in self.frequencies], weights=[_[1] for _ in self.frequencies], **kwargs)
+			a = np.fromiter(*args, dtype=self.dtype, **kwargs)
+			n = len(a)
+			if n:
+				self.n, self.sum, self.ss = n, np.sum(a), np.sum(a**2)
+				if len(self.edges):
+					self.histogram, self.edges = np.histogram(a, bins=self.edges)
+					self.min, self.max = np.min(a), np.max(a)
+				else:
+					self.histogram, self.edges = np.histogram(a)
+					self.min, self.max = self.edges[0], self.edges[-1]
 	def update(self, *args, **kwargs):
+		"""
+		Without bins:
+		>>> d1=Distribution([1,2,3])
+		>>> d2=Distribution([1,2,2,2,2,2,2,2,2,2,2,2,2,3])
+		>>> d1 &= d2
+		>>> d1
+		n=17.00 min=1.00 mean=2.00 max=3.00 stdev=0.49 total=34.00
+		
+		With bins:
+		>>> d1=Distribution([1,2,3],bins=range(10))
+		>>> d2=Distribution([4,5,6],bins=range(10))
+		>>> d1
+		n=3.00 min=1.00 mean=2.00 max=3.00 stdev=0.82 total=6.00
+		>>> d2
+		n=3.00 min=4.00 mean=5.00 max=6.00 stdev=0.82 total=15.00
+		>>> d1 &= d2
+		>>> d1
+		n=6.00 min=1.00 mean=3.50 max=6.00 stdev=1.71 total=21.00
+		>>> d1.histogram
+		array([0, 1, 1, 1, 1, 1, 1, 0, 0])
+		"""
+		if not self:
+			self, args = Distribution(args[0]), args[1:]
 		for other in args:
-			if isinstance(other, Distribution):
-				self.n += other.n
-				self.frequencies = numpy.concatenate((self.frequencies, other.frequencies))
-			else:
-				self.update(Distribution(other))
-###
-### These are very, very slow:
-###
-	def filter(self, filter_function):
-		values = ()
-		for score, freq in self.frequencies:
-			if filter_function(score):
-				values += (score,)*freq
-		return Distribution(values)
-	@property
-	def values(self):
-		for score, freq in self.frequencies:
-			for i in xrange(int(freq)):
-				yield score
-	def map(self, map_function):
-		values = ()
-		for score, freq in self.frequencies:
-			values += (map_function(score),)*freq
-		return Distribution(values)
-	def percentile(self, per, **kwargs):
-		return scipy.stats.scoreatpercentile(list(self.values), per, **kwargs)
-###
-###
-###
-	def __mod__(self, per):
-		return self.percentile(per)
-	@property
-	def min(self):
-		return self % 0
-	@property
-	def median(self):
-		return self % 50
-	@property
-	def max(self):
-		return self % 100
-	def trim(self, per):
-		lower=(100-per)/2
-		upper=(100-lower)
-		return self.filter(lambda _: (self % lower) <= _ <= (self % upper))
-	#
-	def __iand__(self, other):
-		super(Distribution, self).__iand__(other)
-		self.frequencies = numpy.concatenate((self.frequencies, other.frequencies))
-		return self
-	def __and__(self, other):
-		r = super(Distribution, self).__and__(self, other)
-		r.frequencies = numpy.concatenate((self.frequencies, other.frequencies))
-		return r
+			if isinstance(other, Distribution): self._merge(other)
+			else: self.update(Distribution(other, bins=self.edges))
+	def _merge(self, other):
+		# outside bins define limits:
+		check = (self.edges[1:-1]==other.edges[1:-1])
+		if hasattr(check, 'all'): # it's a numpy.array
+			check = check.all()
+		if not check:
+			raise ValueError("{} is incompatible with {}".format(self.edges, other.edges))
+		super(Distribution, self)._merge(other)
+		self.histogram += other.histogram
+		if other.edges[0] < self.edges[0]:
+			self.edges[0] = other.edges[0]
+		if self.edges[-1] < other.edges[-1]:
+			self.edges[-1] = other.edges[-1]
+#
 class RatioStats(StatsBase):
 	def __init__(self, *args, **kwargs):
-		if args:
+		if len(args) == 2:
 			self.from_num_denom(*args, **kwargs)
+		elif len(args) == 1:
+			other, = args
+			if isinstance(args[0], self.__class__):
+				self = other
+			else:
+				self.from_num_denom(*other, **kwargs)
+		else:
+			self.numerator = Distribution()
+			self.denominator = Distribution()
+			self.ratio_stats = Distribution()
 	def from_num_denom(self, num, denom, **kwargs):
-		if hasattr(num, '__iter__'):
-			my_num = numpy.fromiter(num, dtype=self.dtype, **kwargs)
-			self.numerator = Stats(my_num)
-			assert self.numerator
+		bins = kwargs.pop('bins',([], [], []))
+		assert len(bins) == 3
+		if isinstance(num, Stats):
+			raise ValueError("Can only be a scalar or array")
+		elif hasattr(num, '__iter__'):
+			my_num = np.fromiter(num, dtype=self.dtype, **kwargs)
+			nbins = kwargs.pop('nbins', bins[0])
+			self.numerator = Distribution(my_num, bins=nbins)
 		else:
 			self.numerator = my_num = float(num)
-		if hasattr(denom, '__iter__'):
-			my_denom = numpy.fromiter(denom, dtype=self.dtype, **kwargs)
-			self.denominator = Stats(my_denom)
-			assert self.denominator
+		#
+		if isinstance(denom, Stats):
+			raise ValueError("Can only be a scalar or array")
+		elif hasattr(denom, '__iter__'):
+			my_denom = np.fromiter(denom, dtype=self.dtype, **kwargs)
+			dbins = kwargs.pop('dbins', bins[1])
+			self.denominator = Distribution(my_denom, bins=dbins)
 		else:
 			self.denominator = my_denom = float(denom)
-		self.ratio_stats = Stats(my_num/my_denom)
+		rbins = kwargs.pop('rbins', bins[2])
+		self.ratio_stats = Distribution(my_num/my_denom, bins=rbins)
 		self.n = len(self.ratio_stats)
-	def update(self, num, denom):
-		self.numerator.update(num)
-		self.denominator.update(denom)
-		self.ratio_stats.update(num/denom)
+	def update(self, *args, **kwargs):
+		"""
+		Unlike Stats() and Distribution(), this takes only one pair of arrays
+		at at time.
+		
+		>>> r = RatioStats()
+		>>> r
+		numerator: Empty distribution
+		denominator: Empty distribution
+		ratio: Empty distribution
+		weighted mean: None
+		>>> r.update([1,2,3],[4,5,6])
+		>>> r
+		numerator: n=3.00 min=1.00 mean=2.00 max=3.00 stdev=0.82 total=6.00
+		denominator: n=3.00 min=4.00 mean=5.00 max=6.00 stdev=0.82 total=15.00
+		ratio: n=3.00 min=0.25 mean=0.38 max=0.50 stdev=0.10 total=1.15
+		weighted mean: 0.4
+		"""
+		if not self:
+			self = Distribution(*args, **kwargs)
+			return
+		if len(args) == 2:
+			num, denom = np.array(args[0]), np.array(args[1])
+			self.numerator.update(num)
+			self.denominator.update(denom)
+			self.ratio_stats.update(num/denom)
+		elif len(args) == 1:
+			other, = args
+			if isinstance(other, RatioStats): self._merge(other) # calls an error
+			else: self.update(other[0], other[1])
+		else:
+			raise NotImplementedError("RatioStats.update() expects a numerator and denominator array")
+	def _merge(self, other):
+		raise NotImplementedError("Cannot join two ratio distributions; you'll need the numerator and denominator as arrays.")
 	@property
 	def min(self):
 		return self.ratio_stats.min
@@ -280,15 +302,17 @@ class RatioStats(StatsBase):
 	def range(self):
 		return self.ratio_stats.range
 	@property
-	def median(self):
-		return self.ratio_stats % 50
-	@property
 	def prd(self):
 		"Price-related differential"
 		return self.ratio_stats.mean/self.weighted_mean
 	@property
 	def weighted_mean(self):
-		return self.numerator.mean/self.denominator.mean
+		try:
+			return self.numerator.mean/self.denominator.mean
+		except TypeError:
+			return None
+		except ZeroDivisionError:
+			return None
 #	def confidence(self, alpha):
 #		"""
 #		Case 2 of Feiller's approximation. Assumes joint normality (jikes).
