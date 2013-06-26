@@ -2,8 +2,8 @@
 from MDB import debug, info, warning, error, critical
 from database_file import pyodbc_MDB
 
-from local.xnp import *
-#
+#from local.xnp import *
+
 class pyodbc_MDB_np(pyodbc_MDB):
 	"""
 	Currently, numpy support only works with the pyODBC driver. Any other
@@ -28,7 +28,6 @@ class pyodbc_MDB_np(pyodbc_MDB):
 		return table
 	def export_table(self, table_name, filename):
 		np.save(filename, self.generate_table(table_name))
-MDB_File = pyodbc_MDB_np # a non-numpy MDB_File also exists in MDB_File
 #
 if __name__ == '__main__':
 	import cProfile
@@ -54,13 +53,13 @@ if __name__ == '__main__':
 			if os.path.exists(output_filename+'.npy'):
 				print >>sys.stderr, "Refusing to overwrite", output_filename+'.npy'
 			else:
-				with MDB_File(input_filename, read_only=True) as db:
+				with pyodbc_MDB_np(input_filename, read_only=True) as db:
 					db.export_table(table_name, output_filename)
 	else:
 		input_files = args or glob('*.MDB', '*.accdb')
 		assert input_files
 		for input_filename in input_files:
-				with MDB_File(input_filename, read_only=True) as db:
+				with pyodbc_MDB_np(input_filename, read_only=True) as db:
 					print "Tables found in {}".format(input_filename)
 					for t in db.table_names:
 						print t
