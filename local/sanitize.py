@@ -1,11 +1,16 @@
 #!env python
 import os.path
+import string
 
-"""
-Remember that namedtuple has an option rename=True that numbers attributes if
-they have an illegal name.
-"""
-
+def namedtuple_field_sanitize(text, valid_characters=string.letters+string.digits+'_', sub='_'):
+	"""
+	Since 2.7, namedtuple also takes a rename keyword for safely handling
+	invalid fields.
+	"""
+	stext = ''.join(_ if _ in valid_characters else sub for _ in text)
+	while stext.startswith('_'):
+		stext = stext[1:]
+	return stext
 def path_sanitize(arg, sep='_', valid_characters='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-._'):
 	if os.path.isdir(arg):
 		return arg

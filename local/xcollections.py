@@ -1,5 +1,3 @@
-from collections import *
-
 # Neat trick to make simple namespaces:
 # http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
 class Namespace(dict):

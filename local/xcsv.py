@@ -1,15 +1,10 @@
 #!env python
 from . import *
-_csv=import_module('csv')
 
-from collections import namedtuple
-import string
+from collections import Iterable, namedtuple
+import csv
 
-def sanitize_namedtuple_fieldnames(text, valid_characters=string.letters+string.digits+'_', sub='_'):
-	stext = ''.join(_ if _ in valid_characters else sub for _ in text)
-	while stext.startswith('_'):
-		stext = stext[1:]
-	return stext
+from sanitize import namedtuple_field_sanitize
 
 def load_csv(fileobj, **kwargs):
 	"""
@@ -26,7 +21,7 @@ def load_csv(fileobj, **kwargs):
 	"""
 	if isinstance(fileobj, basestring): # assume it's a filename
 		return _load_csv_gen(open(fileobj, mode='rb'), **kwargs)
-	elif type(fileobj) in (file,list,tuple):
+	elif isinstance(fileobj, Iterable):
 		return _load_csv_gen(fileobj, **kwargs)
 	else:
 		raise NotImplementedError('Type {} not recognized'.format(type(fileobj)))
@@ -35,11 +30,11 @@ def _load_csv_gen(iterable,
 				  header=True,
 				  mode=None,
 				  skiprows=0,
-				  sanitizer=sanitize_namedtuple_fieldnames):
+				  sanitizer=namedtuple_field_sanitize):
 
 	for line_num in range(skiprows):
 		debug("Skipped row '{}'".format(iterable.next()))
-	reader=_csv.reader(iterable, dialect=dialect)
+	reader = csv.reader(iter(iterable), dialect=dialect)
 	if header is True: # load from first row
 		headers = [sanitizer(_) for _ in reader.next()]
 		skiprows += 1
@@ -74,7 +69,7 @@ if __name__=='__main__':
 		import logging
 		logging.basicConfig(level=logging.DEBUG)
 	#
-	debug("CSV can read {} dialects".format(_csv.list_dialects()))
+	debug("CSV can read {} dialects".format(csv.list_dialects()))
 	args = sys.argv[1:]
 	assert args
 	for arg in args:

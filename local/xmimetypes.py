@@ -1,5 +1,5 @@
-from . import *
-_mimetypes=import_module('mimetypes')
+import mimetypes as _mimetypes
+
 types_map = _mimetypes.types_map
 
 types_map[".wma"]="audio/x-ms-wma"

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import numpy as np
 
-from sanitize_strings import sql_field_sanitize
+from sanitize import sql_field_sanitize
 
 def np_dtype_from_ODBC_desc(desc, sanitize=sql_field_sanitize):
 	"""
@@ -45,7 +45,7 @@ def np_dtype_from_ODBC_desc(desc, sanitize=sql_field_sanitize):
 		raise NotImplementedError("Edit np_dtype_from_ODBC_desc to support the class {}".format(desc))
 	return sanitize(name, pass_brackets_through=False, pass_string_parts_through=None), dtype
 #
-def load_one_np(*args, **kwargs):
+def np_fetchone(*args, **kwargs):
 	"""
 	Slight wrapper around np.load that allows attribute access. Attribute
 	names are taken from the np dtype if possible. NPZ file are handled
