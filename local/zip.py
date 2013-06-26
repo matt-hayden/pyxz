@@ -1,9 +1,7 @@
 import io
 from zipfile import ZipFile
 
-class SelfNamedZipFileError(Exception):
-	pass
-def SelfNamedZipFile(filepath, default_extensions = [], **kwargs):
+def zip_fetchone(filepath, default_extensions = [], **kwargs):
 	"""
 	Simple helper function to allow ZIP files as file containers. The ZIP file
 	must contain a nonambiguous internal member. For example, foo.ZIP must
@@ -13,7 +11,7 @@ def SelfNamedZipFile(filepath, default_extensions = [], **kwargs):
 	with ZipFile(filepath, 'r') as zi:
 		filelist = zi.infolist()
 		if len(filelist) == 0:
-			raise SelfNamedZipFileError("File '{}' empty".format(filepath))
+			raise IOError("File '{}' empty".format(filepath))
 		elif 'zip_entry' in kwargs: # can be a filename or ZipInfo object
 			bi = zi.open(kwargs.pop('zip_entry'))
 		elif len(filelist) == 1:

@@ -1,6 +1,5 @@
 #!env python
 import csv
-from logging import debug, info, warning, error, critical
 
 """
 Example:

@@ -1,10 +1,9 @@
 #!env python
 from collections import namedtuple
-from logging import debug, info, warning, error, critical
 
 from openpyxl import load_workbook
 
-from TraceWizard4.MDB_File import sql_field_sanitize
+from . import sql_field_sanitize
 
 def gen_table_from_XLSX(filename = '',		# (or workbook keyword arg)
 						sheetname = '',		# also accessible as sheet.title

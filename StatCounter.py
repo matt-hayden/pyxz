@@ -3,40 +3,64 @@ from collections import Counter, namedtuple
 
 import numpy as np
 
-StatResults = namedtuple('StatResults', 'n min max mean std')
-def stats_from_bin_freq(a):
-	bins, freq = a['bin'], a['freq']
-	my_n = np.sum(freq)
-	my_sum = np.sum(bins*freq)
-	my_ss = np.sum(bins**2*freq)
-	my_mean = my_sum/my_n
-	my_var = my_ss/my_n-my_mean**2
-	if my_var < 0: my_var = 0
-	my_std = np.sqrt(my_var)
-	return StatResults(my_n, np.min(bins), np.max(bins),
-					   my_mean, my_std)
+from flatten import flatten
+from Namespace import *
 
-class NumericalCounter(Counter):
-	# Note: self.elements() provides an iterator!
-	pass
+#
+def run_results(a):
+	class StatResults(CollapsibleNamespace):
+		_tuple = tuple
+#	class StatResults(CollapsibleNamespace):
+#		format='n min max sum ss mean std'.split()
+#		_tuple = namedtuple('StatResults', format)
+	bins, freq = a['bin'], a['freq']
+	r = StatResults()
+	r.n = np.sum(freq)
+	r.min, r.max = np.min(bins), np.max(bins)
+	r.sum = np.sum(bins*freq)
+	r.ss = np.sum(bins**2*freq)
+	r.mean = r.sum/r.n
+	r.var = r.ss/r.n-r.mean**2
+	if r.var < 0: r.var = 0
+	r.std = np.sqrt(r.var)
+	return r
+
+class NumericalCounter(Counter): pass
 
 class StatCounter(NumericalCounter):
 	dtype = np.dtype([('bin',np.float), ('freq',np.int)])
+	max_decimals = 2
+	max_decimals **= 2 # make max_decimals more reflective of the precision of
+					   # mean and std
 	#
-	def get_frequencies(self):
+	def get_frequencies(self, **kwargs):
 		return np.array(self.items(), dtype=self.dtype)
-	def get_stats(self):
+	def get_stats(self, **kwargs):
 		a = self.get_frequencies()
 		if a.size:
-			return stats_from_bin_freq(a['bin'], a['freq'])
+			return run_results(a)
 		else: return None
 	def get_histogram(self, **kwargs):
 		a = self.get_frequencies()
 		if a.size:
 			return np.histogram(a['bin'], weights=a['freq'], **kwargs)
 		else: return None
+	def pack(self, function = None, **kwargs):
+		"""
+		>>> iterable = xrange(100)
+		>>> r = StatCounter(iterable)
+		>>> print r
+		>>>
+		"""
+		if not function:
+			def function(_):
+				return round(_,self.max_decimals)
+		return StatCounter(flatten((function(v),)*f for v,f in self.iteritems()))
 #
 if __name__ == '__main__':
-	s = StatCounter([1,2,3])
-	print s
-	print s.get_stats()
+	s = StatCounter(_/4000.0 for _ in xrange(4000))
+	s1 = s.get_stats()
+	print s1, s1.to_tuple()
+	p = s.pack()
+	p1 = p.get_stats()
+	print s1 - p1

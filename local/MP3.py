@@ -62,7 +62,7 @@ def play(filepath, audio_type=None):
 #	mciSend('Open {}!"{}" Alias PlayFile'.format(audio_type, filepath))
 	mciSend("Play PlayFile Wait")
 	mciSend("Close PlayFile")
-playMP3=play # legacy use
+
 if __name__ == '__main__':
 	import sys
 	for arg in sys.argv[1:]:

@@ -1,4 +1,5 @@
-import glob as _glob
+from . import *
+_glob=import_module('glob', '_glob')
 def glob(*args, **kwargs):
 	if len(args) <= 1:
 		return _glob.glob(*args)

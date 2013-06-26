@@ -1,4 +1,4 @@
-
+#!env python
 from collections import namedtuple
 from contextlib import closing
 import csv
@@ -7,7 +7,7 @@ import sys
 
 from pyodbc import connect
 
-from sanitize_strings import *
+from sanitize import *
 	
 def get_connection_string(*args, **kwargs):
 	l = len(args)

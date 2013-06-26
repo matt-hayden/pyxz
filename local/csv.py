@@ -1,7 +1,8 @@
 #!env python
+from . import *
+_csv=import_module('csv')
+
 from collections import namedtuple
-import csv
-from logging import debug, info, warning, error, critical
 import string
 
 def sanitize_namedtuple_fieldnames(text, valid_characters=string.letters+string.digits+'_', sub='_'):
@@ -38,7 +39,7 @@ def _load_csv_gen(iterable,
 
 	for line_num in range(skiprows):
 		debug("Skipped row '{}'".format(iterable.next()))
-	reader=csv.reader(iterable, dialect=dialect)
+	reader=_csv.reader(iterable, dialect=dialect)
 	if header is True: # load from first row
 		headers = [sanitizer(_) for _ in reader.next()]
 		skiprows += 1
@@ -73,7 +74,7 @@ if __name__=='__main__':
 		import logging
 		logging.basicConfig(level=logging.DEBUG)
 	#
-	debug("CSV can read {} dialects".format(csv.list_dialects()))
+	debug("CSV can read {} dialects".format(_csv.list_dialects()))
 	args = sys.argv[1:]
 	assert args
 	for arg in args:
