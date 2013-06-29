@@ -29,16 +29,6 @@ class Collapsible(object):
 	def __reduce__(self):
 		# return a text representation or a tuple like (Foo, args)
 		return (self.__class__, self.to_tuple())
-class CollapsibleNamespace(Namespace, Collapsible):
-	def to_tuple(self, format=None):
-		if format is None:
-			try:
-				format = self.format
-			except:
-				format = self._tuple._fields
-		elif isinstance(format, basestring): format = format.split()
-#		else: # format's doin just fine
-		return self._tuple(*[self[_] for _ in format])
 if __name__ == '__main__':
 	import doctest
 	results = doctest.testmod()

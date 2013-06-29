@@ -1,14 +1,13 @@
 #!env python
 from collections import Counter, namedtuple
 
-import numpy as np
-
-from flatten import flatten
-from Namespace import *
+from local.flatten import flatten
+from local.xcollections import Namespace
+from local.xnp import *
 
 #
-def run_results(a):
-	class StatResults(CollapsibleNamespace):
+def stats_from_frequencies(a):
+	class StatResults(Namespace):
 		_tuple = tuple
 #	class StatResults(CollapsibleNamespace):
 #		format='n min max sum ss mean std'.split()
@@ -29,16 +28,16 @@ class NumericalCounter(Counter): pass
 
 class StatCounter(NumericalCounter):
 	dtype = np.dtype([('bin',np.float), ('freq',np.int)])
-	max_decimals = 2
-	max_decimals **= 2 # make max_decimals more reflective of the precision of
-					   # mean and std
+	@staticmethod
+	def pack_function(_):
+		return round(_,4)
 	#
 	def get_frequencies(self, **kwargs):
 		return np.array(self.items(), dtype=self.dtype)
 	def get_stats(self, **kwargs):
 		a = self.get_frequencies()
 		if a.size:
-			return run_results(a)
+			return stats_from_frequencies(a)
 		else: return None
 	def get_histogram(self, **kwargs):
 		a = self.get_frequencies()
@@ -52,15 +51,14 @@ class StatCounter(NumericalCounter):
 		>>> print r
 		>>>
 		"""
-		if not function:
-			def function(_):
-				return round(_,self.max_decimals)
+		function = function or self.pack_function
 		return StatCounter(flatten((function(v),)*f for v,f in self.iteritems()))
 #
+#class Stats(object)
+#
 if __name__ == '__main__':
-	s = StatCounter(_/4000.0 for _ in xrange(4000))
+	s = StatCounter(_/43210.0 for _ in xrange(43210))
 	s1 = s.get_stats()
-	print s1, s1.to_tuple()
+	print s1
 	p = s.pack()
 	p1 = p.get_stats()
-	print s1 - p1
