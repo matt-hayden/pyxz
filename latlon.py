@@ -18,6 +18,21 @@ lat_lon_cache = {}
 #gc = geocoders.GeoNames(format_string="%s, USA")
 gc = geocoders.GoogleV3()
 #
+def decdeg2dms(dd):
+	### http://stackoverflow.com/questions/2579535/how-to-convert-dd-to-dms-in-python
+	negative = dd < 0
+	dd = abs(dd)
+	minutes,seconds = divmod(dd*3600,60)
+	degrees,minutes = divmod(minutes,60)
+	if negative:
+		if degrees > 0:
+			degrees = -degrees
+		elif minutes > 0:
+			minutes = -minutes
+		else:
+			seconds = -seconds
+	return (degrees,minutes,seconds)
+
 def fetch_lat_lon(loc, *args, **kwargs):
 	sanity_check = kwargs.pop('sanity_check', True)
 	#
@@ -52,6 +67,7 @@ def fetch_lat_lon(loc, *args, **kwargs):
 		raise LatLonException(loc+" failed sanity check: "+str(result))
 	return result
 def lookup_lat_lon(loc, *args, **kwargs):
+	global lat_lon_cache
 	error_result = kwargs.pop('error_result', ("None", (None, None)))
 	retry_on_errors = kwargs.pop('retry_on_errors', False)
 	#
@@ -75,7 +91,7 @@ if __name__ == '__main__':
 	for arg in sys.argv[1:]:
 		place, (lat, lon) = lookup_lat_lon(arg)
 		try:
-			print place,"=","Lat:{:+03.5f},Lon:{:+03.5f}".format(lat, lon)
+			print place,"=","Lat:{:+03.5f}={},Lon:{:+03.5f}={}".format(lat, decdeg2dms(lat), lon, decdeg2dms(lon))
 		except:
 			print place, (lat, lon)
-	print lat_lon_cache
+#	print lat_lon_cache
