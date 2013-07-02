@@ -5,8 +5,8 @@ text:
 
 >>> aegis_serial_re.search(r'C:\TEMP\L-01234S012.TXT').groups()
 ('01234S012',)
->>> aegis_serial_searcher.match(r'C:\TEMP\L-01234S012.TXT').groups()
-('01234S012',)
+>>> aegis_serial_searcher.match(r'C:\TEMP\L-01234S012A.TXT').groups()
+('01234S012', 'A')
 >>> aegis_serial_re.search('0123456789S0123456789').groups()
 ('56789S012',)
 >>> aegis_serial_searcher.match(r'0123456789S0123456789').groups()
@@ -19,8 +19,12 @@ import os.path
 import re
 
 aegis_serial_pattern = '\d{5}[Ss]\d{3}'
+
+## matcher ignores any keycode suffix
 aegis_serial_re = re.compile('('+aegis_serial_pattern+')')
-aegis_serial_searcher = re.compile('[^\d]*('+aegis_serial_pattern+')[^\d]*')
+
+## searcher can return a keycode suffix
+aegis_serial_searcher = re.compile('(?:.*[^\d])?('+aegis_serial_pattern+')(?P<suffix>[^.\d][^.]*)?.*')
 
 def parse_aegis_serial(text, strict = True):
 	"""
@@ -38,11 +42,12 @@ def parse_aegis_serial(text, strict = True):
 		m = aegis_serial_re.search(filepart)
 	if m:
 		return m.group(1)
-def parse_aegis_serials(text):
+def parse_aegis_serials(texts):
 	"""
-	Parse a (possibly lengthy) string for serial numbers on each line.
+	Parse a (possibly lengthy) string or iterable for serial numbers on each line.
 	"""
-	return [(parse_aegis_serial(_), _) for _ in text.splitlines()]
+	if isinstance(texts, basestring): texts = texts.splitlines()
+	return [(parse_aegis_serial(_), _) for _ in texts]
 
 if __name__ == '__main__':
 	import doctest
