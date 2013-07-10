@@ -207,18 +207,24 @@ class MDB_Base(object):
 							 field_types = [],
 							 **kwargs):
 		ID_name = kwargs.pop('ID', '')
+		if isinstance(fields, basestring):
+			fields = fields.split()
+		if isinstance(field_types, basestring):
+			field_types = field_types.split()
+		#
+		create_fields = fields
 		if ID_name:
 			create_fields = [ID_name]+fields
-			if isinstance(field_types, basestring):
-				field_types = field_types.split()
 			field_types.insert(0, 'AUTOINCREMENT(1, 1)')
 		try:
 			self.create_table(table_name, create_fields, field_types)
 		except Exception as e:
-			errno, message = e
-			if errno in ('42S01',): # table already exists
-				debug("Table {} already exists".format(table_name))
-			else:
+			try:
+				errno, message = e
+				if errno in ('42S01',): # table already exists
+					debug("Table {} already exists".format(table_name))
+				else: raise e
+			except:
 				raise e
 		return self.get_append_coroutine(table_name, fields, **kwargs)
 	def get_append_coroutine(self,

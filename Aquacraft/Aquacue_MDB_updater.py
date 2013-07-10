@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.DEBUG) # , filename='aquacue_test.log')
 from datetime import datetime, timedelta
 from logging import debug, info, warning, error, critical
 
-from TraceWizard4.MDB_File import MDB_File
+from MDB.database_file import MDB_File
 
 from Aquacue_update import get_Aquacue_update
 
