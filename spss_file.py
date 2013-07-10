@@ -105,13 +105,16 @@ def spss_load_variables(filename,
 	vars = []
 	#
 	if load_cached and os.path.exists(pickle_filename):
-		info("{} exists".format(pickle_filename))
 		if (os.path.getmtime(filename) <= os.path.getmtime(pickle_filename)):
 			try:
 				with open(pickle_filename, 'rb') as fi:
 					vars = pickle.load(fi)
 			except Exception as e:
-				info("Loading {} failed: {}".format(pickle_filename, e))
+				info("Loading {} failed: {} (this isn't a big deal)".format(pickle_filename, e))
+			else:
+				info("Using {}".format(pickle_filename))
+		else:
+			debug("{} exists, but not used".format(pickle_filename))
 	if not vars:
 		spssaux.OpenDataFile(os.path.normpath(filename))
 		with redirect_terminal(stdout=os.devnull):

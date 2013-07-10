@@ -298,3 +298,13 @@ def AutorecodeIntoSameVariable(*args):
         if __debug__:
             print syntax
         spss.Submit(syntax)
+###
+def set_variable_list(macroname, **kwargs):
+	if not macroname.startswith('!'): macroname = '!'+macroname
+	sv = spssaux.VariableDict(**kwargs)
+	if sv:
+		spss.SetMacroValue(macroname, ' '.join(_.VariableName for _ in sv))
+		print "{} variables in macro {}".format(len(sv), macroname)
+	else:
+		spss.SetMacroValue(macroname, '')
+		print "No variables, macro {} emptied".format(macroname)
