@@ -1,7 +1,7 @@
 #!env python
-from collections import namedtuple
-from datetime import datetime
-from decimal import Decimal
+import collections
+import datetime
+import decimal
 
 import numpy as np
 
@@ -37,9 +37,9 @@ def np_dtype_from_ODBC_desc(desc, sanitize=sql_field_sanitize):
 #	elif type_code == unicode:
 	elif isinstance(type_code, basestring):
 		dtype = ('S', internal_size)
-	elif type_code == datetime:
+	elif type_code == datetime.datetime:
 		dtype = 'datetime64[s]' # the subtype is important
-	elif type_code == Decimal:
+	elif type_code == decimal.Decimal:
 		dtype = ('S', 255)
 	else:
 		raise NotImplementedError("Edit np_dtype_from_ODBC_desc to support the class {}".format(desc))
@@ -68,7 +68,7 @@ def np_fetchone(*args, **kwargs):
 def np_attributize(arraylike):
 	names = arraylike.dtype.names
 	if names:
-		factory = namedtuple('Row', names, rename=True)
+		factory = collections.namedtuple('Row', names, rename=True)
 		return (factory(*row) for row in arraylike)
 	else:
 		return arraylike

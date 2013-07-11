@@ -1,9 +1,29 @@
 #!env python
 from collections import Counter
 import os.path
+from subprocess import *
 
-from flatten import flatten
+from local.flatten import flatten
 
+def find_mp4box_executable(paths = []):
+	if not paths:
+		programfiles = os.path.expandvars('%ProgramFiles%')
+		search_files = [ 'GPAC*\\MP4Box.exe',
+						 'MeGUI*\\tools\\mp4box\\MP4Box.exe',
+						 'MP4Box*\\MP4Box.exe',
+						 'StaxRip*\\Applications\\MP4Box\\MP4Box.exe' ]
+		paths = [os.path.join(programfiles, _) for _ in search_files]
+	latest = []
+	for f in glob(paths):
+		if os.path.exists(f):
+			try:
+	#			mp4box_version = [ _ for _ in check_output((f, '-version')).splitlines() if _ ]
+				mp4box_version = check_output((f, '-version')).splitlines()[0]
+			except CalledProcessError as e:
+				continue
+			if latest < [mp4box_version, f]:
+				latest = [mp4box_version, f]
+	return latest[-1]
 def my_commonprefix(args, **kwargs):
 	prefix = os.path.commonprefix(args, **kwargs)
 	if prefix:
@@ -28,13 +48,15 @@ def get_join_syntax(args,
 	mp4box_args.append(fileout or get_output_filename(args))
 	return list(flatten(mp4box_args))
 if __name__=='__main__':
-	from subprocess import *
 	import sys
-	mp4box_executable = os.path.expandvars(r'%PROGRAMFILES%\MP4Box-0.4.6-dev_20091013\MP4Box.exe')
-	s = get_join_syntax(sys.argv[1:])
+	
+	mp4box_executable = find_mp4box_executable()
+	args = sys.argv[1:]
+	
+	s = get_join_syntax(args)
 	print mp4box_executable, s
-	mp4box_version = check_output((mp4box_executable, '-version')).splitlines()
-	print mp4box_version
+#	mp4box_version = check_output((mp4box_executable, '-version')).splitlines()
+#	print mp4box_version
 	join_results = call(flatten((mp4box_executable, s)))
 	if join_results: # are not 0
 		print "ERROR", join_results
