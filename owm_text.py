@@ -1,39 +1,18 @@
+#!env python
 from datetime import datetime
+from itertools import groupby
 import json
-from math import sin, cos, pi, radians
 from urllib2 import urlopen
 
-conditions_by_lat_lon_string = '''http://openweathermap.org/data/2.1/find/city?lat={lat}&lon={lon}&cnt={cnt}'''
-conditions_by_city_string = '''http://openweathermap.org/data/2.1/find/city?lat={lat}&lon={lon}&cnt={cnt}'''
-forecast_by_lat_lon_string = '''http://openweathermap.org/data/2.1/forecast/city?lat={lat}&lon={lon}&cnt={cnt}'''
-url_for_icon_string = '''http://openweathermap.org/img/w/{icon}.png'''
+from local.units import *
 
-def kelvin_to_celsius(k):
-	return k-273.15
-def celsius_to_fahrenheit(c):
-	return 9*c/5+32
-def kelvin_to_fahrenheit(k):
-	return celsius_to_fahrenheit(kelvin_to_celsius(k))
-def english_direction(angle, unit='degrees'):
-	if unit == 'degrees':
-		angle = radians(angle)
-	angle %= 2*pi
-	#
-	n_to_s, w_to_e = cos(angle), sin(angle)
-	if abs(n_to_s) < 0.382683432365:
-		n_part = ""
-	elif (n_to_s>0):
-		n_part = "N"
-	else:
-		n_part = "S"
-	#
-	if abs(w_to_e) < 0.382683432365:
-		w_part = ""
-	elif (w_to_e>0):
-		w_part = "W"
-	else:
-		w_part = "E"
-	return n_part+w_part
+city_by_lat_lon_string = '''http://openweathermap.org/data/2.1/find/city?lat={lat}&lon={lon}&cnt={cnt}'''
+
+conditions_by_lat_lon_string = '''http://openweathermap.org/data/2.1/find/city?lat={lat}&lon={lon}&cnt={cnt}'''
+#conditions_by_lat_lon_string = '''http://openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}'''
+forecast_by_lat_lon_string = '''http://openweathermap.org/data/2.1/forecast/city?lat={lat}&lon={lon}&cnt={cnt}'''
+#forecast_by_lat_lon_string = '''http://openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}'''
+url_for_icon_string = '''http://openweathermap.org/img/w/{icon}.png'''
 
 def get_current_conditions(**kwargs):
 	lat = kwargs.pop('latitude',None)
@@ -58,10 +37,16 @@ def get_forecast(**kwargs):
 #def get_forecast(id):
 #	txt = urlopen(forecast_by_lat_lon_string.format(id=id))
 #	return json.load(txt)
-def parse_conditions(conditions, station = 0, day = 0):
-	assert "ERROR" not in conditions['message'].upper()
+def parse_conditions(conditions, station = 0, **kwargs):
+#	try:
+#		m = conditions['message']
+#	except:
+#		print conditions
+#		m = ''
+#	if 'ERROR' in str(m).upper():
+#		raise ValueError("Observation errored: {}".format(conditions))
 	w = conditions['list'][station]
-	return parse_forecast(w, day)
+	return parse_forecast(w, **kwargs)
 def parse_forecast(w, day = 0):
 	d = {}
 	if 'dt' in w:
@@ -85,16 +70,33 @@ def parse_forecast(w, day = 0):
 		# http://openweathermap.org/wiki/API/Weather_Condition_Codes
 		# w['weather'][day]['id']
 	if 'wind' in w:
-		d['wind speed'] = (w['wind']['speed'], 'm/s', english_direction(w['wind']['deg']))
+		d['wind speed'] = (w['wind']['speed'], 'm/s', direction_name(w['wind']['deg']))
 	if 'rain' in w:
-		d['rain'] = (w['rain']['3h']/3, 'mm/hr')
+		d['rain'] = (w['rain']['3h']/3.0, 'mm/hr')
 	if 'snow' in w:
-		d['snow'] = (w['snow']['3h']/3, 'mm/hr')
+		d['snow'] = (w['snow']['3h']/3.0, 'mm/hr')
 	return d
+def generate_forecast(**kwargs):
+	"""
+	The first element is current conditions. Following elements are the default
+	forecast.
+	"""
+	c = get_current_conditions(**kwargs)
+	yield parse_conditions(c)
+	for _ in get_forecast(**kwargs)['list']:
+		yield parse_forecast(_)
+#
 if __name__ == '__main__':
-	from pprint import pprint
-	#c = get_current_conditions(lat=40, lon=-105.25)
-	c = get_forecast(lat=40, lon=-105.25)
-	for fd in c['list']:
-		f=parse_forecast(fd)
-		print f['date'], "%3.0f %s" % f['temperature'], f['weather short description']
+#	c = get_forecast(lat=40, lon=-105.25)
+#	c = get_current_conditions(lat=40, lon=-105.25)
+	for gday, fs in groupby(generate_forecast(lat=40, lon=-105.25), lambda _: _['date'].date()):
+		daily = list(fs)
+		label = gday.strftime('%a %d')
+		print label,
+		print ''.join('{[0]:.0f}'.format(_['temperature']).center(8, '.') for _ in daily)
+		print '-'*len(label), ' ',
+		for gcond, fs in groupby(daily, lambda _: _['weather short description']):
+			cdaily = list(fs)
+			print gcond.center(8*len(cdaily)-2,'-')+' ',
+		print
+		print

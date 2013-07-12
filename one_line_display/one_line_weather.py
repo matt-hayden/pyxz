@@ -66,7 +66,7 @@ try:
 except urllib2.HTTPError, e:
 	print >>sys.stderr, "Error loading weather URL from Google"
 	sys.exit(-2)
-	
+print google_result
 #
 this_line, last_line = "Now: "+get_current(google_result), "No weather"
 forecast_number = 0
