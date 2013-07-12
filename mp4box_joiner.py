@@ -1,29 +1,10 @@
 #!env python
-from collections import Counter
 import os.path
-from subprocess import *
 
 from local.flatten import flatten
+from local.xglob import glob
+from media_locations import *
 
-def find_mp4box_executable(paths = []):
-	if not paths:
-		programfiles = os.path.expandvars('%ProgramFiles%')
-		search_files = [ 'GPAC*\\MP4Box.exe',
-						 'MeGUI*\\tools\\mp4box\\MP4Box.exe',
-						 'MP4Box*\\MP4Box.exe',
-						 'StaxRip*\\Applications\\MP4Box\\MP4Box.exe' ]
-		paths = [os.path.join(programfiles, _) for _ in search_files]
-	latest = []
-	for f in glob(paths):
-		if os.path.exists(f):
-			try:
-	#			mp4box_version = [ _ for _ in check_output((f, '-version')).splitlines() if _ ]
-				mp4box_version = check_output((f, '-version')).splitlines()[0]
-			except CalledProcessError as e:
-				continue
-			if latest < [mp4box_version, f]:
-				latest = [mp4box_version, f]
-	return latest[-1]
 def my_commonprefix(args, **kwargs):
 	prefix = os.path.commonprefix(args, **kwargs)
 	if prefix:
@@ -50,7 +31,8 @@ def get_join_syntax(args,
 if __name__=='__main__':
 	import sys
 	
-	mp4box_executable = find_mp4box_executable()
+#	mp4box_executable = find_mp4box_executable()
+	mp4box_executable = r'F:\Program Files\MeGUI_2153_x86\tools\mp4box\MP4Box.exe'
 	args = sys.argv[1:]
 	
 	s = get_join_syntax(args)

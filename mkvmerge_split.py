@@ -1,12 +1,11 @@
 #!env python
 import os.path
-from subprocess import *
 
-from local.xglob import glob
+from media_locations import *
 
 def find_mkvmerge_executable(paths = []):
 	if not paths:
-		paths = [ 'mp4box', 'MP4Box.exe' ]
+		paths = [ 'mkvmerge', 'mkvmerge.exe' ]
 		programfiles = os.path.expandvars('%ProgramFiles%')
 		search_files = [ 'MeGUI*\\tools\\mkvmerge\\mkvmerge.exe',
 						 'StaxRip*\\Applications\\MKVtoolnix\\mkvmerge.exe' ]
