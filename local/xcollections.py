@@ -1,17 +1,22 @@
 
-def is_range(iterable):
+def is_range(iterable, if_empty=False):
 	"""
-	True if the argument is equivalent to an integer interval.
+	True if the argument is equivalent to an integer interval. Behaviour for
+	empty sets is the argument if_empty.
 	"""
 	try:
 		intset = set(int(_) for _ in iterable)
 	except:
 		return False
-	try:
+	n = len(intset)
+	if n == 0: return if_empty
+	elif n == 1: return True
+	else:
 		my_min, my_max = min(intset), max(intset)
-		return intset == set(range(my_min, my_max+1))
-	except:
-		return False
+#		if my_min == my_max: return True # unreachable?
+		for i in xrange(my_min+1, my_max): # loops from [1] to [-2]
+			if i not in intset: return False
+		return True
 
 # Neat trick to make simple namespaces:
 # http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
