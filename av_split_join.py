@@ -2,6 +2,7 @@
 import os.path
 import subprocess
 
+from local.flatten import flatten
 from local.xglob import glob
 
 def find_asfbin_executable(paths = []):
@@ -70,6 +71,11 @@ def find_mp4box_executable(paths = []):
 	assert latest
 	return latest[-1]
 #
+"""asfbin has a -s option to take a list of segments"""
+def asfbin_join_syntax(args, fileout):
+	asfbin_args = [('-i', _) for _ in args]
+	asfbin_args.append(('-o', fileout))
+	return list(flatten(asfbin_args))
 def mkvmerge_split_syntax(filein,
 						  pairs,
 						  fileout='',
@@ -86,4 +92,8 @@ def mkvmerge_split_syntax(filein,
 	mkvmerge_args.append(split_mode+':'+section_sep.join('{}-{}'.format(s,e) for s,e in pairs))
 	mkvmerge_args.append(filein)
 	return mkvmerge_args
-print find_mp4box_executable()
+def mp4box_join_syntax(args, fileout):
+	mp4box_args = [('-cat', _) for _ in args]
+	mp4box_args.append(('-new', '-out', fileout))
+	return list(flatten(mp4box_args))
+#

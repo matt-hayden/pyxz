@@ -1,3 +1,18 @@
+
+def is_range(iterable):
+	"""
+	True if the argument is equivalent to an integer interval.
+	"""
+	try:
+		intset = set(int(_) for _ in iterable)
+	except:
+		return False
+	try:
+		my_min, my_max = min(intset), max(intset)
+		return intset == set(range(my_min, my_max+1))
+	except:
+		return False
+
 # Neat trick to make simple namespaces:
 # http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
 class Namespace(dict):
