@@ -1,6 +1,7 @@
 #!env python
 from collections import Counter
 import os.path
+import subprocess
 
 from local.xcollections import is_range
 from av_split_join import *
@@ -34,7 +35,7 @@ def get_output_filename(args, sep='_'):
 			return prefix+sep.join(iparts)+extension
 	else: return 'joined'+extension
 def _get_join_parts(args, fileout):
-	exts = set(os.path.splitext(_).upper() for _ in args)
+	exts = set(os.path.splitext(_)[-1].upper() for _ in args)
 	if exts & set(['.ASF', '.WMA', '.WMV']):
 		return find_asfbin_executable(), asfbin_join_syntax(args, fileout)
 #	elif exts == set(['.MKV']):
@@ -46,7 +47,8 @@ def _get_join_parts(args, fileout):
 def join(args, fileout=None):
 	if fileout is None: fileout = get_output_filename(args)
 	exe, exe_args = _get_join_parts(args, fileout)
-	join_results = call([exe]+exe_args)
+	print "Calling", exe, exe_args
+	join_results = subprocess.call([exe]+exe_args)
 	if join_results: # are non-zero
 		raise Exception(join_results)
 #

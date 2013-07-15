@@ -94,6 +94,7 @@ def mkvmerge_split_syntax(filein,
 	return mkvmerge_args
 def mp4box_join_syntax(args, fileout):
 	mp4box_args = [('-cat', _) for _ in args]
-	mp4box_args.append(('-new', '-out', fileout))
+	mp4box_args.append('-new')
+	mp4box_args.append(fileout)
 	return list(flatten(mp4box_args))
 #
