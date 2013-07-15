@@ -32,6 +32,9 @@ class MDB_file(odbc_wrapper):
 	Row(Name=u'Gadot')
 	Row(Name=u'Eddie')
 	Row(Name=u'Zekie')
+	
+	Committing is rolled into the cursor, so this may not be necessary:
+	>>> db.commit()
 	"""
 	default_ID_field_type = 'AUTOINCREMENT(1, 1)'
 	default_field_type = 'VARCHAR(255)'
