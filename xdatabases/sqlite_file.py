@@ -8,7 +8,7 @@ class sqlite_file(_xdatabase_base):
 	"""
 	A wrapper around the pretty good python database API.
 	Enables certain custom adaptors.
-	>>> db = sqlite_file('foo.db')
+	>>> db = sqlite_file('foo.db', no_commit=False)
 	
 	There are two ways to populate a table:
 	
@@ -30,6 +30,9 @@ class sqlite_file(_xdatabase_base):
 	Row(Name=u'Gadot')
 	Row(Name=u'Eddie')
 	Row(Name=u'Zekie')
+	
+	Don't forget to commit!
+	>>> db.commit()
 	"""
 	default_ID_field_type = 'INTEGER PRIMARY KEY AUTOINCREMENT'
 	default_field_type = 'TEXT'

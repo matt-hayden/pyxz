@@ -118,7 +118,7 @@ class _xdatabase_base(_xdatabase_abstract):
 		debug("get_append_coroutine(sql = '{}')".format(append_sql))
 		def coroutine(sql):
 			with self.cursor() as cursor:
-				iteration = 0 # 1 will be added to this upon next() below, syncronizing it with sqlite AUTOINCREMENT
+				iteration = 0 # 1 will be added to this upon next() below, syncronizing it with AUTOINCREMENT
 				try:
 					while True:
 						content = (yield iteration)
@@ -133,7 +133,8 @@ class _xdatabase_base(_xdatabase_abstract):
 						iteration += 1
 				except GeneratorExit:
 					debug("Iteration {} completed: {}".format(iteration-1, content))
-#					cursor.commit()
+					if not self.no_commit and hasattr(cursor, 'commit'):
+						cursor.commit() # needed for MDB?
 		co = coroutine(sql=append_sql)
 		co.next()
 		return co

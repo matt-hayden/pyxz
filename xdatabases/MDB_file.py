@@ -10,7 +10,7 @@ class MDB_file(odbc_wrapper):
 	"""
 	A wrapper around the pretty good python database API.
 	Enables certain custom adaptors.
-	>>> db = MDB_file('foo.mdb')
+	>>> db = MDB_file('foo.mdb', no_commit=False)
 	
 	There are two ways to populate a table:
 	
