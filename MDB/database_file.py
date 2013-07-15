@@ -73,6 +73,7 @@ class MDB_Base(object):
 	The following methods and properties are available regardless of import
 	driver.
 	"""
+	default_ID_field_type = 'AUTOINCREMENT(1, 1)'
 	driver_name = import_driver.__name__
 	MSysObjects_Row = namedtuple('TableDef', 'Connect Database DateCreate DateUpdate Flags ForeignName ID Lv LvExtra LvModule LvProp Name Owner ParentID RmtInfoLong RmtInfoShort Type')
 	#
@@ -127,8 +128,9 @@ class MDB_Base(object):
 		* pyodbc provides method Cursor.tables
 		"""
 		try:
-			with self.cursor() as cur:
-				cur.execute("select * from MSysObjects where Type=1")
+#			with self.cursor() as cur:
+#				cur.execute("select * from MSysObjects where Type=1")
+			with self.execute("select * from MSysObjects where Type=1") as cur:
 				return [ MSysObjects_Row(*r) for r in cur ]
 		except:
 			error("Table defs not available for "+self.driver_name)
@@ -171,14 +173,16 @@ class MDB_Base(object):
 			named: returned iterable is a namedtuple based on field names (This
 				is not supported by all drivers)
 		"""
-		cursor = self.execute(*args, **kwargs)
-		try:
-			Row=namedtuple('Row', self.get_field_names_for_cursor(cursor) )
-			for _ in cursor:
-				yield Row(*_)
-		except:
-			for _ in cursor:
-				yield _
+		with self.execute(*args, **kwargs) as cursor:
+			try:
+				Row=namedtuple('Row', self.get_field_names_for_cursor(cursor) )
+				for _ in cursor:
+					yield Row(*_)
+			except:
+				for _ in cursor:
+					yield _
+	def cursor(self, *args, **kwargs):
+		return closing(self.connection.cursor(*args, **kwargs))
 	def commit(self, *args, **kwargs):
 		self.connection.commit(*args, **kwargs)
 	def create_table(self,
@@ -215,7 +219,7 @@ class MDB_Base(object):
 		create_fields = fields
 		if ID_name:
 			create_fields = [ID_name]+fields
-			field_types.insert(0, 'AUTOINCREMENT(1, 1)')
+			field_types.insert(0, self.default_ID_field_type)
 		try:
 			self.create_table(table_name, create_fields, field_types)
 		except Exception as e:
@@ -290,8 +294,6 @@ class pyodbc_MDB(MDB_Base):
 	"""
 	Example subclass of MDB_Base.
 	"""
-	def cursor(self, *args, **kwargs):
-		return closing(self.connection.cursor(*args, **kwargs))
 	#
 	pyodbc_TableDef = namedtuple('TableDef', 'table_cat table_schem table_name table_type remarks')
 	# for some reason, pyodbc gives an extra field:

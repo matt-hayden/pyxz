@@ -24,10 +24,11 @@ def sql_field_sanitize(arg,
 					   sep='',
 					   pass_brackets_through = True,
 					   valid_characters='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&/:@_`{|}~',
-					   pass_string_parts_through=lambda s:s.title()):
+					   pass_string_parts_through=None):
 	"""
 	Some programs, like SPSS, treat sep='', whereas some database exports treat
-	sep='_'.
+	sep='_'. Use pass_string_parts_through=lambda s:s.title() to send words
+	through that function before joining.
 	"""
 	name = arg.strip()
 	bracketed = (name[0], name[-1]) == ('[', ']')
