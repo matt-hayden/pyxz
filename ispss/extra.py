@@ -1,5 +1,7 @@
 #!env python
-"""These are helper functions for SPSS, used in multiple Aquacraft projects.
+"""
+Helper functions callable within SPSS. This file is for functions that require
+external libraries provided by IBM.
 """
 
 import os
@@ -8,7 +10,6 @@ import sys
 from textwrap import TextWrapper
 
 linesep = os.linesep
-spssterm = "."
 
 def VarTableNameAndLabelList(*vars):
 	"""

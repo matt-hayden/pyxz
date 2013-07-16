@@ -1,6 +1,7 @@
 #! env python
 """
-Helper functions callable within SPSS.
+Helper functions callable within SPSS. This file is for functions that do not
+require external dependencies besides the Python standard library.
 """
 def first(*args, **kwargs):
 	factory=kwargs.pop('factory', float)

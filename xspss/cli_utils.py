@@ -1,6 +1,11 @@
-#! env python
+#!env python
+"""
+Command-line utilities to work with SPSS files outside of SPSS
+"""
+__author__ = 'Aquacraft, Inc.'
+__version__ = '0'
 
-from spss_file import *
+from file import *
 
 from console_size import condense_string # this function is probably misplaced
 #

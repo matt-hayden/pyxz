@@ -28,14 +28,14 @@ pat_email = re.compile(r'''
                        ''')
 
 pat_spss_if_assignment = re.compile( r'''
-			       (?xi)( # allow comments, case insensitive
-			        if\s* # begins with an if statement
-		     (.*(and|or)\s*)* # predicates are possible
-		       keycode\s*=\s* # keycode assignment
-	        (?P<keycode>\w{5})\s* # 
-	  (?P<assign_name>\w+)\s*=\s* #
+							   (?xi)( # allow comments, case insensitive
+								if\s* # begins with an if statement
+					 (.*(and|or)\s*)* # predicates are possible
+					   keycode\s*=\s* # keycode assignment
+				(?P<keycode>\w{5})\s* # 
+		  (?P<assign_name>\w+)\s*=\s* #
 (?P<assign_value>[0-9](.[0-9]+)?)\s*) #
-				      ''')
+									  ''')
 
 #extract_phrase = lambda s: [u[0] for u in re.findall(pat_spss_if_assignment, s)]
 #extract_phrase = lambda s: re.match(pat_spss_if_assignment, s)
