@@ -1,9 +1,12 @@
 import os
 
 def condense_string(text, width):
+	"""
+	Smush a long string to fit a maximum width
+	"""
+	if len(text) <= width: return text
 	ss = text.split()
-	if not ss:
-		return text
+	if not ss: return text[:width]
 	mwl = max(len(_) for _ in ss)
 	for wl in range(mwl, 2, -1):
 		ns = [ _[:wl] for _ in ss ]

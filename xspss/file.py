@@ -1,12 +1,5 @@
-from collections import defaultdict, namedtuple
-from logging import debug, info, warning, error, critical
-import os.path
-import re
-import cPickle as pickle
 
-import spssaux
-
-from console_size import redirect_terminal
+from local.console import redirect_terminal
 
 ### both name and factory need to have the same name for pickle
 SPSS_Variable_Description = namedtuple('SPSS_Variable_Description',
@@ -14,7 +7,6 @@ SPSS_Variable_Description = namedtuple('SPSS_Variable_Description',
 #
 def vdtuple(spss_variable,
 			flags = None,
-			missing_values_none = (0, None, None, None),
 			factory = SPSS_Variable_Description,
 			string_format = 'string ({})'):
 	"""

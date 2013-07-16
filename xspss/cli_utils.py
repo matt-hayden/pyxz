@@ -7,7 +7,7 @@ __version__ = '0'
 
 from file import *
 
-from console_size import condense_string # this function is probably misplaced
+from local.console.size import condense_string
 #
 def variable_description_string(vdtuple, widths = [0]*6, line_width = None):
 	"""
