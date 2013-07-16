@@ -1,43 +1,64 @@
+#!env python
+"""
+Cache (pickable) data that becomes stale after a predetermined amount of time.
+"""
+__version__ = '0'
+
 from datetime import datetime, timedelta
 import os.path
-from cPickle import dump, load
-from cStringIO import StringIO
+import cPickle as pickle
+
+cache_stale_after = {'minutes': 15}
 
 def cached(function,
-		   args = (),
-		   cache_file = None,
-		   lifetime = timedelta(minutes=15)):
+		   args=(),
+		   cache_file=None,
+		   lifetime=timedelta(**cache_stale_after),
+		   mode='pickle'):
 	"""
-	Use like this:
+	Define a function that returns a cacheable value that goes stale after a
+	predetermined delay. For example, to use a value of now() that is at most
+	15 minutes off:
 	
-	@cached
-	def hello(*args):
-		return datetime.now()
-	print hello
+	>>> @cached
+	... def hello(*args):
+	...     return datetime.now()
+	...
+	>>> print hello
+	2013-07-16 13:57:35.335000
 	
-	~/.cache/hello or ~/.hello.cache will be printed if less than 15 minutes
-	old, or else hello(*args) will be run, the output saved to one of those 2
-	files, and also printed. To force regeneration, simply delete the cache.
+	~/.cache/function or ~/.function.cache will be printed if less than 15
+	minutes old, or else function(*args) will be run, the output saved to one 
+	of those 2 files, and also returned. To force regeneration, simply delete 
+	the cache.
 	Note that some argument in the above function definition is mandatory.
+	Change the global variable cache_stale_after for alternative values:
+	
+	Examples:
+		cache_stale_after = {'minutes': 1, 'seconds': 30}
+		cache_stale_after = {'days': 30.5}
 	"""
 	def age(filename):
 		mode, inode, dev, nlink, uid, gid, size, atime, mtime, ctime = os.stat(filename)
 		return datetime.now() - datetime.fromtimestamp(mtime)
 	name = function.__name__
 	if not cache_file:
-		if os.path.isdir(os.path.expanduser('~/.cache')):
-			cache_file = '~/.cache/{}'.format(name)
+		cache_dir = os.path.expanduser('~/.cache')
+		if os.path.isdir(cache_dir):
+			cache_file = os.path.join(cache_dir, name)
 		else:
-			cache_file = '~/.{}.cache'.format(name)
-	cache_file = os.path.expanduser(cache_file)
+			cache_file = os.path.expanduser('~/.{}.cache'.format(name))
 	#
 	if os.path.exists(cache_file) and (age(cache_file) < lifetime):
-#		return open(cache_file).read()
-		return load(open(cache_file))
+		if mode == 'pickle':
+			return pickle.load(open(cache_file))
+		else:
+			return open(cache_file).read()
 	else:
-#		return tee(function(*args), cache_file)
 		content = function(*args)
 		with open(cache_file, 'wb') as fo:
-			dump(content, fo)
+			if mode == 'pickle':
+				pickle.dump(content, fo)
+			else:
+				fo.write(str(content))
 		return content
-#
