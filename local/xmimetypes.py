@@ -12,4 +12,15 @@ types_map['.mpeg']='video/mpeg'
 types_map['.ogg']='application/ogg'
 types_map['.rar']='application/x-rar-compressed'
 types_map['.wma']='audio/x-ms-wma'
-types_map['.wmv']='audio/x-ms-wmv'
+types_map['.wmv']='video/x-ms-wmv'
+types_map['.asf']='video/x-ms-asf'
+
+types_map['.rmvb']='application/vnd.rn-realmedia-vbr'
+types_map['.flv']='video/x-flv'
+
+types_map['.mka']='audio/x-matroska'
+types_map['.mkv']='video/x-matroska'
+types_map['.mk3d']='video/x-matroska=3d'
+
+types_map['.psd']='image/vnd.adobe.photoshop'
+types_map['.jps']='image/x-jps'
