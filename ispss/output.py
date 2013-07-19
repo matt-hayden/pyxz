@@ -6,6 +6,7 @@ import os.path
 
 import SpssClient
 
+import ispss
 """
 Example for reference:
 
@@ -40,6 +41,7 @@ for index in range(OutputItems.Size()):
 """
 def save_Excel(filename,
 			   sheetname="SPSS output",
+			   mode='a',
 			   subSet=SpssClient.SpssExportSubset.SpssVisible,
 			   startClient=True):
 	"""
@@ -47,16 +49,32 @@ def save_Excel(filename,
 	"""
 	if startClient: SpssClient.StartClient()
 	OutputDoc = SpssClient.GetDesignatedOutputDoc()
-	OutputDoc.ClearSelection()
 	#
-	OutputDoc.SetOutputOptions(SpssClient.DocExportOption.ExcelOperationOptions,
-							   "CreateWorkbook")
+	afilename = filename if os.path.isabs(filename) else os.path.join(ispss.get_cwd(), filename)
+	ext = os.path.splitext(afilename)[-1].upper()
+	#
+	if ext in ['.XLS']:
+		format = SpssClient.DocExportFormat.SpssFormatXls
+	#elif ext in ['.XLSX']:
+	#
+	if isinstance(subSet, basestring):
+		if subSet.startswith('select'):
+			subSet = SpssClient.SpssExportSubset.SpssSelected
+		elif subSet == 'visible':
+			subSet = SpssClient.SpssExportSubset.SpssVisible
+		elif subSet == 'all':
+			subSet = SpssClient.SpssExportSubset.SpssAll
+	if mode == 'a':
+		OutputDoc.SetOutputOptions(SpssClient.DocExportOption.ExcelOperationOptions,
+								   "CreateWorksheet")
+	elif mode == 'w':
+		OutputDoc.SetOutputOptions(SpssClient.DocExportOption.ExcelOperationOptions,
+								   "CreateWorkbook")
 	OutputDoc.SetOutputOptions(SpssClient.DocExportOption.ExcelSheetNames,
 							   sheetname)
 	try:
-		OutputDoc.ExportDocument(subSet,
-								 filename if os.path.isabs(filename) else os.path.join(cwd, filename),
-								 SpssClient.DocExportFormat.SpssFormatXls)
+		OutputDoc.ExportDocument(subSet, afilename, format)
 		OutputDoc.SetPromptToSave(False)
+		return afilename
 	except Exception as e:
 		print e

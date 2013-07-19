@@ -317,6 +317,8 @@ def Keycode(*args, **kwargs):
 #		return set(a)
 		return a
 	elif len(args) >= 3:
+		if 1996 <= args[0] <= 2095:
+			args[0] %= 100
 #		return Keycode(reduce(lambda x,y: x+str(y), [str(a) for a in args]))
 		return Keycode(''.join(str(a) for a in args if a is not None))
 #
