@@ -19,7 +19,7 @@ def find_asfbin_executable(paths = []):
 			try:
 				output = subprocess.check_output((f, '-h'))
 				asfbin_help = output.splitlines()
-			except CalledProcessError as e:
+			except subprocess.CalledProcessError as e:
 				asfbin_help = e.output.splitlines()
 			#
 			asfbin_version = asfbin_help[0]
@@ -41,7 +41,7 @@ def find_mkvmerge_executable(paths = []):
 			try:
 				output = subprocess.check_output((f, '--version')).splitlines()
 				mkvmerge_version = output[0]
-			except CalledProcessError as e:
+			except subprocess.CalledProcessError as e:
 				continue
 			if latest < [mkvmerge_version, f]:
 				latest = [mkvmerge_version, f]
@@ -64,7 +64,7 @@ def find_mp4box_executable(paths = []):
 			try:
 				output = subprocess.check_output((f, '-version'), stderr=subprocess.STDOUT).splitlines() #
 				mp4box_version = output[0]
-			except CalledProcessError as e:
+			except subprocess.CalledProcessError as e:
 				continue
 			if latest < [mp4box_version, f]:
 				latest = [mp4box_version, f]
