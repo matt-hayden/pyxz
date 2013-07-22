@@ -7,7 +7,7 @@ import os.path
 import subprocess
 import sys
 
-from walk import gen_rdf_from_list
+from walk import walklist
 
 if sys.platform.startswith('win'):
 	md5sum_filename = 'MD5SUM.txt'
@@ -47,7 +47,10 @@ def md5summer(filenames,
 		mode				'a' for append to md5sum_filename, 'w' to overwrite it
 		skip				Should md5 still be calculated if file already exists in md5sum_filename?
 	"""
-	for root, dirs, files in gen_rdf_from_list(filenames):
+	for root, dirs, files in walklist(filenames):
+		if not os.path.isdir(root): # 'filenames' is probably stale
+			error("Non-existent directory '{}' encountered, ignoring all {} files under it".format(root, len(files)))
+			continue
 		if dirs:
 			warning("directories {} in argument ignored".format(dirs))
 		md5sum_file = os.path.join(root, md5sum_filename)
