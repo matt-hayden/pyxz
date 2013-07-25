@@ -159,7 +159,22 @@ def walklist(filenames,
 		yield dirname, [], [_[-1] for _ in g]
 	if found_dirs:
 		yield '', found_dirs, [] # lastly, directories not matching any files
-###
+#
+def separate_paths_at_component(paths, component='', splitter=None):
+	seps = set()
+	#
+	if component:
+		splitter = re.compile(r'(?:\\|\A)('+component+r')(?:\\|\Z)', re.IGNORECASE)
+	for haystack in paths:
+		s = splitter.split(haystack, 1)
+		if len(s) == 1:
+			seps.add((component,))
+		elif len(s) == 3:
+			seps.add(tuple(s))
+		else:
+			raise ValueError("re.split produced {} values: {}".format(len(s), s))
+	return seps
+
 ### Legacy:
 gen_rdf_from_list=walklist
 ###

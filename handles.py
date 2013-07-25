@@ -1,10 +1,9 @@
 #!env python
-import logging
-logging.basicConfig(level=logging.DEBUG)
 """
 Use Sysinternals to find open file handles
 """
 from collections import namedtuple
+from itertools import groupby
 from logging import debug, info, warning, error, critical
 import re
 import subprocess
@@ -38,8 +37,10 @@ Sysinternals - www.sysinternals.com
 			else:
 				info("Unknown row {}: {}".format(line_number, line))
 	return line_number
-sysinternals_handle_line = namedtuple('SysinternalsHandle', 'executable PID handle_type ID path')
-def parse_sysinternals_handle(iterable, line_number=1):
+#
+def parse_sysinternals_handle(iterable,
+							  line_number=1,
+							  factory=namedtuple('SysinternalsHandle', 'executable PID handle_type ID path')):
 	"""
 	GENERATOR
 	"""
@@ -55,14 +56,14 @@ def parse_sysinternals_handle(iterable, line_number=1):
 ###				### Silly:
 #				executable, PID, handle_type, ID = line[:19].rstrip(), int(line[24:29]), line[37:50].rstrip(), int(line[51:55], 16)
 #				path = line[57:].rstrip()
-#				yield sysinternals_handle_line(executable, PID, handle_type, ID, path)
+#				yield factory(executable, PID, handle_type, ID, path)
 				# assume executable cannot contain ': '
 				parts = line.split(': ',3)
 				executable, _ = re.split(' +pid', parts[0])
 				PID, _ = re.split(' +type', parts[1])
 				handle_type, ID = re.split(' +', parts[2])
 				path = parts[3]
-				yield sysinternals_handle_line(executable, int(PID), handle_type, int(ID, 16), path)
+				yield factory(executable, int(PID), handle_type, int(ID, 16), path)
 			except Exception as e:
 				if 'Initialization error' in line:
 					critical('handle did not complete successfully: {}'.format(e))
@@ -70,6 +71,7 @@ def parse_sysinternals_handle(iterable, line_number=1):
 					for l in iterable: critical(l)
 				raise e
 def handle_search(terms, handle_executable='handle.exe'):
+	assert terms
 	if isinstance(terms, basestring):
 		terms = [terms]
 	handles = set()
@@ -78,3 +80,9 @@ def handle_search(terms, handle_executable='handle.exe'):
 		for h in parse_sysinternals_handle(text.splitlines()):
 			handles.add(h)
 	return handles
+def handles_by_pid(*args, **kwargs):
+	"""
+	GENERATOR
+	"""
+	s = sorted(handle_search(*args, **kwargs), key=lambda x:x.PID)
+	return groupby(s, key=lambda x:x.PID)
