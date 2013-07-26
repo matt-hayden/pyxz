@@ -166,13 +166,8 @@ def separate_paths_at_component(paths, component='', splitter=None):
 	if component:
 		splitter = re.compile(r'(?:\\|\A)('+component+r')(?:\\|\Z)', re.IGNORECASE)
 	for haystack in paths:
-		s = splitter.split(haystack, 1)
-		if len(s) == 1:
-			seps.add((component,))
-		elif len(s) == 3:
-			seps.add(tuple(s))
-		else:
-			raise ValueError("re.split produced {} values: {}".format(len(s), s))
+		s = [x for x in splitter.split(haystack, 1) if x]
+		seps.add(tuple(s))
 	return seps
 
 ### Legacy:

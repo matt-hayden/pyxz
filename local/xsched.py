@@ -5,6 +5,13 @@ import time
 
 scheduler = sched.scheduler(time.time, time.sleep)
 
+def next_hour(now = None, tz = None):
+	if not isinstance(now, datetime):
+		if now:
+			now = datetime.fromtimestamp(now, tz)
+		else:
+			now = datetime.now(tz)
+	return datetime(now.year, now.month, now.day, now.hour, 0, 0) + timedelta(hours=1)
 def enter_repeat(delay, priority, action, argument,
 				 period = None):
 	"""

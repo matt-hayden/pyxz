@@ -16,6 +16,10 @@ def parse_sysinternals_handle_header(iterable, line_number=1, max_lines=6):
 Copyright (C) 1997-2013 Mark Russinovich
 Sysinternals - www.sysinternals.com
 """.splitlines()
+	expected_header_lines = """Handle
+Copyright
+Sysinternals
+""".splitlines()
 	max_lines = max_lines or len(expected_header_lines)
 	for line_number, line in enumerate(iterable, start=line_number):
 		# run until expected_header_lines is exhausted:
@@ -32,7 +36,7 @@ Sysinternals - www.sysinternals.com
 		else:
 			# test against the next value of expected_header_lines
 			x = expected_header_lines.pop(0)
-			if x in line:
+			if x.upper() in line.upper():
 				info("Header row {}: {}".format(line_number, line))
 			else:
 				info("Unknown row {}: {}".format(line_number, line))

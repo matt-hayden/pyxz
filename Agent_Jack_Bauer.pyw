@@ -3,16 +3,8 @@ import os.path
 import sys
 import time
 
-from enter_repeat import scheduler, enter_repeat
+from local.xsched import *
 from play24 import play24
-#
-def next_hour(now = None, tz = None):
-	if not isinstance(now, datetime):
-		if now:
-			now = datetime.fromtimestamp(now, tz)
-		else:
-			now = datetime.now(tz)
-	return datetime(now.year, now.month, now.day, now.hour, 0, 0) + timedelta(hours=1)
 #
 def chime(quietfiles=[".quiet", os.path.expandvars(os.path.expanduser("~/.quiet"))]):
 	if filter(os.path.exists, quietfiles):
@@ -28,6 +20,11 @@ def chime(quietfiles=[".quiet", os.path.expandvars(os.path.expanduser("~/.quiet"
 		sys.exit(-1)
 #
 if __name__=='__main__':
-	scheduler.enter(0, 1, chime, ())
-	enter_repeat(next_hour()-datetime.now(), 1, chime, (), period=timedelta(hours=1))
-	scheduler.run()
+	try:
+#		scheduler.enter(0, 1, chime, ())
+		chime
+	except Exception as e:
+		print >> sys.stderr, "Not running: {}".format(e)
+	else:
+		enter_repeat(next_hour()-datetime.now(), 1, chime, (), period=timedelta(hours=1))
+		scheduler.run()
