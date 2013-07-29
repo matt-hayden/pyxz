@@ -7,9 +7,12 @@ bytes_by_prefix = OrderedDict((s,10**(3*i)) for i,s in enumerate(log_bytes_by_pr
 log_ibytes_by_prefix = ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi']
 ibytes_by_prefix = OrderedDict((s,(1 << i*10)) for i,s in enumerate(log_ibytes_by_prefix))
 
-def byte_units(size, base=1000):
+def byte_units(size, base=1000, isexp=False):
 	"""
-	>>> from decimal import Decimal
+	Positive and negative units of bytes. Use base=1024 for iB notation, which
+	should only be used when referencing units of RAM where memory cells are
+	conventionally paired.
+	
 	>>> print byte_units(1+1e+17)
 	(100.0000000000002, 'PB')
 	>>> print byte_units(1)
@@ -22,6 +25,19 @@ def byte_units(size, base=1000):
 	Beyond the largest category, you can expect large values with the last unit.
 	>>> print byte_units(1+1000*1e+24)
 	(1000.0, 'YB')
+	
+	For very big numbers that are already logged in the indicated base, use the
+	'isexp' flag. I.e. 1000**5.666666666666667 equals 1e+17. 
+	>>> byte_units(5.666666666666667, isexp=True) == byte_units(1e+17)
+	True
+	>>> byte_units(0, isexp=True)
+	(1, 'B')
+	
+	Of course, log values less than 0 are impossible.
+	>>> byte_units(-123456789, isexp=True)
+	Traceback (most recent call last):
+		...
+	ValueError: expicit log argument was negative: math domain error
 	"""
 	if not (base % 10):
 		base = 10**3
@@ -29,14 +45,18 @@ def byte_units(size, base=1000):
 	elif not (base % 16): # note that 1000 % 8 == 0
 		base = 2**10
 		prefixes, lprefixes = ibytes_by_prefix, log_ibytes_by_prefix
-	if size == 0:
-		return 0, lprefixes[0]+'B'
-	elif size < 0:
-		size, pos = abs(size), False
+	if isexp:
+		if size < 0:
+			raise ValueError("expicit log argument was negative: math domain error") 
+		logsize, pos = size, True
 	else:
-		pos = True
-	#
-	logsize = log(size, base)
+		if size == 0:
+			return 0, lprefixes[0]+'B'
+		elif size < 0:
+			size, pos = -size, False
+		else:
+			pos = True
+		logsize = log(size, base)
 	exp, maxexp = trunc(logsize), len(lprefixes)-1
 	exp = min(exp, maxexp)
 	m = base**(logsize-exp)
