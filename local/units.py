@@ -1,6 +1,52 @@
 #!env python
+from collections import OrderedDict
+from math import *
 
-from math import sin, cos, pi, radians
+log_bytes_by_prefix = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
+bytes_by_prefix = OrderedDict((s,10**(3*i)) for i,s in enumerate(log_bytes_by_prefix))
+log_ibytes_by_prefix = ['', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi']
+ibytes_by_prefix = OrderedDict((s,(1 << i*10)) for i,s in enumerate(log_ibytes_by_prefix))
+
+def byte_units(size, base=1000):
+	"""
+	>>> from decimal import Decimal
+	>>> print byte_units(1+1e+17)
+	(100.0000000000002, 'PB')
+	>>> print byte_units(1)
+	(1.0, 'B')
+	>>> print byte_units(-123456789)
+	(-123.45678900000014, 'MB')
+	>>> print byte_units(1+1e+24)
+	(1.0, 'YB')
+	
+	Beyond the largest category, you can expect large values with the last unit.
+	>>> print byte_units(1+1000*1e+24)
+	(1000.0, 'YB')
+	"""
+	if not (base % 10):
+		base = 10**3
+		prefixes, lprefixes = bytes_by_prefix, log_bytes_by_prefix
+	elif not (base % 16): # note that 1000 % 8 == 0
+		base = 2**10
+		prefixes, lprefixes = ibytes_by_prefix, log_ibytes_by_prefix
+	if size == 0:
+		return 0, lprefixes[0]+'B'
+	elif size < 0:
+		size, pos = abs(size), False
+	else:
+		pos = True
+	#
+	logsize = log(size, base)
+	exp, maxexp = trunc(logsize), len(lprefixes)-1
+	exp = min(exp, maxexp)
+	m = base**(logsize-exp)
+	return m if pos else -m, lprefixes[exp]+'B'
+### Much slower method:
+#	size = factory(size)
+#	for p in prefixes.keys()[:-1]:
+#		if size < base: return size, p+'B'
+#		else: size /= base
+#	return size, prefixes.keys()[-1]+'B'
 
 def kelvin_to_celsius(k):
 	return k-273.15
@@ -8,8 +54,8 @@ def celsius_to_fahrenheit(c):
 	return 9*c/5+32
 def kelvin_to_fahrenheit(k):
 	return celsius_to_fahrenheit(kelvin_to_celsius(k))
-def direction_name(angle, unit='degrees'):
-	if unit == 'degrees':
+def direction_name(angle, units='degrees'):
+	if units.lower().startswith('deg'):
 		angle = radians(angle)
 	angle %= 2*pi
 	threshold = 0.975*(pi/8)
