@@ -7,58 +7,58 @@ Note: the study lookup functionality is hard-coded at the end of this file.
 It's easy to change, but requires manual adjustment.
 """
 
+import collections
 from logging import debug, info, warning, error, critical
 import os.path
 import re
-
-### TODO: this section (below) must be updated as new keycodes are assigned
-keycode_ranges_by_study={}
 
 ### Numerical-only format pre-2009:
 extra_keycode_res = [re.compile('\s*'
 								'(?P<keycode>\d+)'
 								'(?P<suffix>[a-zA-Z]\w*)?'
-								'\s*')
-					]
-#
-keycode_types = { s[0].upper(): s for s in ['Agricultural', 'Commercial', 'Irrigation', 'Multi-family Residential', 'Single-Family Residence']}
-keycode_types['N'] = 'Institutional'
-keycode_types['X'] = None
+								'\s*')]
 
 ### Legacy:
 def parse_keycode(t):
 	return str(Keycode(t))
 
 ###
-def parse_filename(filepath, int_t=int, max_digits=24):
+def parse_filename(filepath, int_factory=int):
 	"""
 	Convenience function for pulling keycodes from filenames. Some studies used
-	integer IDs, others used the 2009 Keycode spec. 
+	integer IDs, others used the 2009 Keycode spec. If an attempt to determine
+	Integer ID fails, text is returned.
 	"""
-	if (os.path.sep in filepath) or ('/' in filepath) or (r'\\' in filepath):
-		dirname, basename = os.path.split(filepath)
-	else:
-		basename = filepath
-	if os.path.extsep in basename:
-		filepart, ext = os.path.splitext(basename)
-	else:
-		filepart = basename
+#	if (os.path.sep in filepath) or ('/' in filepath) or (r'\\' in filepath):
+#		dirname, basename = os.path.split(filepath)
+#	else:
+#		basename = filepath
+	dirname, basename = os.path.split(filepath)
+#	if os.path.extsep in basename:
+#		filepart, ext = os.path.splitext(basename)
+#	else:
+#		filepart = basename
+	filepart, ext = os.path.splitext(basename)
 	try:
 		return Keycode(filepart, strict=True)
 	except:
 		try:
-			return int_t(filepart[:max_digits])
+			return int_factory(filepart)
 		except:
 			for exp in extra_keycode_res:
 				m = exp.match(filepart)
 				if m:
 					g = m.groupdict()
 					if 'keycode' in g:
-						return int_t(g['keycode'])
+						return int_factory(g['keycode'])
 	return filepart.upper()
 class KeycodeError(Exception):
 	pass
-class AquacraftSimpleKeycode:
+class AquacraftKeycode(object): # abstract
+	pass
+class Aquacraft2YearKeycode(AquacraftKeycode): # abstract
+	min_year_for_two_digits, max_year_for_two_digits = 1996, 2095
+class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 	"""
 	The simplest use of unique keycodes follows this pattern:
 		YYT(C)CCC
@@ -69,15 +69,15 @@ class AquacraftSimpleKeycode:
 	Note that most earlier code assumes exactly 6 characters in each keycode. 7
 	characters are used since around 2012.
 	"""
+	year_count_max_digits=4
+	year_count_max=10**year_count_max_digits-1
+	
 	keycode_re=re.compile('\s*'
 						  '(?P<year_code>\d{2})'
 						  '(?P<site_type_code>[a-zA-Z])'
 						  '(?P<year_count>\d{3,4})'
 						  '(?P<suffix>[a-zA-Z]\w*)?'
 						  '\s*')
-	two_digit_max_year=2095
-	year_count_max_digits=4
-	year_count_max=10**year_count_max_digits-1
 	#
 	def __init__(self, arg, **kwargs):
 		if isinstance(arg, AquacraftSimpleKeycode):
@@ -108,14 +108,15 @@ class AquacraftSimpleKeycode:
 			self.suffix = g.pop('suffix',"")
 			self.year2, self.site_type_code, self.year_count = int(g['year_code']), g['site_type_code'].upper(), int(g['year_count'])
 			#
-			self.year4 = 2000+self.year2 if (self.year2 <= self.two_digit_max_year-2000) else 1900+self.year2
-			try:
-				self.type = keycode_types[self.site_type_code]
-			except:
-				if strict:
-					raise KeycodeError(self.site_type_code, "not a valid type code")
-				else:
-					self.type = None
+			self.year4 = 2000+self.year2 if (self.year2 <= self.max_year_for_two_digits-2000) else 1900+self.year2
+#			self.type = self.site_type_code
+#			try:
+#				self.type = keycode_types[self.site_type_code]
+#			except:
+#				if strict:
+#					raise KeycodeError(self.site_type_code, "not a valid type code")
+#				else:
+#					self.type = None
 		else:
 			error_text = "Failed to parse {}".format(text)
 			if strict:
@@ -128,8 +129,9 @@ class AquacraftSimpleKeycode:
 		except:
 			return self.text
 	def __repr__(self):
-		label = " ".join(filter(lambda _: str(_).strip(), (self.get_study(), self.type))) or "Unknown"
-		return "<{1} trace {0}>".format(self, label)
+#		label = " ".join(filter(lambda _: str(_).strip(), (self.get_study(), self.type))) or "Unknown"
+#		return "<{1} trace {0}>".format(self, label)
+		return "<Aquacraft trace {0}>".format(self)
 	def to_tuple(self):
 		return self.year2, self.site_type_code, self.year_count, self.suffix
 	def __int__(self):
@@ -137,23 +139,26 @@ class AquacraftSimpleKeycode:
 	def __float__(self):
 		return float(self.year2+"."+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
 	def from_string(self, text, **kwargs):
-		extsep = kwargs.pop('extsep', os.path.extsep)
+#		extsep = kwargs.pop('extsep', os.path.extsep)
 		self.keep_suffix = kwargs.pop('keep_suffix', True)
 #		path_warning = kwargs.pop('path_warning', True)
 		#
 		assert isinstance(text, basestring), KeycodeError(str(text))
 #		if path_warning and ((os.path.sep in text) or ('/' in text) or ('\\' in text)):
 #			warning("String {} looks like a path, consider os.path.split() and stripext() in this module instead".format(text))
-		if extsep and (extsep in text):
-			text, ext = os.path.splitext(text)
+#		if extsep and (extsep in text):
+#			text, ext = os.path.splitext(text)
+		text, ext = os.path.splitext(text)
 		self.parse(text, **kwargs)
 	def __lt__(self, other):
 		other = other if isinstance(other, self.__class__) else Keycode(other)
-		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
+#		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
+		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() < other.to_tuple())
 	def __gt__(self, other):
 		other = other if isinstance(other, self.__class__) else Keycode(other)
-		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
+#		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
+		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() > other.to_tuple())
 	def __hash__(self):
 		return int(str(self.year2)
@@ -162,7 +167,8 @@ class AquacraftSimpleKeycode:
 				  +'0')
 	def __eq__(self, other):
 		other = other if isinstance(other, self.__class__) else Keycode(other)
-		if self.type == other.type:
+#		if self.type == other.type:
+		if self.site_type_code == other.site_type_code:
 			return (self.year, self.site_type_code, self.year_count) == (other.year, other.site_type_code, other.year_count)
 		else:
 			return False
@@ -183,6 +189,7 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 	True
 	>>> Keycode('14A345') > Keycode('12X346')
 	Traceback (most recent call last):
+		...
 	KeycodeError: Cannot compare 14A345 and 12X346
 	
 	Use AquacraftMultiKeycode to allow formal suffixes A1, A2, B1, B2 
@@ -239,8 +246,8 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 	>>> AquacraftSimpleKeycode('12A345') in S
 	False
 	"""
-	allow_hot=True
-	suffix_re=re.compile('\s*[a-zA-Z]\d+\s*')
+	allow_hot=True # turn this off to make 'H' nonsignificant at the beginning of the suffix
+	suffix_re=re.compile('\s*[a-zA-Z]\d{1,2}\s*') # follow patterns like A2
 	#
 	def decode_suffix(self, suffix=None):
 		p = []
@@ -267,15 +274,16 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 			return AquacraftSimpleKeycode.normalized(self, keep_suffix = True)
 		else:
 			return AquacraftSimpleKeycode.normalized(self, keep_suffix = False)
-	@property
-	def isHot(self):
-		if self.allow_hot:
-			return ('hot' in self.decode_suffix())
-		else: return False
+#	@property
+#	def isHot(self):
+#		if self.allow_hot:
+#			return ('hot' in self.decode_suffix())
+#		else: return False
 	def __eq__(self, other):
 		return hash(self) == hash(other)
 	def __hash__(self):
 		s=self.decode_suffix()
+		# form a bitmask where any alteration of that bitmask distinguishes a site
 		flags = (4 if 'subsite' in s else 0)+(2 if 'hot' in s else 0)+(1 if 'relog' in s else 0)
 		return int(str(self.year2)
 				  +str(ord(self.site_type_code))
@@ -287,8 +295,8 @@ def Keycode(*args, **kwargs):
 	unlike AquacraftSimpleKeycode and AquacraftMultiKeycode
 	
 	Keycode('12X345') returns a single keycode
-	Keycode('12X345', 10) returns inclusive keycodes between 345 and 355
-	Keycode('12X345', '12X355') returns inclusive keycodes between 345 and 355
+	Keycode('12X345', 10) returns keycodes between 345 and 355 (inclusive)
+	Keycode('12X345', '12X355') returns keycodes between 345 and 355 (inclusive)
 	Keycode(12,'X',345) and Keycode(12,'X',345,'H') return one keycode, possibly
 	with a suffix.
 	"""
@@ -317,7 +325,7 @@ def Keycode(*args, **kwargs):
 #		return set(a)
 		return a
 	elif len(args) >= 3:
-		if 1996 <= args[0] <= 2095:
+		if Aquacraft2YearKeycode.min_year_for_two_digits <= args[0] <= Aquacraft2YearKeycode.max_year_for_two_digits:
 			args[0] %= 100
 #		return Keycode(reduce(lambda x,y: x+str(y), [str(a) for a in args]))
 		return Keycode(''.join(str(a) for a in args if a is not None))
@@ -330,27 +338,14 @@ def splitext(filepath, **kwargs):
 	('C:/ASDF/12A345suf', '.CSV')
 	
 	>>> splitext('12A345suf.CSV')
-	(<Agricultural trace 12A345>, '.CSV')
+	(<Aquacraft trace 12A345>, '.CSV')
 	"""
-	extsep = kwargs.pop('extsep', os.path.extsep)
-	if extsep and (extsep in filepath):
-		filepart, ext = os.path.splitext(filepath)
-	else:
-		filepart, ext = filepath, ''
+	filepart, ext = os.path.splitext(filepath)
 	try:
 		return Keycode(filepart), ext
 	except:
 		return filepart, ext
 #
-### TODO: this section must be updated as new keycodes are assigned
-keycode_ranges_by_study={
-	'Phoenix-Relog': Keycode('09S301','09S391'),
-	'Roseville': Keycode('09S401','09S416'),
-	'ABCWUA': Keycode('10S401','10S469'),
-	'Westy-2010': Keycode('10S730','10S799'),
-	'REUWS-2': Keycode('12S101','12S1319')+Keycode('13S101','13S215')
-	}
-###
 
 def test():
 	import doctest

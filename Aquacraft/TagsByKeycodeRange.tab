@@ -1,0 +1,43 @@
+;
+; This file contains patterns for recognized keycodes used in studies through
+; July 2013. The format is simple:
+;	Some string<tab>Keycode 1<tab>Keycode 2
+; Exactly two tabs per line. If Keycode 2 is missing, then that tag only applies
+; to the single site Keycode 1.
+;
+; Note that keycodes also have a .flags member, which contains 
+;
+; Keycodes with subsites may not pick up on this. You should use the class
+; AquacraftMultiKeycode when checking against this list, which will not match
+; on suffixes when searching.
+;
+
+
+;
+; Older studies
+;
+Phoenix-Relog	09S301	09S391
+Roseville	09S401	09S416
+ABCWUA	10S401	10S469
+Westy-2010	10S730	10S799
+; Place names:
+Phoenix	09S301	09S391
+Roseville	09S401	09S416
+Albuquerque	10S401	10S469
+Westminster	10S730	10S799
+
+;
+; REUWS-2
+;
+REUWS-2	12S101	12S1319
+REUWS-2	13S101	13S215
+
+Denver	12S101	12S226
+Fort Collins	12S230	12S360
+Scottsdale	12S370	12S489
+San Antonio	12S500	12S609
+Clayton County	12S701	12S810
+Toho	12S820	12S917
+Peel	12S1001	12S1122
+Waterloo	12S1201	12S1319
+Tacoma	13S101	13S215

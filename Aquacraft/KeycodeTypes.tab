@@ -1,0 +1,13 @@
+;
+; This file defines the different codes used in the middle of Aquacraft
+; keycodes. Removing lines from it could cause problems. It's designed to
+; accept new types of keycodes.
+;
+
+Agricultural	A
+Commercial	C
+Irrigation	I
+Multi-family Residential	M
+Single-Family Residence	S
+Institutional	N
+<testing>	X
