@@ -137,14 +137,17 @@ def walklist(filenames,
 						directory. check_for_dirs=False implies all such
 						entries are returned in the 'files' member.
 		root			If 'check_for_dirs' and not running in the same
-						directory, specify root.
+						directory, specifying root may be necessary. Otherwise,
+						root is NOT prepended to paths.
 	Output: a walk()-like structure:
 		[ (root, dirs, files), ... ]
-	Exact fidelity to the same results as walk() is not guaranteed.
+	Exact fidelity to the same results as walk() is not guaranteed. For example,
+	pruning directories by editing the dirs list is not supported.
 	"""
 	found_dirs, sfilenames = [], []
 	if check_for_dirs:
 		for path in filenames:
+#			(found_dirs if os.path.isdir(os.path.join(root, path)) else sfilenames).append(os.path.split(path))
 			if os.path.isdir(os.path.join(root, path)):
 				found_dirs.append(os.path.split(path))
 			else:
@@ -154,9 +157,9 @@ def walklist(filenames,
 		sfilenames = [os.path.split(_) for _ in filenames]
 	sfilenames.sort()
 	for dirname, g in groupby(sfilenames, key=lambda _:_[0]):
+		yield dirname, [], [_[-1] for _ in g]
 		if dirname in found_dirs:
 			found_dirs.remove(dirname)
-		yield dirname, [], [_[-1] for _ in g]
 	if found_dirs:
 		yield '', found_dirs, [] # lastly, directories not matching any files
 #
@@ -178,6 +181,7 @@ def flatwalk(*args, **kwargs):
 	Output: a set of unique paths
 	"""
 	file_args_are_lists = kwargs.pop('file_args_are_lists', False)
+	ignore_dirs = kwargs.pop('ignore_dirs',[])
 	filenames = set()
 	for arg in args:
 		if os.path.isfile(arg):

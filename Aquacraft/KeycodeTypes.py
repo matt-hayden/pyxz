@@ -21,9 +21,19 @@ tags_filename = os.path.join(module_dirname, 'TagsByKeycodeRange.tab')
 #keycode_types = { s[0].upper(): s for s in ['Agricultural', 'Commercial', 'Irrigation', 'Multi-family Residential', 'Single-Family Residence']}
 #keycode_types['N'] = 'Institutional'
 #keycode_types['X'] = None
-with open(types_filename, 'Ur') as fi:
-	reader = csv.reader((line for line in fi if not is_comment(line)), dialect='excel-tab')
-	keycode_types = {v:k for k,v in reader}
+
+#with open(types_filename, 'Ur') as fi:
+#	reader = csv.reader((line for line in fi if not is_comment(line)), dialect='excel-tab')
+#	keycode_types = {v:k for k,v in reader}
+
+keycode_types = {
+	AquacraftKeycode.AGRICULTURAL:	'Agricultural',
+	AquacraftKeycode.COMMERCIAL:	'Commercial',
+	AquacraftKeycode.IRRIGATION:	'Irrigation',
+	AquacraftKeycode.MULTIFAMILY:	'Multi-family Residential',
+	AquacraftKeycode.INSTITUTIONAL:	'Institutional',
+	AquacraftKeycode.SINGLEFAMILY:	'Single-Family Residence',
+	'X':							'<testing>' }
 
 tags_by_keycode = defaultdict(set)
 with open(tags_filename, 'Ur') as fi:

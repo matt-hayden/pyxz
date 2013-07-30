@@ -3,8 +3,8 @@
 characters long. Before this, identifiers are only unique within certain
 studies.
 
-Note: the study lookup functionality is hard-coded at the end of this file.
-It's easy to change, but requires manual adjustment.
+See also: KeycodeTypes, which can identify project and geography by keycode,
+and also recognize invalid keycodes.
 """
 
 import collections
@@ -46,9 +46,8 @@ def parse_filename(filepath, int_factory=int, strict=False):
 	filepart, ext = os.path.splitext(basename)
 	try:
 		return Keycode(filepart, strict=True)
-	except:
-		if strict:
-			raise KeycodeError("Strictly no keycode detected in "+filepart)
+	except KeycodeError as e:
+		if strict: raise e
 		else:
 			try:
 				return int_factory(filepart)
@@ -62,7 +61,12 @@ def parse_filename(filepath, int_factory=int, strict=False):
 	return filepart.upper()
 
 class AquacraftKeycode(object): # abstract
-	pass
+	AGRICULTURAL	= 'A'
+	COMMERCIAL		= 'C'
+	IRRIGATION		= 'I'
+	MULTIFAMILY		= 'M'
+	INSTITUTIONAL	= 'N'
+	SINGLEFAMILY	= 'S'
 class Aquacraft2YearKeycode(AquacraftKeycode): # abstract
 	min_year_for_two_digits, max_year_for_two_digits = 1996, 2095
 class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
@@ -304,8 +308,8 @@ def Keycode(*args, **kwargs):
 	Keycode('12X345') returns a single keycode
 	Keycode('12X345', 10) returns keycodes between 345 and 355 (inclusive)
 	Keycode('12X345', '12X355') returns keycodes between 345 and 355 (inclusive)
-	Keycode(12,'X',345) and Keycode(12,'X',345,'H') return one keycode, possibly
-	with a suffix.
+	Both Keycode(12,AGRICULTURAL,345) and Keycode(12,SINGLEFAMILY,345,'H') each
+	return one keycode, possibly with a suffix.
 	"""
 	factory=kwargs.pop('factory', AquacraftSimpleKeycode)
 	if len(args) == 1:
@@ -421,11 +425,11 @@ if __name__=='__main__':
 		width = 12
 		print " {:>{width}} {:>{width}} ".format("# keycodes","# files each",width=width)
 		print "|{:->{width}}|{:->{width}}|".format("","",width=width)
-		for nfs, freq in c.items():
-			print "|{:>{width}}|{:>{width}}|".format(freq, nfs or "(missing)",width=width)
+		for nf, freq in c.items():
+			print "|{:>{width}}|{:>{width}}|".format(freq, nf or "(missing)",width=width)
 		print "|{:<{width}}|{:<{width}}|".format("total","# files",width=width)
 		print "|{:->{width}}|{:->{width}}|".format("","",width=width)
-		print "|{:>{width}}|{:>{width}}|".format(sum(c.values()), sum(nk*nf for nk, nf in c.items()),width=width)
+		print "|{:>{width}}|{:>{width}}|".format(sum(c.values()), sum(nk*nf for nf, nk in c.items()),width=width)
 		print "|{:_>{width}}|{:_>{width}}|".format("","",width=width)
 		print
 ### EOF
