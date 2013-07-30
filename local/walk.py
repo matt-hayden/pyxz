@@ -169,7 +169,24 @@ def separate_paths_at_component(paths, component='', splitter=None):
 		s = [x for x in splitter.split(haystack, 1) if x]
 		seps.add(tuple(s))
 	return seps
-
+#
+def flatwalk(*args, **kwargs):
+	"""
+	A non-generator walk function combining files from each argument.
+	
+	Input: a list of paths
+	Output: a set of unique paths
+	"""
+	file_args_are_lists = kwargs.pop('file_args_are_lists', False)
+	filenames = set()
+	for arg in args:
+		if os.path.isfile(arg):
+			if file_args_are_lists: g = local.walk.walklist(arg)
+			else: filenames.add(arg)
+		elif os.path.isdir(arg): g = os.walk(arg)
+		for root, dirs, files in g:
+			filenames.update(os.path.join(root, f) for f in files)
+	return filenames
 ### Legacy:
 gen_rdf_from_list=walklist
 ###

@@ -12,6 +12,8 @@ from logging import debug, info, warning, error, critical
 import os.path
 import re
 
+import local.walk
+
 ### Numerical-only format pre-2009:
 extra_keycode_res = [re.compile('\s*'
 								'(?P<keycode>\d+)'
@@ -346,6 +348,19 @@ def splitext(filepath, **kwargs):
 	except:
 		return filepart, ext
 #
+def gen_files_by_keycode(*args):
+	"""
+	GENERATOR
+	
+	Input: a list of paths
+	Output: pairs of (keycode, [possibly empty list of associated paths])
+	"""
+	files_by_keycode = collections.defaultdict(list)
+	for f in local.walk.flatwalk(*args):
+		files_by_keycode[parse_filename(f)].append(f)
+	for k in Keycode(min(files_by_keycode), max(files_by_keycode)):
+		yield k, files_by_keycode[k]
+#
 
 def test():
 	import doctest
@@ -369,28 +384,25 @@ def test():
 						print text, e
 				print
 #
-if __name__=='__main__':	
-	from itertools import groupby
+if __name__=='__main__':
+	from collections import Counter
 	import sys
 	
-	from myglob import glob
-	#
-	a=[]
-	args = sys.argv[1:] or ['*']
-	for f in glob(*args):
-		try:
-			a.append((Keycode(f), f))
-		except KeycodeError:
-			pass
-	a.sort()
-	for k, kps in groupby(a, lambda _:_[0]):
-		files = []
-		for k2, p in kps:
-			if os.path.isdir(p):
-				files.append(p+'/')
-			else:
-				files.append(p)
-		print str(k)+":"
-		print '\t', ' '.join(files)
-		print
+	import local.console.size
+	
+	args = sys.argv[1:] or ['.']
+	kfs = list(gen_files_by_keycode(*args))
+	c = Counter(len(fs) for k, fs in kfs)
+	width = len(str(max(c)))
+	print local.console.size.to_columns(("{:{width}} {:>7}".format(len(fs), k, width=width) for k, fs in kfs), sep="| ")
+	print
+	width = 12
+	print " {:>{width}} {:>{width}} ".format("# keycodes","# files each",width=width)
+	print "|{:->{width}}|{:->{width}}|".format("","",width=width)
+	for nfs, freq in c.items():
+		print "|{:>{width}}|{:>{width}}|".format(freq, nfs or "(missing)",width=width)
+	print "|{:<{width}}|{:<{width}}|".format("total","# files",width=width)
+	print "|{:->{width}}|{:->{width}}|".format("","",width=width)
+	print "|{:>{width}}|{:>{width}}|".format(sum(c.values()), sum(nk*nf for nk, nf in c.items()),width=width)
+	print "|{:_>{width}}|{:_>{width}}|".format("","",width=width)
 ### EOF

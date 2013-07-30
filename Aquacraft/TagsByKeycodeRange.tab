@@ -5,7 +5,8 @@
 ; Exactly two tabs per line. If Keycode 2 is missing, then that tag only applies
 ; to the single site Keycode 1.
 ;
-; Note that keycodes also have a .flags member, which contains 
+; Note that keycodes also have a .flags member, which contains the info
+; embedded in the suffix of certain keycodes.
 ;
 ; Keycodes with subsites may not pick up on this. You should use the class
 ; AquacraftMultiKeycode when checking against this list, which will not match

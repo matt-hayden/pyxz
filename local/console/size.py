@@ -77,12 +77,13 @@ def get_terminal_size(default = None):
 #
 def to_columns(iterable,
 			   num_columns=None, 
-			   sep=None, 
+			   sep=' ', 
 			   term_columns=None):
 	"""
 	Formats elements of an iterable into a table, like the short output of 'ls'
 	"""
-	sl = max(len(str(_)) for _ in iterable)
+	iterable = list(iterable)
+	sl = max(len(str(i)) for i in iterable)+len(sep)
 	l = len(iterable)
 	if not num_columns:
 		if not term_columns:
@@ -90,10 +91,8 @@ def to_columns(iterable,
 		num_columns = term_columns//sl
 	if num_columns < 1: num_columns = 1
 	rows = (l//num_columns)+1
-	partitioned = [iterable[_:_+rows] for _ in xrange(0,l,rows)]
-	if sep is None:
-		width_by_partition = [ (max(len(x) for x in _), _) for _ in partitioned ]
-		partitioned = [ [x.ljust(j) for x in _] for j, _ in width_by_partition ]
-		sep = ' '
+	partitioned = [iterable[c:c+rows] for c in xrange(0,l,rows)]
+	width_by_partition = [ (max(len(x) for x in ri), ri) for ri in partitioned ]
+	partitioned = [ [x.ljust(j) for x in cw] for j, cw in width_by_partition ]
 	lines = (sep.join(x) for x in zip(*partitioned))
 	return '\n'.join(lines)
