@@ -184,6 +184,8 @@ def flatwalk(*args, **kwargs):
 			if file_args_are_lists: g = local.walk.walklist(arg)
 			else: filenames.add(arg)
 		elif os.path.isdir(arg): g = os.walk(arg)
+		elif not os.path.exists(arg): raise Exception(arg+" not found")
+		# else: # special file?
 		for root, dirs, files in g:
 			filenames.update(os.path.join(root, f) for f in files)
 	return filenames
