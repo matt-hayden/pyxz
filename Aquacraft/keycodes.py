@@ -23,9 +23,12 @@ extra_keycode_res = [re.compile('\s*'
 ### Legacy:
 def parse_keycode(t):
 	return str(Keycode(t))
-
 ###
-def parse_filename(filepath, int_factory=int):
+
+class KeycodeError(Exception):
+	pass
+
+def parse_filename(filepath, int_factory=int, strict=False):
 	"""
 	Convenience function for pulling keycodes from filenames. Some studies used
 	integer IDs, others used the 2009 Keycode spec. If an attempt to determine
@@ -44,18 +47,20 @@ def parse_filename(filepath, int_factory=int):
 	try:
 		return Keycode(filepart, strict=True)
 	except:
-		try:
-			return int_factory(filepart)
-		except:
-			for exp in extra_keycode_res:
-				m = exp.match(filepart)
-				if m:
-					g = m.groupdict()
-					if 'keycode' in g:
-						return int_factory(g['keycode'])
+		if strict:
+			raise KeycodeError("Strictly no keycode detected in "+filepart)
+		else:
+			try:
+				return int_factory(filepart)
+			except:
+				for exp in extra_keycode_res:
+					m = exp.match(filepart)
+					if m:
+						g = m.groupdict()
+						if 'keycode' in g:
+							return int_factory(g['keycode'])
 	return filepart.upper()
-class KeycodeError(Exception):
-	pass
+
 class AquacraftKeycode(object): # abstract
 	pass
 class Aquacraft2YearKeycode(AquacraftKeycode): # abstract
@@ -348,18 +353,28 @@ def splitext(filepath, **kwargs):
 	except:
 		return filepart, ext
 #
-def gen_files_by_keycode(*args):
+def gen_files_by_keycode(*args, **kwargs):
 	"""
 	GENERATOR
 	
 	Input: a list of paths
 	Output: pairs of (keycode, [possibly empty list of associated paths])
 	"""
+	ignore_non_keycodes = kwargs.pop('ignore_non_keycodes', True)
+	
 	files_by_keycode = collections.defaultdict(list)
+	errors = 0
 	for f in local.walk.flatwalk(*args):
-		files_by_keycode[parse_filename(f)].append(f)
-	for k in Keycode(min(files_by_keycode), max(files_by_keycode)):
-		yield k, files_by_keycode[k]
+		try:
+			k = parse_filename(f, strict=True)
+			files_by_keycode[k].append(f)
+		except KeycodeError as e:
+			if ignore_non_keycodes: errors += 1
+			else: raise e
+	info("{} files ignored".format(errors))
+	if files_by_keycode:
+		for k in Keycode(min(files_by_keycode), max(files_by_keycode)):
+			yield k, files_by_keycode[k]
 #
 
 def test():
@@ -391,18 +406,26 @@ if __name__=='__main__':
 	import local.console.size
 	
 	args = sys.argv[1:] or ['.']
-	kfs = list(gen_files_by_keycode(*args))
-	c = Counter(len(fs) for k, fs in kfs)
-	width = len(str(max(c)))
-	print local.console.size.to_columns(("{:{width}} {:>7}".format(len(fs), k, width=width) for k, fs in kfs), sep="| ")
-	print
-	width = 12
-	print " {:>{width}} {:>{width}} ".format("# keycodes","# files each",width=width)
-	print "|{:->{width}}|{:->{width}}|".format("","",width=width)
-	for nfs, freq in c.items():
-		print "|{:>{width}}|{:>{width}}|".format(freq, nfs or "(missing)",width=width)
-	print "|{:<{width}}|{:<{width}}|".format("total","# files",width=width)
-	print "|{:->{width}}|{:->{width}}|".format("","",width=width)
-	print "|{:>{width}}|{:>{width}}|".format(sum(c.values()), sum(nk*nf for nk, nf in c.items()),width=width)
-	print "|{:_>{width}}|{:_>{width}}|".format("","",width=width)
+	nargs = len(args)
+	for arg in args:
+		if nargs > 1: print arg+":",
+		kfs = list(gen_files_by_keycode(arg))
+		if not kfs:
+			print "No keycodes recognized"
+			continue
+		print
+		c = Counter(len(fs) for k, fs in kfs)
+		width = len(str(max(c)))
+		print local.console.size.to_columns(("{:{width}} {:>7}".format(len(fs), k, width=width) for k, fs in kfs), sep="| ")
+		print
+		width = 12
+		print " {:>{width}} {:>{width}} ".format("# keycodes","# files each",width=width)
+		print "|{:->{width}}|{:->{width}}|".format("","",width=width)
+		for nfs, freq in c.items():
+			print "|{:>{width}}|{:>{width}}|".format(freq, nfs or "(missing)",width=width)
+		print "|{:<{width}}|{:<{width}}|".format("total","# files",width=width)
+		print "|{:->{width}}|{:->{width}}|".format("","",width=width)
+		print "|{:>{width}}|{:>{width}}|".format(sum(c.values()), sum(nk*nf for nk, nf in c.items()),width=width)
+		print "|{:_>{width}}|{:_>{width}}|".format("","",width=width)
+		print
 ### EOF
