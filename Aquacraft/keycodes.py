@@ -98,12 +98,6 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 	@property
 	def year(self):
 		return self.year4
-	def get_study(self, sep = " "):
-		try:
-			studies = [ s for s,r in keycode_ranges_by_study.items() if self in r ]
-			return sep.join(studies)
-		except IOError:
-			return ""
 	def normalized(self, **kwargs):
 		assert self.year_count<=self.year_count_max
 		if kwargs.pop('keep_suffix', False):
@@ -120,14 +114,6 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 			self.year2, self.site_type_code, self.year_count = int(g['year_code']), g['site_type_code'].upper(), int(g['year_count'])
 			#
 			self.year4 = 2000+self.year2 if (self.year2 <= self.max_year_for_two_digits-2000) else 1900+self.year2
-#			self.type = self.site_type_code
-#			try:
-#				self.type = keycode_types[self.site_type_code]
-#			except:
-#				if strict:
-#					raise KeycodeError(self.site_type_code, "not a valid type code")
-#				else:
-#					self.type = None
 		else:
 			error_text = "Failed to parse {}".format(text)
 			if strict:
@@ -139,36 +125,21 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 			return self.normalized()
 		except:
 			return self.text
-	def __repr__(self):
-#		label = " ".join(filter(lambda _: str(_).strip(), (self.get_study(), self.type))) or "Unknown"
-#		return "<{1} trace {0}>".format(self, label)
-		return "<Aquacraft trace {0}>".format(self)
-	def to_tuple(self):
-		return self.year2, self.site_type_code, self.year_count, self.suffix
-	def __int__(self):
-		return int(str(self.year2)+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
-	def __float__(self):
-		return float(self.year2+"."+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
+	def __repr__(self):	return "<Aquacraft trace {0}>".format(self)
+	def to_tuple(self):	return self.year2, self.site_type_code, self.year_count, self.suffix
+	def __int__(self):	return int(str(self.year2)+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
+	def __float__(self):return float(self.year2+"."+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
 	def from_string(self, text, **kwargs):
-#		extsep = kwargs.pop('extsep', os.path.extsep)
 		self.keep_suffix = kwargs.pop('keep_suffix', True)
-#		path_warning = kwargs.pop('path_warning', True)
-		#
 		assert isinstance(text, basestring), KeycodeError(str(text))
-#		if path_warning and ((os.path.sep in text) or ('/' in text) or ('\\' in text)):
-#			warning("String {} looks like a path, consider os.path.split() and stripext() in this module instead".format(text))
-#		if extsep and (extsep in text):
-#			text, ext = os.path.splitext(text)
 		text, ext = os.path.splitext(text)
 		self.parse(text, **kwargs)
 	def __lt__(self, other):
 		other = other if isinstance(other, self.__class__) else Keycode(other)
-#		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() < other.to_tuple())
 	def __gt__(self, other):
 		other = other if isinstance(other, self.__class__) else Keycode(other)
-#		if self.type != other.type: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() > other.to_tuple())
 	def __hash__(self):
@@ -178,7 +149,6 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 				  +'0')
 	def __eq__(self, other):
 		other = other if isinstance(other, self.__class__) else Keycode(other)
-#		if self.type == other.type:
 		if self.site_type_code == other.site_type_code:
 			return (self.year, self.site_type_code, self.year_count) == (other.year, other.site_type_code, other.year_count)
 		else:
@@ -285,11 +255,6 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 			return AquacraftSimpleKeycode.normalized(self, keep_suffix = True)
 		else:
 			return AquacraftSimpleKeycode.normalized(self, keep_suffix = False)
-#	@property
-#	def isHot(self):
-#		if self.allow_hot:
-#			return ('hot' in self.decode_suffix())
-#		else: return False
 	def __eq__(self, other):
 		return hash(self) == hash(other)
 	def __hash__(self):

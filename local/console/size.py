@@ -78,21 +78,25 @@ def get_terminal_size(default = None):
 def to_columns(iterable,
 			   num_columns=None, 
 			   sep=' ', 
-			   term_columns=None):
+			   num_chars=None):
 	"""
 	Formats elements of an iterable into a table, like the short output of 'ls'
 	"""
-	iterable = list(iterable)
-	sl = max(len(str(i)) for i in iterable)+len(sep)
-	l = len(iterable)
+	# Rinse:
+	if isinstance(iterable, basestring): iterable = iterable.splitlines()
+	else: iterable = list(iterable)
+	col_width = max(len(str(i)) for i in iterable)+len(sep)
+	length = len(iterable)
+	
+	# Lather:
 	if not num_columns:
-		if not term_columns:
-			term_rows, term_columns = get_terminal_size()
-		num_columns = term_columns//sl
+		if not num_chars:
+			term_rows, num_chars = get_terminal_size()
+		num_columns = num_chars//col_width
 	if num_columns < 1: num_columns = 1
-	rows = (l//num_columns)+1
-	partitioned = [iterable[c:c+rows] for c in xrange(0,l,rows)]
+	rows = (length//num_columns)+1
+	partitioned = [iterable[c:c+rows] for c in xrange(0,length,rows)]
 	width_by_partition = [ (max(len(x) for x in ri), ri) for ri in partitioned ]
-	partitioned = [ [x.ljust(j) for x in cw] for j, cw in width_by_partition ]
+	partitioned = [ [x.ljust(i) for x in col_width] for i, col_width in width_by_partition ]
 	lines = (sep.join(x) for x in zip(*partitioned))
-	return '\n'.join(lines)
+	return os.linesep.join(lines)

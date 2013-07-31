@@ -7,7 +7,7 @@ import numpy as np
 from TraceWizard4.MDB_numpy import MDB_File
 
 from Stats import RatioStats
-from np_support import *
+from local.xnp import *
 
 class AquacraftEventTable8(MDB_File):
 	"""

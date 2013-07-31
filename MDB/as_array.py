@@ -1,8 +1,13 @@
 #!env python
+"""
+Usage:
+	$me database					List all recognized tables
+	$me tablename database1 ...		Export all tables named tablename from many files
+"""
 from MDB import debug, info, warning, error, critical
 from database_file import pyodbc_MDB
 
-#from local.xnp import *
+from local.xnp import *
 
 class pyodbc_MDB_np(pyodbc_MDB):
 	"""
@@ -29,38 +34,41 @@ class pyodbc_MDB_np(pyodbc_MDB):
 	def export_table(self, table_name, filename):
 		np.save(filename, self.generate_table(table_name))
 #
+def main(tablename, input_filename, output_filename=None):
+	filepart, ext = os.path.splitext(input_filename)
+	if not output_filename:
+		output_filename = os.path.extsep.join((filepart,table_name))
+	if os.path.exists(output_filename+'.npy'):
+#		print >>sys.stderr, "Refusing to overwrite", output_filename+'.npy'
+		error("Refusing to overwrite"+output_filename+'.npy')
+		return 1
+	with pyodbc_MDB_np(input_filename, read_only=True) as db:
+		db.export_table(table_name, output_filename)
+	return 0
+#
 if __name__ == '__main__':
-	import cProfile
-	import logging
+#	import cProfile
+#	import logging
 	import os.path
 	import sys
 	
+	import local.console.size
 	from local.xglob import glob
-	#
-	if __debug__:	logging.basicConfig(level=logging.DEBUG)
-	else:			logging.basicConfig(level=logging.WARNING)
-	#
+
 	args = sys.argv[1:]
 	nargs = len(args)
-	if nargs >= 2:
-		table_name = args.pop()
-		input_files = args
-		for input_filename in input_files:
-			filepart, ext = os.path.splitext(input_filename)
-#			output_filename = os.path.extsep.join((filepart,table_name,'NPY'))
-			output_filename = os.path.extsep.join((filepart,table_name))
-#			if os.path.exists(output_filename):
-			if os.path.exists(output_filename+'.npy'):
-				print >>sys.stderr, "Refusing to overwrite", output_filename+'.npy'
+	if nargs == 0:
+		print __doc__
+	elif nargs == 1: # merely list tables in a single file
+		input_filename = args[0]
+		with pyodbc_MDB_np(input_filename, read_only=True) as db:
+			tns = db.table_names
+			if tns:
+				print "Tables found in {}:".format(input_filename)
+				print local.console.size.to_columns(tns)
+				print
 			else:
-				with pyodbc_MDB_np(input_filename, read_only=True) as db:
-					db.export_table(table_name, output_filename)
-	else:
-		input_files = args or glob('*.MDB', '*.accdb')
-		assert input_files
-		for input_filename in input_files:
-				with pyodbc_MDB_np(input_filename, read_only=True) as db:
-					print "Tables found in {}".format(input_filename)
-					for t in db.table_names:
-						print t
-					print
+				print "No tables recognized in "+input_filename
+	else: # pull the same-named table from many files
+		for filename in args[1:]:
+			main(args[0], filename)

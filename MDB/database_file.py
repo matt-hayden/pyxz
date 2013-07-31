@@ -2,7 +2,7 @@
 """
 Wrapper for MS Access single-file databases, typically .MDB. This may work with
 .accdb files as well. Currently, the only systems that can handle these files
-are Windows-based. All testing has been done on Windows XP using pyodbc. 
+are Windows-based. All testing has been done on Windows using pyodbc. 
 
 Note that there are at least four maintained database drivers:
 * adobdbapi		Comes with pywin32, uses ADO calls.

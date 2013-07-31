@@ -2,7 +2,6 @@
 from collections import defaultdict
 from datetime import datetime
 from itertools import groupby
-from logging import debug, info, warning, error, critical
 
 indoor_outdoor_by_fixture = defaultdict(lambda:'')
 indoor_outdoor_by_fixture.update( (k, 'Indoor') for k in ['Bathtub', 'Clothes washer', 'Dishwasher', 'Faucet', 'Leak', 'Shower', 'Toilet'])
