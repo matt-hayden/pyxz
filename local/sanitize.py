@@ -48,3 +48,8 @@ def sql_field_sanitize(arg,
 		return '['+newname+']'
 	else:
 		return newname
+def is_comment(line):
+	if not line.strip(): return True
+	if line.startswith('#'): return True
+	if line.startswith(';'): return True
+	return None
