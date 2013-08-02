@@ -5,7 +5,7 @@ Time-series refinements beyond the numpy refinements for MDB.database_file
 from MDB import debug, info, warning, error, critical
 from as_array import pyodbc_MDB_np
 
-#import pandas as pd
+import pandas as pd
 
 def generate_date_dimension(*args, **kwargs):
 	for d in pd.date_range(*args, **kwargs):
@@ -19,7 +19,7 @@ class pyodbc_MDB_pd(pyodbc_MDB_np):
 		ID_name = kwargs.pop('ID', 'DateID')
 		field_names = ['DateValue', 'Year',    'Month',   'Day',     'DayOfWeek']
 		field_types = ['DATE',      'INTEGER', 'INTEGER', 'INTEGER', 'INTEGER']
-		co = db.get_create_coroutine('DateDimensions', field_names, field_types, ID=ID_name)
+		co = self.get_create_coroutine('DateDimensions', field_names, field_types, ID=ID_name)
 		co.next() # coroutines, baby
 		for s in generate_date_dimension(*args, **kwargs):
 			co.send(s)

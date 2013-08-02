@@ -26,6 +26,13 @@ aegis_serial_re = re.compile('('+aegis_serial_pattern+')')
 ## searcher can return a keycode suffix
 aegis_serial_searcher = re.compile('(?:.*[^\d])?('+aegis_serial_pattern+')(?P<suffix>[^.\d][^.]*)?.*')
 
+aegis_filename_re = re.compile(r'[^0-9]*'
+								'(?P<serial>\d+[Ss]\d{3})'	# serial number
+								'(?P<suffix>[a-zA-Z])?'		# someone might tack on a letter
+								'.*'
+								'(?P<ext>[.][^.]+)+'			# + specifies that only the last .ext is matched. Tricky!
+								)
+
 def parse_aegis_serial(text, strict = True):
 	"""
 	Parse a string for a single serial number
