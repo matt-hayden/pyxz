@@ -3,13 +3,9 @@ from collections import defaultdict
 import csv
 import os.path
 
-from keycodes import AquacraftKeycode, Keycode
+from local.sanitize import is_comment
 
-def is_comment(line):
-	if not line.strip(): return True
-	if line.startswith('#'): return True
-	if line.startswith(';'): return True
-	return None
+from keycodes import AquacraftKeycode, Keycode
 
 ###
 ### BEGIN GLOBALS

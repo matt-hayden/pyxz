@@ -5,13 +5,20 @@ A listing of files and their sizes is kept in tab-separated format. This format
 can be generated without Python:
 	find -type f -printf '%P\\t%s\\n' > .sizes
 """
+if __debug__:
+	import logging
+	logging.basicConfig(level=logging.DEBUG)
+
 from collections import Counter, defaultdict
 from logging import debug, info, warning, error, critical
 import os
 import os.path
 import re
-import subprocess
+#import subprocess
 import sys
+
+import psutil
+from subprocess import PIPE
 
 from local.flatten import flatten
 #from local.xglob import glob
@@ -25,6 +32,24 @@ from msys_path import *
 path_filter=(os.path.normpath if sys.platform.startswith('win') else None)
 size_db_filename = '.sizes'
 
+def mksizes(root,
+			outfile='',
+			overwrite=True,
+			find_executable=r'f:\cygwin\bin\find.exe'):
+	if not outfile: outfile = os.path.join(root, size_db_filename)
+	if not overwrite and os.path.exists(outfile): raise IOError("Refusing to overwrite "+outfile)
+	find_args = ['-type', 'f', '-fprintf', outfile, '"%P\t%s\n"']
+	debug("Running {}".format([find_executable]+findargs))
+	find_process = psutil.Popen([find_executable]+findargs,
+								stdout=PIPE, stderr=PIPE, cwd=root)
+	stdoutdata, stderrdata = find_process.communicate()
+	for line in stdoutdata.splitlines(): warning(line)
+	for line in stderrdata.splitlines(): error(line)
+	returncode = find_process.wait()
+	if returncode:
+		error(find_executable+" exited {}".format(returncode))
+	else:
+		debug(find_executable+" exited {}".format(returncode))
 def rebase_sizes_files(root, path_filter=path_filter):
 	"""
 	GENERATOR
@@ -36,7 +61,11 @@ def rebase_sizes_files(root, path_filter=path_filter):
 	for sf in find_repositories(root, stopfiles=[size_db_filename]):
 		reporoot = os.path.dirname(sf)
 		total_size = 0
-		debug("Opening {}".format(sf))
+		if os.path.isfile(sf) and os.path.getsize(sf) == 0:
+			error("{} empty".format(sf))
+			continue
+		else:
+			debug("Opening {}".format(sf))
 		with open(sf) as fi:
 			for line in fi:
 				try:
@@ -49,7 +78,8 @@ def rebase_sizes_files(root, path_filter=path_filter):
 						yield os.path.join(reporoot, fn), s
 				except Exception as e:
 					critical("Parsing error in {}:{}".format(fi.name, e))
-		info("Total {1} = {0} B represented in {}".format(total_size, " ".join(human_readable_bytes(total_size)), reporoot))
+		printable_total_size = "{0:3.1f} {1}".format(*human_readable_bytes(total_size))
+		info("Total {} = {} B represented in {}".format(printable_total_size, total_size, reporoot))
 def get_files_by_type_and_size(roots,
 							   ignore_types=[],
 							   check_if_exist=(sys.platform.startswith('win'))):
@@ -109,8 +139,10 @@ def get_size_by_type(roots=[],
 	width = max(len(str(_[0])) for _ in v)+1
 	print "{:<{width}}{:^13}{:^5}".format("Type", "Size", "%", width=width)
 	for t, s in v:
-		print "{:_<{width}}{:_>13.0f}{:_>5.0%}".format(t, " ".join(human_readable_bytes(s)), s/total_size, width=width)
-	print "{:<{width}}{:>13.0f}".format("Total", " ".join(human_readable_bytes(total_size)), width=width)
+		printable_total_size = "{0:3.1f} {1}".format(*human_readable_bytes(s))
+		print "{:_<{width}}{:_>13}{:_>5.0%}".format(t, printable_total_size, s/total_size, width=width)
+	printable_total_size = "{0:3.1f} {1}".format(*human_readable_bytes(total_size))
+	print "{:<{width}}{:>13}".format("Total", printable_total_size, width=width)
 	return size_by_type
 def get_files_of_same_size(roots=[],
 						   files_by_type_and_size=[],
@@ -124,6 +156,9 @@ def get_files_of_same_size(roots=[],
 #
 def main(roots, ignore_types):
 	files_by_type_and_size = get_files_by_type_and_size(roots, ignore_types=ignore_types)
+	if not files_by_type_and_size:
+		debug("No files found")
+		for root in roots: mksizes(root)
 	get_size_by_type(files_by_type_and_size=files_by_type_and_size)
 	files_of_same_size = get_files_of_same_size(files_by_type_and_size=files_by_type_and_size)
 	# UNIX might use os.samefile here
@@ -132,13 +167,16 @@ def main(roots, ignore_types):
 	# md5_by_filename = dict(md5sum.md5reader(flatten(files_of_same_size)))
 	# but, we want to invert that lookup
 	lookup = defaultdict(list)
-	for path, md5pair in md5sum.md5reader(flatten(files_of_same_size)):
-		lookup[md5pair].append(path)
-	duplicates = [(fs, md5pair) for md5pair, fs in lookup.iteritems() if len(fs) > 1]
-	if duplicates:
-		print "The following files are probably duplicates:"
-		for (binary, md5), fs in duplicates:
-			print "{:1}{:X}".format("*" if binary else " ", md5), " ".join(fs)
+	print "files_of_same_size:", files_of_same_size
+	info("Forming MD5SUM.txt for files that don't have one")
+	md5sum.md5maker(flatten(files_of_same_size))
+#	for path, params in md5sum.md5reader(flatten(files_of_same_size)):
+#		lookup[params].append(path)
+#	duplicates = [(fs, params) for params, fs in lookup.iteritems() if len(fs) > 1]
+#	if duplicates:
+#		print "The following files are probably duplicates:"
+#		for (binary, md5), fs in duplicates:
+#			print "{:1}{:X}".format("*" if binary else " ", md5), " ".join(fs)
 	return 0
 if __name__ == '__main__':	
 	ignore_types = [ 'application/x-javascript', 'application/x-sh', 'application/x-python-code',

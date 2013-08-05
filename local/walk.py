@@ -157,11 +157,11 @@ def walklist(filenames,
 		sfilenames = [os.path.split(_) for _ in filenames]
 	sfilenames.sort()
 	for dirname, g in groupby(sfilenames, key=lambda _:_[0]):
-		yield dirname, [], [_[-1] for _ in g]
+		yield dirname or '.', [], [_[-1] for _ in g]
 		if dirname in found_dirs:
 			found_dirs.remove(dirname)
 	if found_dirs:
-		yield '', found_dirs, [] # lastly, directories not matching any files
+		yield '.', found_dirs, [] # lastly, directories not matching any files
 #
 def separate_paths_at_component(paths, component='', splitter=None):
 	seps = set()
