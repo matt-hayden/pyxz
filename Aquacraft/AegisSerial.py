@@ -29,6 +29,6 @@ class AegisSerial(dict):
 		if nargs == 1:
 			self.from_filename(args[0])
 		if nargs in (2,3):
-			self['serial'] = "{:05d}S{:03d}".format(*args)
+			self['serial'] = "{:05d}S{:03d}".format(args[0], args[-1])
 	def __str__(self):
 		return self['serial']
