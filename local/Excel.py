@@ -3,7 +3,7 @@ from collections import namedtuple
 
 from openpyxl import load_workbook
 
-from . import sql_field_sanitize
+from sanitize import sql_field_sanitize
 
 def gen_table_from_XLSX(filename = '',		# (or workbook keyword arg)
 						sheetname = '',		# also accessible as sheet.title
