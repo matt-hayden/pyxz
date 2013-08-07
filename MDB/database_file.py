@@ -149,38 +149,45 @@ class MDB_Base(object):
 ###
 	def execute(self, *args, **kwargs):
 		"""
-		Wrapper around cursor.execute() that can take a table name or sql as a
-		keyword argument
+		Wrapper around cursor.execute() that returns a context-aware object.
 		"""
-		nargs = len(args)
-		if args and isinstance(args[0], basestring):
-			if any(_ in args[0].upper() for _ in ['SELECT ', 'INSERT ', 'CREATE ', 'DROP ', 'UPDATE ']):
-				sql = args[0]
-			else:
-				table_name = args[0]
-				if not (table_name.startswith('[') and table_name.endswith(']')):
-					table_name = '['+table_name+']'
-				sql = 'select * from {};'.format(table_name)
-			args = (sql,)+args[1:]
-		cursor = self.connection.execute(*args, **kwargs)
+		cursor = self.connection.execute(*args)
 		return closing(cursor)
 	def generate_table(self, *args, **kwargs):
 		"""
+		Input:
+			A sql statement and some tables to run it on. If multiple tables
+			are given, then results are concatenated (regardless of whether
+			columns match up or have the same number of elements).
+		Output:
+			A Row object that is a namedtuple. The memebers may not exactly
+			match the query result if the field names contain invalid
+			characters.
 		Optional keyword arguments:
 			sql or SQL: syntax to execute
-			cursor: cursor object to re-use
-			parameters: a tuple that replaces '?' in SQL syntax
-			named: returned iterable is a namedtuple based on field names (This
-				is not supported by all drivers)
 		"""
-		with self.execute(*args, **kwargs) as cursor:
-			try:
-				Row=namedtuple('Row', self.get_field_names_for_cursor(cursor) )
-				for _ in cursor:
-					yield Row(*_)
-			except:
-				for _ in cursor:
-					yield _
+		if 'sql' in kwargs: sql = kwargs.pop('sql')
+		elif args and isinstance(args[0], basestring):
+			if any(s in args[0].upper() for s in ['SELECT ', 'INSERT ', 'CREATE ', 'DROP ', 'UPDATE ']):
+				sql, args = args[0], args[1:]
+			else:
+				sql = 'select * from {table_name};' # see below
+			table_names = []
+			for arg in args:
+				if (arg.startswith('[') and arg.endswith(']')): table_names.append(arg)
+				else: table_names.append('['+arg+']')
+		else: raise MDB_Error("generate_table({}) invalid".format(args))
+		###
+		for tn in table_names:
+			with self.execute(sql.format(table_name=tn)) as cursor:
+				try:
+					Row=namedtuple('Row', self.get_field_names_for_cursor(cursor) )
+					for _ in cursor:
+						yield Row(*_)
+				except Exception as e:
+					info("generate_table() will not return namedtuple: {}".format(e))
+					for _ in cursor:
+						yield _
 	def cursor(self, *args, **kwargs):
 		return closing(self.connection.cursor(*args, **kwargs))
 	def commit(self, *args, **kwargs):
@@ -197,14 +204,21 @@ class MDB_Base(object):
 			field_types = field_types.split()
 		if field_types:
 			assert len(field_types) == nfields
+			for i, ftype in enumerate(field_types):
+				if not isinstance(ftype, basestring):
+					field_types[i] = '{}({})'.format(*ftype)
 		else:
 			field_types = ('VARCHAR(255)',)*nfields
 		field_def = ', '.join(n+' '+t for n, t in zip(fields, field_types))
-		create_sql = 'CREATE TABLE {0} ({1});'.format(table_name, field_def)
-		debug("get_create_coroutine(sql = '{}')".format(create_sql))
-		with self.cursor() as cursor:
-			cursor.execute(create_sql)
-			cursor.commit()
+		sql = 'CREATE TABLE {0} ({1});'.format(table_name, field_def)
+		debug("create_table(sql = '{}')".format(sql))
+		try:
+			with self.cursor() as cursor:
+				cursor.execute(sql)
+				cursor.commit()
+		except Exception as e:
+			critical("Could not create table {} with {}".format(table_name, sql))
+			raise e
 	def get_create_coroutine(self,
 							 table_name,
 							 fields,
@@ -260,7 +274,9 @@ class MDB_Base(object):
 				except GeneratorExit:
 					debug("Iteration {} completed: {}".format(iteration-1, content))
 					cursor.commit()
-		return coroutine(sql=append_sql)
+		c = coroutine(sql=append_sql)
+		c.next() # coroutine
+		return c
 class odbc_MDB(MDB_Base):
 	"""
 	Example subclass of MDB_Base.

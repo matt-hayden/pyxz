@@ -3,7 +3,7 @@ from logging import debug, info, warning, error, critical
 try:
 	import pandas as pd
 	from as_panel import *
-	MDB_File=pyodbc_MDB_pd
+	MDB_File = pyodbc_MDB_pd
 except ImportError:
 	try:
 		try:
