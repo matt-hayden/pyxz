@@ -17,20 +17,43 @@ class pyodbc_MDB_np(pyodbc_MDB):
 	"""
 	def generate_table(self, *args, **kwargs):
 		"""
-		This is a numpy extension to the normal MDB_File interface.
-		
+		Input:
+			A sql statement and some tables to run it on. If multiple tables
+			are given, then results are concatenated (regardless of whether
+			columns match up or have the same number of elements).
+		Output:
+			A Row object that is a namedtuple. The memebers may not exactly
+			match the query result if the field names contain invalid
+			characters.
 		Optional keyword arguments:
 			sql or SQL: syntax to execute
-			cursor: cursor object to re-use
-			parameters: a tuple that replaces '?' in SQL syntax
-			named: returned iterable is a namedtuple based on field names (This
-				is not supported by all drivers)
 		"""
-		with self.execute(*args, **kwargs) as cursor:
-			my_dtypes = np.dtype([np_dtype_from_ODBC_desc(_) for _ in cursor.description])
-			# fromiter doesn't like a naked cursor. Wrap each row in a tuple:
-			table = np.fromiter((tuple(_) for _ in cursor), dtype=my_dtypes, count=cursor.rowcount or -1)
-		return table
+		if 'sql' in kwargs:
+			sql, table_names = kwargs.pop('sql'), args
+		elif args and isinstance(args[0], basestring):
+			if any(s in args[0].upper() for s in ['SELECT ', 'INSERT ', 'CREATE ', 'DROP ', 'UPDATE ']):
+				sql, args = args[0], args[1:]
+			else:
+				sql_pattern = 'select * from {table_name};' # see below
+			table_names = []
+			for arg in args:
+				if (arg.startswith('[') and arg.endswith(']')): table_names.append(arg)
+				else: table_names.append('['+arg+']')
+		else: raise MDB_Error("generate_table({}) invalid".format(args))
+		###
+		for tn in table_names:
+			sql = sql_pattern.format(table_name=tn)
+			with self.execute(sql) as cursor:
+				my_dtypes = np.dtype([np_dtype_from_ODBC_desc(_) for _ in cursor.description])
+				# fromiter doesn't like a naked cursor. Wrap each row in a tuple:
+				table = np.fromiter((tuple(_) for _ in cursor), dtype=my_dtypes, count=cursor.rowcount or -1)
+			return table # kludge: only the first table is returned
+		else: # for-else construct
+			with self.execute(sql) as cursor:
+				my_dtypes = np.dtype([np_dtype_from_ODBC_desc(_) for _ in cursor.description])
+				# fromiter doesn't like a naked cursor. Wrap each row in a tuple:
+				table = np.fromiter((tuple(_) for _ in cursor), dtype=my_dtypes, count=cursor.rowcount or -1)
+			return table # kludge: only the first table is returned
 	def export_table(self, table_name, filename):
 		np.save(filename, self.generate_table(table_name))
 #

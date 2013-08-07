@@ -7,7 +7,7 @@ import os
 import sys
 import urllib2
 
-from console_size import get_terminal_size
+from local.console.size import get_terminal_size
 
 try:
 	import pywapi as weather
