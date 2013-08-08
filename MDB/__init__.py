@@ -4,6 +4,7 @@ try:
 	import pandas as pd
 	from as_panel import *
 	MDB_File = pyodbc_MDB_pd
+	debug("Using pandas library")
 except ImportError:
 	try:
 		try:
@@ -12,8 +13,10 @@ except ImportError:
 			import numpy as np
 		from as_array import *
 		MDB_File = pyodbc_MDB_np
+		debug("Using numpy library")
 	except:
 		from database_file import *
+		debug("Using pure Python implementation")
 
 def is_sql(text, tokens=['SELECT ', 'INSERT ', 'CREATE ', 'DROP ', 'UPDATE '], strict=None):
 	text = text.upper()

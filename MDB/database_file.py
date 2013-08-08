@@ -11,6 +11,7 @@ Note that there are at least four maintained database drivers:
 * pyodbc		Wraps the ODBC facility on Windows.
 """
 from MDB import debug, info, warning, error, critical
+from MDB import is_sql, sanitize_table_name
 
 from collections import namedtuple
 from contextlib import closing
