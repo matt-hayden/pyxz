@@ -100,8 +100,8 @@ class MDB_Base(object):
 			read_only
 		"""
 		l = len(args)
-		if l == 1:	(database_filename,) = args
-		else:		database_filename = kwargs.pop('database_filename')
+		if l == 1: (database_filename,) = args
+		else: database_filename = kwargs.pop('database_filename')
 		#
 		#database_filename = os.path.abspath(os.path.normpath(database_filename))
 		database_filename = os.path.abspath(database_filename)
@@ -138,15 +138,7 @@ class MDB_Base(object):
 	@property
 	def table_names(self):
 		return [_.table_name for _ in self.get_table_defs() ]
-### Should be obsoleted:
-#	def generate_table(self, table_name):
-#		return self.generate_query(sql="select * from [%s]" % table_name)
-#	def generate_query(self, sql):
-##		with import_driver.Cursor() as cur:
-#		with self.cursor() as cur:
-#			cur.execute(sql)
-#			return list(cur.fetchall())
-###
+	
 	def execute(self, *args, **kwargs):
 		"""
 		Wrapper around cursor.execute() that returns a context-aware object.
@@ -172,22 +164,16 @@ class MDB_Base(object):
 		Optional keyword arguments:
 			sql or SQL: syntax to execute
 		"""
-		if 'sql' in kwargs:
-			sql, table_names = kwargs.pop('sql'), args
-		elif args and isinstance(args[0], basestring):
-			if any(args[0].upper().startswith(s) for s in ['SELECT ', 'INSERT ', 'CREATE ', 'DROP ', 'UPDATE ']):
-				sql, args = args[0], args[1:]
-			else:
-				sql_pattern = 'select * from {table_name};' # see below
-			table_names = []
-			for arg in args:
-				if (arg.startswith('[') and arg.endswith(']')): table_names.append(arg)
-				else: table_names.append('['+arg+']')
-			table_names = args
-		else: raise MDB_Error("generate_table{} invalid".format(args))
-		###
-		for tn in table_names:
-			sql = sql_pattern.format(table_name=tn)
+		if 'sql' in kwargs: sql = kwargs.pop('sql')
+		elif is_sql(args[0]): sql, args = args[0], args[1:]
+		else: sql = 'select * from {table_name};' # see below
+		
+		table_names = [sanitize_table_name(arg) for arg in args]
+		
+		if table_names: sqls = [sql.format(table_name=tn) for tn in table_names]
+		else: sqls = [sql]
+		
+		for sql in sqls:
 			with self.execute(sql) as cursor:
 				try:
 					Row=namedtuple('Row', self.get_field_names_for_cursor(cursor) )
@@ -197,16 +183,7 @@ class MDB_Base(object):
 					info("generate_table() will not return namedtuple: {}".format(e))
 					for _ in cursor:
 						yield _
-		else: # for-else construct
-			with self.execute(sql) as cursor:
-				try:
-					Row=namedtuple('Row', self.get_field_names_for_cursor(cursor) )
-					for _ in cursor:
-						yield Row(*_)
-				except Exception as e:
-					info("generate_table() will not return namedtuple: {}".format(e))
-					for _ in cursor:
-						yield _
+		else: raise MDB_Error("generate_table() received invalid SQL statement: '{}'".format(sql)
 	def cursor(self, *args, **kwargs):
 		return closing(self.connection.cursor(*args, **kwargs))
 	def commit(self, *args, **kwargs):
@@ -237,7 +214,7 @@ class MDB_Base(object):
 				cursor.execute(sql)
 				cursor.commit()
 		except Exception as e:
-			error("Could not create table {} with {}: {}".format(table_name, sql, e))
+			error("create_table({}, sql={}) failed: {}".format(table_name, sql, e))
 			raise e
 	def get_create_coroutine(self,
 							 table_name,
@@ -260,7 +237,7 @@ class MDB_Base(object):
 			try:
 				errno, message = e
 				if errno in ('42S01',): # table already exists
-					error("Table {} already exists".format(table_name))
+					error("get_create_coroutine(): table {} already exists".format(table_name))
 				else: raise e
 			except:
 				raise e
