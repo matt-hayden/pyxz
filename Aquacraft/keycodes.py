@@ -93,8 +93,10 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 	def __init__(self, arg, **kwargs):
 		if isinstance(arg, AquacraftSimpleKeycode):
 			self.parse(arg.text, **kwargs)
-		else:
+		elif isinstance(arg, basestring):
 			self.from_string(arg, **kwargs)
+		else:
+			self.from_string(str(arg), **kwargs)
 	@property
 	def year(self):
 		return self.year4
@@ -116,8 +118,7 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 			self.year4 = 2000+self.year2 if (self.year2 <= self.max_year_for_two_digits-2000) else 1900+self.year2
 		else:
 			error_text = "Failed to parse {}".format(text)
-			if strict:
-				raise KeycodeError(error_text)
+			if strict: raise KeycodeError(error_text)
 			else:
 				error(error_text)
 	def __str__(self):
@@ -131,28 +132,37 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 	def __float__(self):return float(self.year2+"."+"{1:0{0}d}".format(self.year_count_max_digits, self.year_count))
 	def from_string(self, text, **kwargs):
 		self.keep_suffix = kwargs.pop('keep_suffix', True)
-		assert isinstance(text, basestring), KeycodeError(str(text))
 		text, ext = os.path.splitext(text)
 		self.parse(text, **kwargs)
-	def __lt__(self, other):
-		other = other if isinstance(other, self.__class__) else Keycode(other)
-		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
-		return (self.to_tuple() < other.to_tuple())
+#	def __lt__(self, other):
+#		try:
+#			other = other if isinstance(other, self.__class__) else Keycode(other)
+#		except KeycodeError:
+#			return isinstance(other, collections.Iterable)
+#		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
+#		return (self.to_tuple() < other.to_tuple())
 	def __gt__(self, other):
-		other = other if isinstance(other, self.__class__) else Keycode(other)
+		try:
+			other = other if isinstance(other, self.__class__) else Keycode(other)
+		except KeycodeError:
+			return not isinstance(other, collections.Iterable)
 		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 		return (self.to_tuple() > other.to_tuple())
+	def __lt__(self, other):
+		return not self.__gt__(other)
 	def __hash__(self):
 		return int(str(self.year2)
 				  +str(ord(self.site_type_code))
 				  +"{1:0{0}d}".format(self.year_count_max_digits, self.year_count)
 				  +'0')
 	def __eq__(self, other):
-		other = other if isinstance(other, self.__class__) else Keycode(other)
+		try:
+			other = other if isinstance(other, self.__class__) else Keycode(other)
+		except KeycodeError: return False
+		
 		if self.site_type_code == other.site_type_code:
 			return (self.year, self.site_type_code, self.year_count) == (other.year, other.site_type_code, other.year_count)
-		else:
-			return False
+		else: return False
 class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 	"""
 	Can be subclassed for particular keycode variants in projects. Python
