@@ -5,6 +5,11 @@ import os.path
 
 import dateutil.parser
 
+def round_timedelta(td, **kwargs):
+	num = td.total_seconds()
+	denom = timedelta(**kwargs).total_seconds()
+	return timedelta(seconds=denom*round(num/denom))	
+
 class TimeLogEntry(object):
 	@staticmethod
 	def time_parser(*args, **kwargs):
@@ -26,7 +31,7 @@ class TimeLogEntry(object):
 				self.end = row[1]
 		self.desc = row[2]
 	@property
-	def duration(self):
+	def dur(self):
 		try:	return self.end-self.begin
 		except:	return None
 	def to_tuple(self):
@@ -72,5 +77,11 @@ if __name__ == '__main__':
 	with open(filename, 'Ur') as fi:
 		rows = [ line.rstrip().split(sep, len(fields)-1) for line in fi]
 	for entry in parse_timelog(rows, lastrow=TimeLogEntry(last_modify, now, "<placeholder>")):
-		print entry.begin, entry.end, entry.duration, entry.desc
-#		print "{0.begin:^{timewidth}}{0.end:^{timewidth}}{0.desc:^30}".format(entry, timewidth=20)
+		try:
+			mydur = round_timedelta(entry.dur, minutes=15)
+		except:
+			mydur = None
+		try:
+			print "{0.begin:%m-%d %H:%M}-{0.end:%H:%M}\t{1}\t{0.desc}".format(entry, mydur)
+		except ValueError:
+			print "{0.begin:%m-%d %H:%M}\t\t{1}\t{0.desc}".format(entry, mydur)
