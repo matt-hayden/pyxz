@@ -51,8 +51,12 @@ def parse_timelog(rows, lastrow = []):
 	nentries = len(entries)
 	if entries:
 		for n, entry in enumerate(entries):
-			if not entry.begin and (n>0): entry.begin = entries[n-1].end
-			if not entry.end and (n<nentries-1): entry.end = entries[n+1].begin
+			if not entry.begin:
+				try: entry.begin = entries[n-1].end
+				except: pass
+			if not entry.end:
+				try: entry.end = entries[n+1].begin
+				except: pass
 			yield entry
 		if lastrow: yield lastrow
 	else: print "No input"
@@ -62,6 +66,7 @@ fields = 'begin end desc'.split()
 #
 if __name__ == '__main__':
 	from datetime import datetime, timedelta
+	from itertools import groupby
 	
 	import pytz
 	
@@ -76,12 +81,12 @@ if __name__ == '__main__':
 	now = datetime.now().replace(tzinfo=default_timezone)
 	with open(filename, 'Ur') as fi:
 		rows = [ line.rstrip().split(sep, len(fields)-1) for line in fi]
-	for entry in parse_timelog(rows, lastrow=TimeLogEntry(last_modify, now, "<placeholder>")):
-		try:
-			mydur = round_timedelta(entry.dur, minutes=15)
-		except:
-			mydur = None
-		try:
-			print "{0.begin:%m-%d %H:%M}-{0.end:%H:%M}\t{1}\t{0.desc}".format(entry, mydur)
-		except ValueError:
-			print "{0.begin:%m-%d %H:%M}\t\t{1}\t{0.desc}".format(entry, mydur)
+	for day, entries in groupby(parse_timelog(rows, lastrow=TimeLogEntry(last_modify, now, "<placeholder>")), key=lambda e: e.begin.date()):
+		print day
+		for entry in entries:
+			try: mydur = round_timedelta(entry.dur, minutes=15)
+			except: mydur = ""
+			try: myend = "{:%H:%M}".format(entry.end)
+			except: myend = "\t"
+			print "{0.begin:%H:%M}-{1}\t{2}\t{0.desc}".format(entry, myend, mydur)
+		print
