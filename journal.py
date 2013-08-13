@@ -14,8 +14,16 @@ class TimeLogEntry(object):
 		self.begin, self.end, self.desc = None, None, ''
 		if data: self.from_row(data)
 	def from_row(self, row):
-		if row[0]: self.begin = self.time_parser(row[0])
-		if row[1]: self.end = self.time_parser(row[1])
+		if row[0]:
+			if isinstance(row[0], basestring):
+				self.begin = self.time_parser(row[0])
+			else:
+				self.begin = row[0]
+		if row[1]:
+			if isinstance(row[1], basestring):
+				self.end = self.time_parser(row[1])
+			else:
+				self.end = row[1]
 		self.desc = row[2]
 	@property
 	def duration(self):
@@ -28,18 +36,22 @@ class TimeLogEntry(object):
 	def __repr__(self):
 		return "{0}('{1.begin}','{1.end}','{1.desc}')".format(self.__class__.__name__, self)
 
-def parse_timelog(rows):
+def parse_timelog(rows, lastrow = []):
 	def chrono_key(row):
 		return row[0] or row[1]
 	#
-	last = TimeLogEntry()
+#	last = TimeLogEntry()
 	rows.sort(key=chrono_key)
-	for row in rows:
-		this = TimeLogEntry(*row)
-		if not this.begin: this.begin = last.end
-		yield this
-		last = this
+	entries = [ TimeLogEntry(*row) for row in rows ]
+	nentries = len(entries)
+	if entries:
+		for n, entry in enumerate(entries):
+			if not entry.begin and (n>0): entry.begin = entries[n-1].end
+			if not entry.end and (n<nentries-1): entry.end = entries[n+1].begin
+			yield entry
+		if lastrow: yield lastrow
 	else: print "No input"
+	
 #
 fields = 'begin end desc'.split()
 #
@@ -59,11 +71,6 @@ if __name__ == '__main__':
 	now = datetime.now().replace(tzinfo=default_timezone)
 	with open(filename, 'Ur') as fi:
 		rows = [ line.rstrip().split(sep, len(fields)-1) for line in fi]
-	print rows
-	journal = list(parse_timelog(rows))
-	if not journal[-1].end:
-		if last_modify - journal[-1].begin < timedelta(minutes=5):
-			journal[-1].end = now
-		else:
-			journal[-1].end = last_modify
-	print journal
+	for entry in parse_timelog(rows, lastrow=TimeLogEntry(last_modify, now, "<placeholder>")):
+		print entry.begin, entry.end, entry.duration, entry.desc
+#		print "{0.begin:^{timewidth}}{0.end:^{timewidth}}{0.desc:^30}".format(entry, timewidth=20)
