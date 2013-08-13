@@ -6,9 +6,9 @@ import os.path
 import dateutil.parser
 
 def round_timedelta(td, **kwargs):
-	num = td.total_seconds()
 	denom = timedelta(**kwargs).total_seconds()
-	return timedelta(seconds=denom*round(num/denom))	
+	num = td.total_seconds()
+	return timedelta(seconds=denom*round(num/denom))
 
 class TimeLogEntry(object):
 	@staticmethod
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 	last_modify = stat.st_mtime.replace(tzinfo=default_timezone)
 	now = datetime.now().replace(tzinfo=default_timezone)
 	with open(filename, 'Ur') as fi:
-		rows = [ line.rstrip().split(sep, len(fields)-1) for line in fi]
+		rows = [ line.strip('\n').split(sep, len(fields)-1) for line in fi]
 	for day, entries in groupby(parse_timelog(rows, lastrow=TimeLogEntry(last_modify, now, "<placeholder>")), key=lambda e: e.begin.date()):
 		print day
 		for entry in entries:
