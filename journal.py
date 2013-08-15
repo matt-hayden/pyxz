@@ -10,6 +10,8 @@ def round_timedelta(td, **kwargs):
 	num = td.total_seconds()
 	return timedelta(seconds=denom*round(num/denom))
 
+class JournalError(Exception):
+	pass
 class TimeLogEntry(object):
 	@staticmethod
 	def time_parser(*args, **kwargs):
@@ -26,10 +28,19 @@ class TimeLogEntry(object):
 				self.begin = row[0]
 		if row[1]:
 			if isinstance(row[1], basestring):
-				self.end = self.time_parser(row[1])
+				if self.begin:
+					default = self.begin.replace(minute=0, second=0, microsecond=0)
+					self.end = self.time_parser(row[1], default=self.begin)
+				else:
+					self.end = self.time_parser(row[1])
 			else:
 				self.end = row[1]
 		self.desc = row[2]
+	def append(self, text):
+		if isinstance(text, basestring):
+			self.desc += ' '+text.strip()
+		else:
+			self.desc += ' '.join(text)
 	@property
 	def dur(self):
 		try:	return self.end-self.begin
@@ -60,7 +71,37 @@ def parse_timelog(rows, lastrow = []):
 			yield entry
 		if lastrow: yield lastrow
 	else: print "No input"
-	
+def parse_timelog(rows, lastrow=[], is_sorted=True):
+	if not is_sorted: # multi-line is not allowed
+		def chrono_key(row):
+			return row[0] or row[1]
+		rows.sort(key=chrono_key)
+		entries = [ TimeLogEntry(*row) for row in rows ]
+	else: # allow multi-line entries where no begin or end is specified
+		entries = []
+		for row in rows:
+			if entries:
+				if not row[0] and not row[1]:
+					entries[-1].append(text=row[-1])
+				else:
+					try:
+						default = entries[-1].end.replace(minute=0, second=0, microsecond=0)
+						entries.append(TimeLogEntry(*row, default=default))
+					except:
+						entries.append(TimeLogEntry(*row))
+			else:
+				entries.append(TimeLogEntry(*row))
+	if entries:
+		for n, entry in enumerate(entries):
+			if not entry.begin:
+				try: entry.begin = entries[n-1].end
+				except: pass
+			if not entry.end:
+				try: entry.end = entries[n+1].begin
+				except: pass
+			yield entry
+		if lastrow: yield lastrow
+	else: raise JournalError("No input")
 #
 fields = 'begin end desc'.split()
 #
@@ -79,9 +120,12 @@ if __name__ == '__main__':
 	stat = local.stat.stat(filename)
 	last_modify = stat.st_mtime.replace(tzinfo=default_timezone)
 	now = datetime.now().replace(tzinfo=default_timezone)
+	if  timedelta(minutes=5) < now - last_modify:
+		lastrow = TimeLogEntry(last_modify, now, "<placeholder>")
+	else: lastrow = []
 	with open(filename, 'Ur') as fi:
 		rows = [ line.strip('\n').split(sep, len(fields)-1) for line in fi]
-	for day, entries in groupby(parse_timelog(rows, lastrow=TimeLogEntry(last_modify, now, "<placeholder>")), key=lambda e: e.begin.date()):
+	for day, entries in groupby(parse_timelog(rows, lastrow=lastrow), key=lambda e: e.begin.date()):
 		print day
 		for entry in entries:
 			try: mydur = round_timedelta(entry.dur, minutes=15)
