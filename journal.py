@@ -1,9 +1,13 @@
 #!env python
 from collections import namedtuple
+from datetime import datetime, timedelta
+from itertools import groupby
 import os
 import os.path
 
 import dateutil.parser
+
+import local.stat
 
 def round_timedelta(td, **kwargs):
 	denom = timedelta(**kwargs).total_seconds()
@@ -104,19 +108,8 @@ def parse_timelog(rows, lastrow=[], is_sorted=True):
 	else: raise JournalError("No input")
 #
 fields = 'begin end desc'.split()
-#
-if __name__ == '__main__':
-	from datetime import datetime, timedelta
-	from itertools import groupby
-	
-	import pytz
-	
-	import local.stat
-	
-	filename = os.environ.get('JOURNAL_FILE', os.path.expanduser('~/.journal'))
-	sep = os.environ.get('JOURNAL_SEP', '\t')
-	default_timezone = pytz.timezone(os.environ.get('TZ','America/Denver'))
-	#
+
+def parse_file(filename, sep, default_timezone):
 	stat = local.stat.stat(filename)
 	last_modify = stat.st_mtime.replace(tzinfo=default_timezone)
 	now = datetime.now().replace(tzinfo=default_timezone)
@@ -125,7 +118,9 @@ if __name__ == '__main__':
 	else: lastrow = []
 	with open(filename, 'Ur') as fi:
 		rows = [ line.strip('\n').split(sep, len(fields)-1) for line in fi]
-	for day, entries in groupby(parse_timelog(rows, lastrow=lastrow), key=lambda e: e.begin.date()):
+	return parse_timelog(rows, lastrow=lastrow)
+def print_timelog(*args, **kwargs):
+	for day, entries in groupby(parse_file(*args, **kwargs), key=lambda e: e.begin.date()):
 		print day
 		for entry in entries:
 			try: mydur = round_timedelta(entry.dur, minutes=15)
@@ -134,3 +129,12 @@ if __name__ == '__main__':
 			except: myend = "\t"
 			print "{0.begin:%H:%M}-{1}\t{2}\t{0.desc}".format(entry, myend, mydur)
 		print
+#
+if __name__ == '__main__':	
+	import pytz
+	
+	filename = os.environ.get('JOURNAL_FILE', os.path.expanduser('~/.journal'))
+	sep = os.environ.get('JOURNAL_SEP', '\t')
+	default_timezone = pytz.timezone(os.environ.get('TZ','America/Denver'))
+	#
+	print_timelog(filename=filename, sep=sep, default_timezone=default_timezone)
