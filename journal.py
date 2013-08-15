@@ -17,6 +17,10 @@ def round_timedelta(td, **kwargs):
 class JournalError(Exception):
 	pass
 class TimeLogEntry(object):
+	"""
+	A (simple?) representation of a timestamped log entry. .begin and .end
+	define a duration .dur. 
+	"""
 	@staticmethod
 	def time_parser(*args, **kwargs):
 		return dateutil.parser.parse(*args, **kwargs)
@@ -34,17 +38,18 @@ class TimeLogEntry(object):
 			if isinstance(row[1], basestring):
 				if self.begin:
 					default = self.begin.replace(minute=0, second=0, microsecond=0)
-					self.end = self.time_parser(row[1], default=self.begin)
+					self.end = self.time_parser(row[1], default=default)
 				else:
 					self.end = self.time_parser(row[1])
 			else:
 				self.end = row[1]
 		self.desc = row[2]
 	def append(self, text):
+		sep = '\n' if (self.desc[-1] in ' \t\n') else ' '
 		if isinstance(text, basestring):
-			self.desc += ' '+text.strip()
+			self.desc += sep+text.strip()
 		else:
-			self.desc += ' '.join(text)
+			self.desc += sep.join(text)
 	@property
 	def dur(self):
 		try:	return self.end-self.begin
@@ -56,25 +61,6 @@ class TimeLogEntry(object):
 	def __repr__(self):
 		return "{0}('{1.begin}','{1.end}','{1.desc}')".format(self.__class__.__name__, self)
 
-def parse_timelog(rows, lastrow = []):
-	def chrono_key(row):
-		return row[0] or row[1]
-	#
-#	last = TimeLogEntry()
-	rows.sort(key=chrono_key)
-	entries = [ TimeLogEntry(*row) for row in rows ]
-	nentries = len(entries)
-	if entries:
-		for n, entry in enumerate(entries):
-			if not entry.begin:
-				try: entry.begin = entries[n-1].end
-				except: pass
-			if not entry.end:
-				try: entry.end = entries[n+1].begin
-				except: pass
-			yield entry
-		if lastrow: yield lastrow
-	else: print "No input"
 def parse_timelog(rows, lastrow=[], is_sorted=True):
 	if not is_sorted: # multi-line is not allowed
 		def chrono_key(row):
@@ -118,7 +104,8 @@ def parse_file(filename, sep, default_timezone):
 	else: lastrow = []
 	with open(filename, 'Ur') as fi:
 		rows = [ line.strip('\n').split(sep, len(fields)-1) for line in fi]
-	return parse_timelog(rows, lastrow=lastrow)
+		multiline = any(not row[0] and not row[1] for row in rows)
+	return parse_timelog(rows, lastrow=lastrow, is_sorted=multiline)
 def print_timelog(*args, **kwargs):
 	for day, entries in groupby(parse_file(*args, **kwargs), key=lambda e: e.begin.date()):
 		print day
@@ -134,6 +121,7 @@ if __name__ == '__main__':
 	import pytz
 	
 	filename = os.environ.get('JOURNAL_FILE', os.path.expanduser('~/.journal'))
+	if os.path.isdir(filename): filename=os.path.join(filename, 'current')
 	sep = os.environ.get('JOURNAL_SEP', '\t')
 	default_timezone = pytz.timezone(os.environ.get('TZ','America/Denver'))
 	#
