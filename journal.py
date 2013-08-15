@@ -148,7 +148,7 @@ if __name__ == '__main__':
 	
 	filename = os.environ.get('JOURNAL_FILE', os.path.expanduser('~/.journal'))
 	if os.path.isdir(filename): filename=os.path.join(filename, 'current')
-	sep = os.environ.get('JOURNAL_SEP', '\t')
+	sep = os.environ.get('JOURNAL_SEP', '|')
 	default_timezone = pytz.timezone(os.environ.get('TZ','America/Denver'))
 	#
 	print_timelog(filename=filename, sep=sep, default_timezone=default_timezone)
