@@ -121,7 +121,9 @@ def parse_timelog(rows, is_sorted=True):
 				try:
 					if entries[n+1].begin: this.end = entries[n+1].begin
 				except Exception as e: print "entry", n, e
-		if drop_by_index: [entries.pop(i) for i in drop_by_index]
+		if drop_by_index:
+			drop_by_index.sort(reverse=True)
+			dropped = [entries.pop(i) for i in drop_by_index]
 		return entries
 	else: raise JournalError("No input")
 def parse_file(filename, sep, default_timezone):
@@ -130,19 +132,37 @@ def parse_file(filename, sep, default_timezone):
 	Output: iterator of TimeLogEntry objects
 	
 	Expects a text file formatted with exactly two separators. parse_timelog()
-	takes (begin, end, desc) from each line. 
+	takes (begin, end, desc) from each line. Empty lines are skipped.
 	"""
 	stat = local.stat.stat(filename)
 	last_modify = stat.st_mtime.replace(tzinfo=default_timezone)
 	now = datetime.now().replace(tzinfo=default_timezone)
 	with open(filename, 'Ur') as fi:
-		rows = [ line.strip('\n').split(sep, len(fields)-1) for line in fi]
-		multiline = any(not row[0] and not row[1] for row in rows)
+		lines = [ line.strip('\n') for line in fi ]
+	rows = [ line.split(sep, len(fields)-1) for line in lines if line]
+	multiline = any(not row[0] and not row[1] for row in rows)
 	if timedelta(minutes=5) < now - last_modify:
 		lastrow = TimeLogEntry(last_modify, now, "<placeholder>")
 		return parse_timelog(rows, is_sorted=multiline)+[lastrow]
 	else:
 		return parse_timelog(rows, is_sorted=multiline)
+def pretty_duration(dur, roundto=15, threshold=timedelta(minutes=5)):
+	if dur < timedelta(minutes=5):
+		dur = timedelta(minutes=roundto)
+	if roundto:
+		dur = round_timedelta(dur, minutes=roundto)
+	return str(dur).rsplit(':',1)[0]
+def print_TimeLogEntry(tle):
+	try: mydur = pretty_duration(tle.dur)
+	except: mydur = "\t"
+	try: mybegin = "{:%H:%M}".format(tle.begin)
+	except: mybegin = "\t"
+	try: myend = "{:%H:%M}".format(tle.end)
+	except: myend = "\t"
+	try:
+		return "{}-{}{:>14} {}".format(mybegin, myend, mydur, tle.desc[:79].replace('\n',' '))
+	except:
+		return "Bad form:", tle
 def print_timelog(*args, **kwargs):
 	"""
 	See parse_file() for arguments
@@ -152,19 +172,12 @@ def print_timelog(*args, **kwargs):
 		except:
 			print e
 			return None
-	for day, entries in groupby(parse_file(*args, **kwargs), key=key):
-		print day
-		for entry in entries:
-			try: mydur = round_timedelta(entry.dur, minutes=15)
-			except: mydur = ""
-			try: mybegin = "{:%H:%M}".format(entry.begin)
-			except: mybegin = "\t"
-			try: myend = "{:%H:%M}".format(entry.end)
-			except: myend = "\t"
-			try:
-				print "{1}-{2}\t{3}\t{0.desc}".format(entry, mybegin, myend, mydur)
-			except:
-				print "Bad form:", entry
+	for day, ge in groupby(parse_file(*args, **kwargs), key=key):
+		entries = list(ge)
+		daily_total = sum((e.dur for e in entries if e.dur), timedelta())
+		print "***", day, "***"
+		for entry in entries: print print_TimeLogEntry(entry)
+		print "={}{:>14}".format(day, pretty_duration(daily_total))
 		print
 #
 if __name__ == '__main__':	
