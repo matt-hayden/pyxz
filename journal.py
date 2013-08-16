@@ -105,18 +105,23 @@ def parse_timelog(rows, is_sorted=True):
 			else:
 				entries.append(TimeLogEntry(*row))
 	if entries:
-		for n, entry in enumerate(entries):
-			if not entry.begin:
+		drop_by_index = []
+		for n, this in enumerate(entries):
+			if not this.begin:
 				try:
 					if entries[n-1].end:
-						entry.begin = entries[n-1].end
-					else: # combine the last with this
-						entries[n-1] += entry
-						entries.pop(n)
-				except Exception as e: print e
-			if not entry.end:
-				try: entry.end = entries[n+1].begin
-				except Exception as e: print e
+						this.begin = entries[n-1].end
+					else: # combine the this into last
+						entries[n-1] += this
+						this.append("(combined with above)")
+						drop_by_index.append(n)
+						continue
+				except Exception as e: print "entry", n, e
+			if not this.end:
+				try:
+					if entries[n+1].begin: this.end = entries[n+1].begin
+				except Exception as e: print "entry", n, e
+		if drop_by_index: [entries.pop(i) for i in drop_by_index]
 		return entries
 	else: raise JournalError("No input")
 def parse_file(filename, sep, default_timezone):
