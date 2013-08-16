@@ -63,21 +63,25 @@ class TimeLogEntry(object):
 		return any(self.to_tuple())
 	def __repr__(self):
 		return "{0}('{1.begin}','{1.end}','{1.desc}')".format(self.__class__.__name__, self)
+	def __iadd__(self, other):
+		assert not self.end
+		assert not other.begin
+		self.end = other.end
+		self.append(other.desc)
+		return self # important!
 #
 fields = 'begin end desc'.split()
-def parse_timelog(rows, lastrow=[], is_sorted=True):
+def parse_timelog(rows, is_sorted=True):
 	"""
 	Input: iterator of 3 text fields: (begin, end, desc)
 	Output: iterator of TimeLogEntry objects
 	
-	If begin is empty, it's copied from the previous row. If end is empty, it's
-	copied from the next row. If both are empty, then that row is assumed to be
-	a continuation of the previous line.
+	If begin is empty, end is copied from the previous row. If end is empty,
+	begin is copied from the next row. If this row has no begin, and the
+	previous row has no end, then they're combined.	If both are empty, then
+	that row is assumed to be a continuation of the previous line.
 	
 	Arguments:
-	If given, lastrow is returned. Any logic that follows each item in rows is
-	not applied to lastrow.
-	
 	If is_sorted=False, then multi-line continuation is disabled and rows is
 	sorted by begin or end timestamp.
 	"""
@@ -103,13 +107,17 @@ def parse_timelog(rows, lastrow=[], is_sorted=True):
 	if entries:
 		for n, entry in enumerate(entries):
 			if not entry.begin:
-				try: entry.begin = entries[n-1].end
-				except: pass
+				try:
+					if entries[n-1].end:
+						entry.begin = entries[n-1].end
+					else: # combine the last with this
+						entries[n-1] += entry
+						entries.pop(n)
+				except Exception as e: print e
 			if not entry.end:
 				try: entry.end = entries[n+1].begin
-				except: pass
-			yield entry
-		if lastrow: yield lastrow
+				except Exception as e: print e
+		return entries
 	else: raise JournalError("No input")
 def parse_file(filename, sep, default_timezone):
 	"""
@@ -122,25 +130,36 @@ def parse_file(filename, sep, default_timezone):
 	stat = local.stat.stat(filename)
 	last_modify = stat.st_mtime.replace(tzinfo=default_timezone)
 	now = datetime.now().replace(tzinfo=default_timezone)
-	if  timedelta(minutes=5) < now - last_modify:
-		lastrow = TimeLogEntry(last_modify, now, "<placeholder>")
-	else: lastrow = []
 	with open(filename, 'Ur') as fi:
 		rows = [ line.strip('\n').split(sep, len(fields)-1) for line in fi]
 		multiline = any(not row[0] and not row[1] for row in rows)
-	return parse_timelog(rows, lastrow=lastrow, is_sorted=multiline)
+	if timedelta(minutes=5) < now - last_modify:
+		lastrow = TimeLogEntry(last_modify, now, "<placeholder>")
+		return parse_timelog(rows, is_sorted=multiline)+[lastrow]
+	else:
+		return parse_timelog(rows, is_sorted=multiline)
 def print_timelog(*args, **kwargs):
 	"""
 	See parse_file() for arguments
 	"""
-	for day, entries in groupby(parse_file(*args, **kwargs), key=lambda e: e.begin.date()):
+	def key(e):
+		try: return e.begin.date() or e.end.date()
+		except:
+			print e
+			return None
+	for day, entries in groupby(parse_file(*args, **kwargs), key=key):
 		print day
 		for entry in entries:
 			try: mydur = round_timedelta(entry.dur, minutes=15)
 			except: mydur = ""
+			try: mybegin = "{:%H:%M}".format(entry.begin)
+			except: mybegin = "\t"
 			try: myend = "{:%H:%M}".format(entry.end)
 			except: myend = "\t"
-			print "{0.begin:%H:%M}-{1}\t{2}\t{0.desc}".format(entry, myend, mydur)
+			try:
+				print "{1}-{2}\t{3}\t{0.desc}".format(entry, mybegin, myend, mydur)
+			except:
+				print "Bad form:", entry
 		print
 #
 if __name__ == '__main__':	
