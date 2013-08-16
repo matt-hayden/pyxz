@@ -167,22 +167,31 @@ def print_timelog(*args, **kwargs):
 	"""
 	See parse_file() for arguments
 	"""
-	def key(e):
-		try: return e.begin.date() or e.end.date()
-		except:
-			print e
-			return None
-	for day, ge in groupby(parse_file(*args, **kwargs), key=key):
-		entries = list(ge)
-		daily_total = sum((e.dur for e in entries if e.dur), timedelta())
-		print "***", day, "***"
-		for entry in entries: print print_TimeLogEntry(entry)
-		print "={}{:>14}".format(day, pretty_duration(daily_total))
+	def key1(e):
+		try: return e.begin.isocalendar()[:-1]
+		except Exception as e:
+			print e, entry
+	def key2(entry):
+		try: return entry.begin.date() or entry.end.date()
+		except Exception as e:
+			print e, entry
+	for yearweek, g1 in groupby(parse_file(*args, **kwargs), key=key1):
+		print "****** {} week {} ******".format(*yearweek)
+		weekly_total = timedelta()
+		for day, g2 in groupby(g1, key=key2):
+			entries = list(g2)
+			daily_total = sum((e.dur for e in entries if e.dur), timedelta())
+			weekly_total += daily_total
+			print "*** {:%b-%d} ***".format(day)
+			for entry in entries: print print_TimeLogEntry(entry)
+			print "={:%b-%d}={:>17}".format(day, pretty_duration(daily_total))
+			print
+		print "={0[0]} week {0[1]}={1:>11}".format(yearweek, pretty_duration(weekly_total))
 		print
 #
 if __name__ == '__main__':	
 	import pytz
-	
+
 	filename = os.environ.get('JOURNAL_FILE', os.path.expanduser('~/.journal'))
 	if os.path.isdir(filename): filename=os.path.join(filename, 'current')
 	sep = os.environ.get('JOURNAL_SEP', '|')
