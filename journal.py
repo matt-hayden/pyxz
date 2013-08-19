@@ -204,4 +204,6 @@ if __name__ == '__main__':
 	sep = os.environ.get('JOURNAL_SEP', '|')
 	default_timezone = pytz.timezone(os.environ.get('TZ','America/Denver'))
 	#
+#	for line in parse_file(filename=filename, sep=sep, default_timezone=default_timezone):
+#		print line
 	print_timelog(filename=filename, sep=sep, default_timezone=default_timezone)
