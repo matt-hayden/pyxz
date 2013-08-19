@@ -6,6 +6,7 @@ Availability:
 	UNIX: curses and console tools
 	Win32: win32console if PyWin32 installed or a fallback
 """
+from collections import deque
 import os
 import struct
 import sys
@@ -76,8 +77,9 @@ def get_terminal_size(default = None):
 	return rc or default
 #
 def to_columns(iterable,
-			   num_columns=None, 
-			   sep=' ', 
+			   num_columns=None,
+			   sep=' ',
+			   pad='',
 			   num_chars=None):
 	"""
 	Formats elements of an iterable into a table, like the short output of 'ls'
@@ -92,6 +94,7 @@ def to_columns(iterable,
 	if not num_columns:
 		if not num_chars:
 			term_rows, num_chars = get_terminal_size()
+			if pad: num_chars -= 2*len(pad)
 		num_columns = num_chars//col_width
 	if num_columns < 1: num_columns = 1
 	rows = (length//num_columns)+1
@@ -99,4 +102,7 @@ def to_columns(iterable,
 	width_by_partition = [ (max(len(x) for x in ri), ri) for ri in partitioned ]
 	partitioned = [ [x.ljust(i) for x in col_width] for i, col_width in width_by_partition ]
 	lines = (sep.join(x) for x in zip(*partitioned))
-	return os.linesep.join(lines)
+	if pad: return os.linesep.join(pad+line+pad for line in lines)
+	else:   return os.linesep.join(lines)
+def tail(iterable, rows=get_terminal_size()[0]):
+	return deque(iterable, rows)
