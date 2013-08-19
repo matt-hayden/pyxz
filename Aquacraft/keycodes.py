@@ -8,6 +8,7 @@ and also recognize invalid keycodes.
 """
 
 import collections
+from functools import total_ordering
 from logging import debug, info, warning, error, critical
 import os.path
 import re
@@ -69,6 +70,7 @@ class AquacraftKeycode(object): # abstract
 	SINGLEFAMILY	= 'S'
 class Aquacraft2YearKeycode(AquacraftKeycode): # abstract
 	min_year_for_two_digits, max_year_for_two_digits = 1996, 2095
+@total_ordering
 class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 	"""
 	The simplest use of unique keycodes follows this pattern:
@@ -141,15 +143,15 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 #			return isinstance(other, collections.Iterable)
 #		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
 #		return (self.to_tuple() < other.to_tuple())
-	def __gt__(self, other):
+	def __lt__(self, other):
 		try:
 			other = other if isinstance(other, self.__class__) else Keycode(other)
 		except KeycodeError:
 			return not isinstance(other, collections.Iterable)
 		if self.site_type_code != other.site_type_code: raise KeycodeError("Cannot compare {} and {}".format(self,other))
-		return (self.to_tuple() > other.to_tuple())
-	def __lt__(self, other):
-		return not self.__gt__(other)
+		return (self.to_tuple() < other.to_tuple())
+#	def __lt__(self, other):
+#		return not self.__gt__(other)
 	def __hash__(self):
 		return int(str(self.year2)
 				  +str(ord(self.site_type_code))
