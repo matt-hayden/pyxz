@@ -3,6 +3,7 @@ from itertools import groupby, izip
 import os
 import os.path
 import stat
+import string
 import re
 
 from flatten import flatten
@@ -107,12 +108,45 @@ def commondir(paths, seps=r'/\\+'):
 	while prefix and prefix[-1:] not in seps:
 		prefix = prefix[:-1]
 	return prefix
+def commonprefix(args, **kwargs):
+	"""
+	Give the arg has_digits for filenames a001, a002, and a010 return 'a'
+	instead of 'a0', as you'd see with os.path.commonprefix.
+	"""
+	has_digits = kwargs.pop('has_digits', False)
+	prefix = os.path.commonprefix(args, **kwargs)
+	if prefix and has_digits:
+		i = len(prefix)
+		while i>0 and prefix[i-1] in string.digits: i -= 1
+		return prefix[:i]
+	else: return prefix
+def common_filename_set(p1, p2,
+		  min_chars=3,
+		  continue_symbols=os.path.sep+'/'+os.path.extsep+'.',
+		  default=''):
+	"""
+	Return true if two filenames appear to be part if a set of files.
+	"""
+	prefix = commonprefix((p1, p2), has_digits=False)
+	if len(prefix) <= min_chars: return ''
+	if prefix:
+		try:
+			n1, n2 = p1[len(prefix)], p2[len(prefix)]
+			if n1 in string.digits and n2 in string.digits:
+				i1, i2 = int(n1), int(n2)
+				return (i1 == i2+1)
+			elif n1 not in continue_symbols and n2 not in continue_symbols:
+				return False
+		except IndexError: # prefix is as long as one of the args
+			return True
+	return default
+#
 def find_repositories(root, stopfiles=['.git']):
 	"""
 	GENERATOR
 	Top-down search of a directory hierarchy, stopping at the first match of a
 	particular file. Multiple directories may be returned, and some
-	repositories may be missed if nested under different repositories.
+	repositories may be missed if you're into nesting one repo under another.
 	"""
 	stopfileset = set(_.lower() for _ in stopfiles)
 	for parent, dirs, files in os.walk(root):

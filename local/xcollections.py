@@ -1,4 +1,34 @@
+import collections
 
+def moving(iterable, n=None, init=None):
+	"""
+	Very simple generator that implements a lookback, returning a deque (of
+	length n) for each element of input. Use the deque by indexing backwards:
+	d[0] == latest element
+	d[1] == previous element
+	d[2] == two elements back
+	
+	Modifying this deque is supported:
+	>>> for d in moving(range(6), n=4):
+	...	if d[0] == 2:
+	...		latest = d.popleft() # delete the latest element
+	...		print "Element '{}' skipped here".format(latest)
+	...		continue # or don't. See if I care
+	...	elif d[0] == 4: # modify elements in-place
+	...		d[-1] = 'I saw 4!'
+	...	print d
+	deque([0], maxlen=4)
+	deque([1, 0], maxlen=4)
+	Element '2' skipped here
+	deque([3, 1, 0], maxlen=4)
+	deque([4, 3, 1, 'I saw 4!'], maxlen=4)
+	deque([5, 4, 3, 1], maxlen=4)
+	"""
+	if n: d = collections.deque([init]*n,n)
+	else: d = collections.deque([],n)
+	for this in iterable:
+		d.appendleft(this)
+		yield d
 def is_range(iterable, if_empty=False):
 	"""
 	True if the argument is equivalent to an integer interval. Behaviour for
