@@ -2,23 +2,12 @@ from datetime import datetime
 from itertools import groupby, izip
 import os
 import os.path
-import stat
 import string
 import re
 
 from flatten import flatten
+from xstat import *
 
-def get_stat_type(mode, like_ls=False):
-	if not isinstance(mode, int):
-		mode = mode.st_mode
-	if stat.S_ISDIR(mode):		return 'd'
-	elif stat.S_ISCHR(mode):	return 'c'
-	elif stat.S_ISBLK(mode):	return 'b'
-	elif stat.S_ISREG(mode):	return '-'
-	elif stat.S_ISFIFO(mode):	return 'p'
-	elif stat.S_ISLNK(mode):	return 'l'
-	elif stat.S_ISSOCK(mode):	return 's'
-	else:						return '?' if like_ls else 'U'
 def findutils_printf_lookup_term1(token, mystat, time_converter=datetime.fromtimestamp):
 	"""
 	These are all accessible (but not necessarily meaningful) in Windows
@@ -121,9 +110,9 @@ def commonprefix(args, **kwargs):
 		return prefix[:i]
 	else: return prefix
 def common_filename_set(p1, p2,
-		  min_chars=3,
-		  continue_symbols=os.path.sep+'/'+os.path.extsep+'.',
-		  default=''):
+						min_chars=3,
+						continue_symbols=os.path.sep+'/'+os.path.extsep+'.',
+						default=''):
 	"""
 	Return true if two filenames appear to be part if a set of files.
 	"""
@@ -144,9 +133,11 @@ def common_filename_set(p1, p2,
 def find_repositories(root, stopfiles=['.git']):
 	"""
 	GENERATOR
-	Top-down search of a directory hierarchy, stopping at the first match of a
-	particular file. Multiple directories may be returned, and some
-	repositories may be missed if you're into nesting one repo under another.
+	CASE-INSENSITIVE
+	Top-down search of a directory hierarchy, stopping recursing through
+	directories at the first match of a particular file. Multiple directories 
+	may be returned, and some repositories may be missed if you're into nesting
+	one repo under another.
 	"""
 	stopfileset = set(_.lower() for _ in stopfiles)
 	for parent, dirs, files in os.walk(root):
@@ -168,15 +159,16 @@ def walklist(filenames,
 	Input: a list of filenames
 	Arguments:
 		check_for_dirs	When presented with an entry, check to see if it's a
-						directory. check_for_dirs=False implies all such
-						entries are returned in the 'files' member.
+						directory on the local filesystem.
+						check_for_dirs=False implies all such entries are 
+						returned as a 'files' member.
 		root			If 'check_for_dirs' and not running in the same
 						directory, specifying root may be necessary. Otherwise,
 						root is NOT prepended to paths.
 	Output: a walk()-like structure:
 		[ (root, dirs, files), ... ]
-	Exact fidelity to the same results as walk() is not guaranteed. For example,
-	pruning directories by editing the dirs list is not supported.
+	Exact fidelity to the same results as os.walk() is not guaranteed. For
+	example, pruning directories by editing the dirs list is not supported.
 	"""
 	found_dirs, sfilenames = [], []
 	if check_for_dirs:
@@ -186,6 +178,7 @@ def walklist(filenames,
 				found_dirs.append(os.path.split(path))
 			else:
 				sfilenames.append(os.path.split(path))
+		else: 
 		found_dirs.sort()
 	else:
 		sfilenames = [os.path.split(_) for _ in filenames]
@@ -219,7 +212,7 @@ def flatwalk(*args, **kwargs):
 	filenames = set()
 	for arg in args:
 		if os.path.isfile(arg):
-			if file_args_are_lists: g = local.walk.walklist(arg)
+			if file_args_are_lists: g = walklist(arg)
 			else: filenames.add(arg)
 		elif os.path.isdir(arg): g = os.walk(arg)
 		elif not os.path.exists(arg): raise Exception(arg+" not found")
