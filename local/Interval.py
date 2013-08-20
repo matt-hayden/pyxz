@@ -1,4 +1,6 @@
 #!env python
+"""Generalization of objects that inclusively span from a min to a max.
+"""
 
 class EasyToPickle(object):
 	### subclasses should define to_tuple()

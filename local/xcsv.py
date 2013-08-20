@@ -1,5 +1,8 @@
 #!env python
-from . import *
+"""Working with CSV files.
+
+The most common varieties of CSV are tested.
+"""
 
 from collections import Iterable, namedtuple
 import csv
@@ -20,7 +23,8 @@ def load_csv(fileobj, **kwargs):
 					illegal namedtuple fieldnames.
 	"""
 	if isinstance(fileobj, basestring): # assume it's a filename
-		return _load_csv_gen(open(fileobj, mode='rb'), **kwargs)
+		with open(fileobj, mode='rb') as fi:
+			return _load_csv_gen(fi, **kwargs)
 	elif isinstance(fileobj, Iterable):
 		return _load_csv_gen(fileobj, **kwargs)
 	else:

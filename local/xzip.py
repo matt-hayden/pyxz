@@ -1,7 +1,17 @@
 #!env python
+from datetime import datetime
 import io
 from zipfile import ZipFile
 
+def parse_zipinfo_date(zi, earliest=datetime(1980, 1, 1, 0, 0)):
+	"""
+	Return a datetime from a zipinfo date, or None if the date is earlier than
+	the standard zip epoch, 1980-01-01.
+	"""
+	try:
+		dt = datetime(*zi.date_time)
+		return None if dt == earliest else dt
+	except: return None
 def zip_fetchone(filepath, default_extensions = [], **kwargs):
 	"""
 	Simple helper function to allow ZIP files as file containers. The ZIP file

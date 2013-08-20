@@ -1,15 +1,18 @@
+#!env python
+"""Working with platform-independent stat objects.
+"""
 from datetime import datetime
 import os
 import stat
 
-class mode(list): # TODO
+class xst_mode(list):
 	def __init__(self, data):
 		if isinstance(data, basestring):
 			self.from_string(data)
 		elif isinstance(data, int):
 			self.from_int(data)
 		else:
-			super(mode, self).__init__(data)
+			super(xst_mode, self).__init__(data)
 	def __int__(self):
 		sum(m*8**p for p,m in enumerate(reversed(self)))
 	def __str__(self):
@@ -17,15 +20,18 @@ class mode(list): # TODO
 	def from_int(self, mode_int):
 		self.from_string(oct(mode_int))
 	def from_string(self, mode_text):
-		self = mode([ int(c) for c in mode_text ])
+		super(xst_mode, self).__init__(int(c) for c in mode_text)
 
 def stat(*args, **kwargs):
-	"""
-	Wrapper around os.stat() that returns slightly more human numbers
+	"""Wrapper around os.stat() that returns slightly more-human numbers.
+	
+	Arguments:
+		mode=True will return an object of decoded mode. For example, mode
+		511 base 10, 0777 base 8, will be returned as [0,7,7,7].
 	"""
 	stat = os.stat(*args)
 	if kwargs.pop('mode_tuple', False):
-		mymode = [ int(c) for c in oct(stat.st_mode) ]
+		mymode = xst_mode(stat.st_mode)
 	else:
 		mymode = stat.st_mode
 	atime = datetime.fromtimestamp(stat.st_atime)
@@ -46,8 +52,8 @@ def get_stat_type(mode, like_ls=False):
 	Return a one-character code for the type of a filesystem object. Can be
 	used with a os.stat() object or an integer mask.
 	"""
-	if isinstance(mode, collections.Iterable):
-		mode = sum(m*8**p for p,m in enumerate(reversed(t)))
+	if isinstance(mode, xst_mode):
+		mode = int(mode)
 	elif not isinstance(mode, int):
 		mode = mode.st_mode
 	if stat.S_ISDIR(mode):		return 'd'
