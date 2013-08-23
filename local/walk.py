@@ -104,7 +104,7 @@ def commondir(paths, seps=r'/\\+'):
 	Like os.path.commonprefix, except only a full path is returned, including
 	empty.
 	"""
-	prefix = os.path.commonprefix(paths)
+	prefix = commonprefix(paths)
 	while prefix and prefix[-1:] not in seps:
 		prefix = prefix[:-1]
 	return prefix
