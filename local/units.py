@@ -1,4 +1,6 @@
 #!env python
+"""Custom unit tagging and conversion.
+"""
 from collections import OrderedDict
 from math import *
 

@@ -1,4 +1,8 @@
 #!env python
+"""Working with XLS and XLSX files using third-party libraries.
+
+
+"""
 from collections import namedtuple
 
 from openpyxl import load_workbook

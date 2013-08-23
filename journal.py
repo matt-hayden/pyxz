@@ -8,8 +8,9 @@ import string
 
 import dateutil.parser
 
-import local.stat
+import local.xstat
 from local.xdatetime import round_timedelta
+from local.console.size import to_columns
 
 class JournalError(Exception):
 	pass
@@ -134,8 +135,8 @@ def parse_file(filename, sep, default_timezone):
 	Expects a text file formatted with exactly two separators. parse_timelog()
 	takes (begin, end, desc) from each line. Empty lines are skipped.
 	"""
-	stat = local.stat.stat(filename)
-	last_modify = stat.st_mtime.replace(tzinfo=default_timezone)
+	mystat = local.xstat.stat(filename)
+	last_modify = mystat.st_mtime.replace(tzinfo=default_timezone)
 	now = datetime.now().replace(tzinfo=default_timezone)
 	with open(filename, 'Ur') as fi:
 		lines = [ line.strip('\n') for line in fi ]
@@ -151,16 +152,19 @@ def pretty_duration(dur, roundto=15, threshold=timedelta(minutes=5)):
 		dur = timedelta(minutes=roundto)
 	if roundto:
 		dur = round_timedelta(dur, minutes=roundto)
-	return str(dur).rsplit(':',1)[0]
+	minutes, seconds = divmod(dur.total_seconds(), 60)
+	hours, minutes = divmod(minutes, 60)
+	return "{:4.0f}:{:02.0f}".format(hours, minutes)
+#	return str(dur).rsplit(':',1)[0]
 def print_TimeLogEntry(tle):
 	try: mydur = pretty_duration(tle.dur)
 	except: mydur = "\t"
 	try: mybegin = "{:%H:%M}".format(tle.begin)
-	except: mybegin = "\t"
+	except: mybegin = " "*6
 	try: myend = "{:%H:%M}".format(tle.end)
-	except: myend = "\t"
+	except: myend = " "*6
 	try:
-		return "{}-{}{:>14} {}".format(mybegin, myend, mydur, tle.desc[:79].replace('\n',' '))
+		return "{}-{}{:>6} {}".format(mybegin, myend, mydur, tle.desc[:79].replace('\n',' '))
 	except:
 		return "Bad form:", tle
 def print_timelog(*args, **kwargs):
@@ -176,17 +180,20 @@ def print_timelog(*args, **kwargs):
 		except Exception as e:
 			print e, entry
 	for yearweek, g1 in groupby(parse_file(*args, **kwargs), key=key1):
-		print "****** {} week {} ******".format(*yearweek)
+		week_string = "{} wk {}".format(*yearweek)
+		print "****** "+week_string+" ******"
 		weekly_total = timedelta()
 		for day, g2 in groupby(g1, key=key2):
+			day_string = "{:%b-%d}".format(day)
 			entries = list(g2)
 			daily_total = sum((e.dur for e in entries if e.dur), timedelta())
 			weekly_total += daily_total
-			print "*** {:%b-%d} ***".format(day)
-			for entry in entries: print print_TimeLogEntry(entry)
-			print "={:%b-%d}={:>17}".format(day, pretty_duration(daily_total))
+			print "*** "+day_string+" ***"
+#			for entry in entries: print print_TimeLogEntry(entry)
+			print to_columns((print_TimeLogEntry(entry) for entry in entries), sep=" || ", pad="  ")
+			print "{:<11}{:>9}".format('='+day_string+'=', pretty_duration(daily_total))
 			print
-		print "={0[0]} week {0[1]}={1:>11}".format(yearweek, pretty_duration(weekly_total))
+		print "{:<11}{:>9}".format(week_string, pretty_duration(weekly_total))
 		print
 #
 if __name__ == '__main__':	
@@ -197,4 +204,6 @@ if __name__ == '__main__':
 	sep = os.environ.get('JOURNAL_SEP', '|')
 	default_timezone = pytz.timezone(os.environ.get('TZ','America/Denver'))
 	#
+#	for line in parse_file(filename=filename, sep=sep, default_timezone=default_timezone):
+#		print line
 	print_timelog(filename=filename, sep=sep, default_timezone=default_timezone)

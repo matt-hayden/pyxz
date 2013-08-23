@@ -1,4 +1,6 @@
 import mimetypes
+"""Monkey-patch the built-in mimetype map with some common missing pieces.
+"""
 
 _types_map = mimetypes.types_map
 

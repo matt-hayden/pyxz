@@ -1,10 +1,12 @@
+#!env python
+"""RGB color class.
+
+This is probably implemented better in another library, i.e. PIL
+"""
 import re
 import sys
 
-try:
-	import webcolors
-except ImportError:
-	print >>sys.stderr, "python module webcolors needed; see easy_install"
+import webcolors
 #
 rgb_regex=re.compile('([#]?(?P<rgb>[0-9A-Fa-f]{1,6}))')
 #
