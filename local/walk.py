@@ -170,25 +170,22 @@ def walklist(filenames,
 	Exact fidelity to the same results as os.walk() is not guaranteed. For
 	example, pruning directories by editing the dirs list is not supported.
 	"""
-	found_dirs, sfilenames = [], []
+	split_dirs, split_files = [], []
 	if check_for_dirs:
 		for path in filenames:
-#			(found_dirs if os.path.isdir(os.path.join(root, path)) else sfilenames).append(os.path.split(path))
-			if os.path.isdir(os.path.join(root, path)):
-				found_dirs.append(os.path.split(path))
-			else:
-				sfilenames.append(os.path.split(path))
-		else: 
-		found_dirs.sort()
+			if os.path.isdir(os.path.join(root, path)): mylist = split_dirs
+			else: mylist = split_files
+			mylise.append(os.path.split(path))
+		split_dirs.sort()
 	else:
-		sfilenames = [os.path.split(_) for _ in filenames]
-	sfilenames.sort()
-	for dirname, g in groupby(sfilenames, key=lambda _:_[0]):
+		split_files = [os.path.split(_) for _ in filenames]
+	split_files.sort()
+	for dirname, g in groupby(split_files, key=lambda _:_[0]):
 		yield dirname or '.', [], [_[-1] for _ in g]
-		if dirname in found_dirs:
-			found_dirs.remove(dirname)
-	if found_dirs:
-		yield '.', found_dirs, [] # lastly, directories not matching any files
+		if dirname in split_dirs:
+			split_dirs.remove(dirname)
+	if split_dirs:
+		yield '.', split_dirs, [] # lastly, directories not matching any files
 #
 def separate_paths_at_component(paths, component='', splitter=None):
 	seps = set()
