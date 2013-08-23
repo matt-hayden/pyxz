@@ -4,19 +4,9 @@ import os.path
 import subprocess
 
 from local.xcollections import is_range
+from local.walk import commonprefix
 from av_split_join import *
 
-def my_commonprefix(args, **kwargs):
-	"""
-	Remove all digits from the end of a commonprefix.
-	"""
-	prefix = os.path.commonprefix(args, **kwargs)
-	if prefix:
-		ii = len(prefix)
-#	while all([_[ii-1].isdigit() for _ in args]):
-	while prefix[ii-1].isdigit():
-		ii -= 1
-	return prefix[:ii]
 def get_output_filename(args, sep='_'):
 	"""
 	Jam a bunch of numerical suffixes into the end of a commonprefix.
@@ -25,7 +15,7 @@ def get_output_filename(args, sep='_'):
 	fileparts, extensions = zip(*[os.path.splitext(_) for _ in basenames])
 	c = Counter(_.upper() for _ in extensions)
 	extension, _ = c.most_common(1)[0]
-	prefix = my_commonprefix(list(_.lower() for _ in fileparts))
+	prefix = commonprefix(list(_.lower() for _ in fileparts), has_digits=True)
 	if prefix:
 		ii = len(prefix)
 		iparts = [_[ii:] for _ in fileparts]
@@ -40,7 +30,10 @@ def _get_join_parts(args, fileout):
 		return find_asfbin_executable(), asfbin_join_syntax(args, fileout)
 #	elif exts == set(['.MKV']):
 #		return find_mkvmerge_executable(), mkvmerge_join_syntax(args, fileout)
-	elif exts & set(['.MPG', '.MPEG', '.MP4', '.M4V']):
+	elif exts & set(['.F4V', '.FLV', '.MPG', '.MPEG']):
+		fileout += '.MP4'
+		return find_mp4box_executable(), mp4box_join_syntax(args, fileout)
+	elif exts & set(['.MP4', '.M4V']):
 		return find_mp4box_executable(), mp4box_join_syntax(args, fileout)
 	else:
 		raise NotImplementedError("Please edit av_join.py to support {} containers".format(exts))
