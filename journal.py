@@ -2,8 +2,6 @@
 from collections import namedtuple
 from datetime import datetime, timedelta
 from itertools import groupby
-import os
-import os.path
 import string
 
 import dateutil.parser
@@ -11,6 +9,18 @@ import dateutil.parser
 import local.xstat
 from local.xdatetime import round_timedelta
 from local.console.size import to_columns
+
+def pretty_duration(dur, roundto=15, threshold=timedelta(minutes=5)):
+	if not isinstance(dur, timedelta):
+		dur = timedelta(seconds=dur)
+	if dur < timedelta(minutes=5):
+		dur = timedelta(minutes=roundto)
+	if roundto:
+		dur = round_timedelta(dur, minutes=roundto)
+	minutes, seconds = divmod(dur.total_seconds(), 60)
+	hours, minutes = divmod(minutes, 60)
+	return "{:4.0f}:{:02.0f}".format(hours, minutes)
+#	return str(dur).rsplit(':',1)[0]
 
 class JournalError(Exception):
 	pass
@@ -96,7 +106,7 @@ def parse_timelog(rows, is_sorted=True):
 		for row in rows:
 			if entries:
 				if not row[0] and not row[1]:
-					entries[-1].append(text=row[-1])
+					entries[-1].append(text=row[-1]) # this means: modify the last entry, note the keyword arg
 				else:
 					try:
 						default = entries[-1].end.replace(minute=0, second=0, microsecond=0)
@@ -127,6 +137,7 @@ def parse_timelog(rows, is_sorted=True):
 			dropped = [entries.pop(i) for i in drop_by_index]
 		return entries
 	else: raise JournalError("No input")
+
 def parse_file(filename, sep, default_timezone):
 	"""
 	Input: filename
@@ -147,15 +158,7 @@ def parse_file(filename, sep, default_timezone):
 		return parse_timelog(rows, is_sorted=multiline)+[lastrow]
 	else:
 		return parse_timelog(rows, is_sorted=multiline)
-def pretty_duration(dur, roundto=15, threshold=timedelta(minutes=5)):
-	if dur < timedelta(minutes=5):
-		dur = timedelta(minutes=roundto)
-	if roundto:
-		dur = round_timedelta(dur, minutes=roundto)
-	minutes, seconds = divmod(dur.total_seconds(), 60)
-	hours, minutes = divmod(minutes, 60)
-	return "{:4.0f}:{:02.0f}".format(hours, minutes)
-#	return str(dur).rsplit(':',1)[0]
+
 def print_TimeLogEntry(tle):
 	try: mydur = pretty_duration(tle.dur)
 	except: mydur = "\t"
@@ -167,6 +170,7 @@ def print_TimeLogEntry(tle):
 		return "{}-{}{:>6} {}".format(mybegin, myend, mydur, tle.desc[:79].replace('\n',' '))
 	except:
 		return "Bad form:", tle
+
 def print_timelog(*args, **kwargs):
 	"""
 	See parse_file() for arguments
@@ -196,7 +200,10 @@ def print_timelog(*args, **kwargs):
 		print "{:<11}{:>9}".format(week_string, pretty_duration(weekly_total))
 		print
 #
-if __name__ == '__main__':	
+if __name__ == '__main__':
+	import os
+	import os.path
+	
 	import pytz
 
 	filename = os.environ.get('JOURNAL_FILE', os.path.expanduser('~/.journal'))
