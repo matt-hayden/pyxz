@@ -7,6 +7,8 @@ import string
 import dateutil.parser
 
 import local.xstat
+import local.flatten
+
 from local.xdatetime import round_timedelta
 from local.console.size import to_columns
 
@@ -24,6 +26,7 @@ def pretty_duration(dur, roundto=15, threshold=timedelta(minutes=5)):
 
 class JournalError(Exception):
 	pass
+SplitTimeLogEntry = namedtuple('SplitTimeLogEntry', 'begin end dur desc')
 class TimeLogEntry(object):
 	"""
 	A (simple?) representation of a timestamped log entry. .begin and .end
@@ -64,6 +67,19 @@ class TimeLogEntry(object):
 			self.desc += sep+text.strip()
 		else:
 			self.desc += sep.join(text)
+	def split(self, seps=[',', ' + '], label='split'):
+		"""
+		Return the entry divided equally if a separator is present in the
+		description.
+		"""
+		for sep in seps:
+			if sep in self.desc: break
+		else: return [self]
+		parts = [ s.strip() for s in self.desc.split(sep) if s.strip() ]
+		if label:
+			parts = [ "{} ({}:{})".format(s, label, n) for n, s in enumerate(parts, start=1)]
+		divided_dur = self.dur/len(parts)
+		return [ SplitTimeLogEntry(self.begin, self.end, divided_dur, part) for part in parts ]
 	@property
 	def dur(self):
 		try:	return self.end-self.begin
@@ -82,7 +98,7 @@ class TimeLogEntry(object):
 		return self # important!
 #
 fields = 'begin end desc'.split()
-def parse_timelog(rows, is_sorted=True):
+def parse_timelog(rows, is_sorted=True, split_on_commas=True):
 	"""
 	Input: iterator of 3 text fields: (begin, end, desc)
 	Output: iterator of TimeLogEntry objects
@@ -135,10 +151,20 @@ def parse_timelog(rows, is_sorted=True):
 		if drop_by_index:
 			drop_by_index.sort(reverse=True)
 			dropped = [entries.pop(i) for i in drop_by_index]
+	#
+	if split_on_commas:
+		split_entries = []
+		for e in entries:
+			split_entries.extend(e.split())
+		return split_entries
+	else:
 		return entries
-	else: raise JournalError("No input")
 
-def parse_file(filename, sep, default_timezone):
+def parse_file(filename,
+			   sep,
+			   default_timezone,
+			   placeholder='<placeholder>',
+			   threshold=timedelta(minutes=15)):
 	"""
 	Input: filename
 	Output: iterator of TimeLogEntry objects
@@ -153,9 +179,9 @@ def parse_file(filename, sep, default_timezone):
 		lines = [ line.strip('\n') for line in fi ]
 	rows = [ line.split(sep, len(fields)-1) for line in lines if line]
 	multiline = any(not row[0] and not row[1] for row in rows)
-	if timedelta(minutes=5) < now - last_modify:
-		lastrow = TimeLogEntry(last_modify, now, "<placeholder>")
-		return parse_timelog(rows, is_sorted=multiline)+[lastrow]
+	if placeholder and (threshold < now - last_modify):
+		tail = TimeLogEntry(last_modify, now, placeholder)
+		return parse_timelog(rows, is_sorted=multiline)+[tail]
 	else:
 		return parse_timelog(rows, is_sorted=multiline)
 
@@ -175,8 +201,8 @@ def print_timelog(*args, **kwargs):
 	"""
 	See parse_file() for arguments
 	"""
-	def key1(e):
-		try: return e.begin.isocalendar()[:-1]
+	def key1(entry):
+		try: return entry.begin.isocalendar()[:-1]
 		except Exception as e:
 			print e, entry
 	def key2(entry):
@@ -193,11 +219,12 @@ def print_timelog(*args, **kwargs):
 			daily_total = sum((e.dur for e in entries if e.dur), timedelta())
 			weekly_total += daily_total
 			print "*** "+day_string+" ***"
-#			for entry in entries: print print_TimeLogEntry(entry)
-			print to_columns((print_TimeLogEntry(entry) for entry in entries), sep=" || ", pad="  ")
-			print "{:<11}{:>9}".format('='+day_string+'=', pretty_duration(daily_total))
+			for entry in entries: print print_TimeLogEntry(entry)
+			## remember the padding, changing the 7-sizes below to 9
+#			print to_columns((print_TimeLogEntry(entry) for entry in entries), sep=" || ", pad="  ")
+			print "{:<11}{:>7}".format('='+day_string+'=', pretty_duration(daily_total))
 			print
-		print "{:<11}{:>9}".format(week_string, pretty_duration(weekly_total))
+		print "{:<11}{:>7}".format(week_string, pretty_duration(weekly_total))
 		print
 #
 if __name__ == '__main__':
