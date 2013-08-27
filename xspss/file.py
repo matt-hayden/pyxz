@@ -1,5 +1,14 @@
+#!env python
+from collections import defaultdict, namedtuple
+from logging import debug, info, warning, error, critical
+import os.path
+import cPickle as pickle
+
+import spssaux
 
 from local.console import redirect_terminal
+
+from xspss import missing_values_none
 
 ### both name and factory need to have the same name for pickle
 SPSS_Variable_Description = namedtuple('SPSS_Variable_Description',

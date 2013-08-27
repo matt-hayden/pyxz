@@ -4,7 +4,7 @@ Usage:
 	$me database					List all recognized tables
 	$me tablename database1 ...		Export all tables named tablename from many files
 """
-from MDB import debug, info, warning, error, critical
+#from MDB import debug, info, warning, error, critical
 from database_file import pyodbc_MDB
 
 from local.xnp import *

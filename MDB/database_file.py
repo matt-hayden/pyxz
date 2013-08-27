@@ -10,8 +10,8 @@ Note that there are at least four maintained database drivers:
 * odbc			(untested) 
 * pyodbc		Wraps the ODBC facility on Windows.
 """
-from MDB import debug, info, warning, error, critical
-from MDB import is_sql, sanitize_table_name
+#from MDB import debug, info, warning, error, critical
+#from MDB import is_sql, sanitize_table_name
 
 from collections import namedtuple
 from contextlib import closing
@@ -184,7 +184,7 @@ class MDB_Base(object):
 					info("generate_table() will not return namedtuple: {}".format(e))
 					for _ in cursor:
 						yield _
-		else: raise MDB_Error("generate_table() received invalid SQL statement: '{}'".format(sql)
+		else: raise MDB_Error("generate_table() received invalid SQL statement: '{}'".format(sql))
 	def cursor(self, *args, **kwargs):
 		return closing(self.connection.cursor(*args, **kwargs))
 	def commit(self, *args, **kwargs):

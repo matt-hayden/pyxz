@@ -87,6 +87,7 @@ def to_columns(iterable,
 	# Rinse:
 	if isinstance(iterable, basestring): iterable = iterable.splitlines()
 	else: iterable = list(iterable)
+	[ s.replace('\t',' '*8) for s in iterable ]
 	col_width = max(len(str(i)) for i in iterable)+len(sep)
 	length = len(iterable)
 	
@@ -97,10 +98,16 @@ def to_columns(iterable,
 			if pad: num_chars -= 2*len(pad)
 		num_columns = num_chars//col_width
 	if num_columns < 1: num_columns = 1
+	### TODO:
 	rows = (length//num_columns)+1
+	rows = int(round(length/num_columns))
+	###
 	partitioned = [iterable[c:c+rows] for c in xrange(0,length,rows)]
 	width_by_partition = [ (max(len(x) for x in ri), ri) for ri in partitioned ]
 	partitioned = [ [x.ljust(i) for x in col_width] for i, col_width in width_by_partition ]
+	if len(partitioned) > 1:
+		empty_values_on_last_row = rows - len(partitioned[-1])
+		partitioned[-1].extend(['']*empty_values_on_last_row)
 	lines = (sep.join(x) for x in zip(*partitioned))
 	if pad: return os.linesep.join(pad+line+pad for line in lines)
 	else:   return os.linesep.join(lines)

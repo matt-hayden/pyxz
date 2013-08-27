@@ -7,7 +7,7 @@ __version__ = '0'
 
 from file import *
 
-from local.console.size import condense_string
+from local.console import condense_string
 #
 def variable_description_string(vdtuple, widths = [0]*6, line_width = None):
 	"""
@@ -139,9 +139,10 @@ def spss_print_colliding_variables(*args, **kwargs):
 #
 if __name__ == '__main__':
 	from glob import glob
+	import os.path
 	import sys
 	#
-	from console_size import get_terminal_size
+	from local.console.size import get_terminal_size
 	#
 	args = sys.argv[1:] or glob('*.SAV')
 	if sys.stdout.isatty():

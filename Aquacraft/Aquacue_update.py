@@ -16,7 +16,11 @@ def get_Aquacue_update(params, last_day, base_url="https://aquacue.net/api/data"
 		params['end_date']		= yesterday.strftime('%Y-%m-%d')
 	url = base_url+'?'+urlencode(params)
 	debug("Using URL {}".format(url))
-	table = pd.read_csv(url, sep=r',\s*', parse_dates=['START_DATE', 'END_DATE'], index_col=['END_DATE'])
+	try:
+		table = pd.read_csv(url, sep=r',\s*', parse_dates=['START_DATE', 'END_DATE'], index_col=['END_DATE'])
+	except Exception as e:
+		print url, "broken:", e
+		raise e
 	label_parts = []
 	#for colname in ['SERVICE_UUID']:
 	#	vc = table[colname].value_counts()
