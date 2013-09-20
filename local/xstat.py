@@ -23,7 +23,8 @@ class xst_mode(list):
 		super(xst_mode, self).__init__(int(c) for c in mode_text)
 
 def stat(*args, **kwargs):
-	"""Wrapper around os.stat() that returns slightly more-human numbers.
+	"""Wrapper around os.stat() that returns python datetimes and indexable 
+	modes.
 	
 	Arguments:
 		mode=True will return an object of decoded mode. For example, mode
@@ -47,7 +48,7 @@ def stat(*args, **kwargs):
 #	st = stat(*args)
 #	return st if st.st_mode[-5] & 1 else False
 
-def get_stat_type(mode, like_ls=False):
+def get_stat_type(mode):
 	"""
 	Return a one-character code for the type of a filesystem object. Can be
 	used with a os.stat() object or an integer mask.
@@ -63,4 +64,7 @@ def get_stat_type(mode, like_ls=False):
 	elif stat.S_ISFIFO(mode):	return 'p'
 	elif stat.S_ISLNK(mode):	return 'l'
 	elif stat.S_ISSOCK(mode):	return 's'
-	else:						return '?' if like_ls else 'U'
+	else:						return '?'
+def get_ls_type(mode):
+	c = get_stat_type(mode)
+	return 'U' if c == '?' else c

@@ -175,7 +175,7 @@ def walklist(filenames,
 		for path in filenames:
 			if os.path.isdir(os.path.join(root, path)): mylist = split_dirs
 			else: mylist = split_files
-			mylise.append(os.path.split(path))
+			mylist.append(os.path.split(path))
 		split_dirs.sort()
 	else:
 		split_files = [os.path.split(_) for _ in filenames]
@@ -217,6 +217,18 @@ def flatwalk(*args, **kwargs):
 		for root, dirs, files in g:
 			filenames.update(os.path.join(root, f) for f in files)
 	return filenames
+def parents(pathspec):
+	seen = []
+	root, basename = os.path.abspath(pathspec), '.'
+	while basename and (root not in seen):
+		seen.append(root)
+		root, basename = os.path.split(root)
+	return seen
+def find_repository_top(cwd=os.getcwd(), stopnames=['.git']):
+#	stopnames = set(_.lower() for _ in stopnames)
+	for root in parents(cwd):
+		for stopname in stopnames:
+			if os.path.exists(os.path.join(root, stopname)): return root
 ### Legacy:
 gen_rdf_from_list=walklist
 ###
