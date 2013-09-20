@@ -117,7 +117,7 @@ def spss_load_variables(filename,
 		else:
 			debug("{} exists, but not used".format(pickle_filename))
 	if not vars:
-		spssaux.OpenDataFile(os.path.normpath(filename))
+		spssaux.OpenDataFile(os.path.normpath(filename)) # no return
 		with redirect_terminal(stdout=os.devnull):
 			filter_var = spssaux.GetDatasetInfo('Filter')
 			info("Filter variable '{}'".format(filter_var))

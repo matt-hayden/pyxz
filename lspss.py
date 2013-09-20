@@ -7,7 +7,7 @@ import sys
 
 import spssaux
 
-from console_size import to_columns
+from local.console.size import to_columns
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='List SPSS variables in a file')

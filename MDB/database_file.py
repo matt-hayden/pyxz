@@ -10,7 +10,7 @@ Note that there are at least four maintained database drivers:
 * odbc			(untested) 
 * pyodbc		Wraps the ODBC facility on Windows.
 """
-#from MDB import debug, info, warning, error, critical
+from MDB import debug, info, warning, error, critical
 #from MDB import is_sql, sanitize_table_name
 
 from collections import namedtuple
