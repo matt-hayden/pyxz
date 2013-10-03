@@ -110,6 +110,7 @@ def dialect_to_str(dialect):
 
 def passthrough(filein,
 				xform,
+				where=None,
 				column=0,
 				header_rows=0,
 				header_xform=None,
@@ -120,6 +121,33 @@ def passthrough(filein,
 				dialect=None,
 				backup_suffix='.bak' if sys.platform.startswith('win') else '~'
 				):
+	"""
+	Manipulate a CSV file while preserving its format
+	
+	* Add a constant-valued column
+	* Transform rows via function
+	* Include and exclude rows with a function
+	* Strip out the header rows
+	* Concatenate resultant tables into one file
+	
+	Arguments:
+		filein, fileout, fileout_mode, replace, and backup_suffix
+			If fileout isn't given:
+				* The resulting table replaces filein if replace is True, and
+					the original file is saved as a backup with backup_suffix
+				* If replace is False, the filename of the resulting table is 
+					returned
+			fileout_mode='ab' allows concatentation of result tables
+		xform, where, and column
+			* if xform is a string, it's inserted at column
+			  otherwise, xform should be a function returning the transformed
+			  row, and column is ignored
+			* if where is given, it should be a function returning True if a
+				row isn't ignored
+		dialect can specify csv internals
+	Returns:
+		fileout, the filename of the transformed table
+	"""
 	if isinstance(xform, basestring):
 		def xform(row, text=xform):
 			row.insert(column, text)
@@ -132,16 +160,18 @@ def passthrough(filein,
 	dirname, basename = os.path.split(filein)
 	filepart, ext = os.path.splitext(basename)
 	
+	do_fix = False
 	if not dialect:
 		dialect = dialect_lookup_by_ext.get(ext.upper(), None)
-
+		do_fix = True
+		info("Some dialect properties will be adjusted")
 	with open(filein, 'rb') as fi:
 		if not dialect:
 			tip = fi.read(1000)
 			dialect = csv.Sniffer().sniff(tip)
 			fi.seek(0)
 		debug('Using dialect {}:'.format(dialect))
-		fix_dialect(dialect)
+		if do_fix: fix_dialect(dialect)
 		[ debug(line) for line in dialect_to_str(dialect).split(os.linesep) ]
 		reader = csv.reader(fi, dialect=dialect)
 		#
@@ -164,7 +194,16 @@ def passthrough(filein,
 				[ next(reader) for hr in range(header_rows) ]
 			else:
 				[ writer.writerow(header_xform(next(reader))) for hr in range(header_rows) ]
-			writer.writerows(xform(row) for row in reader)
+			if where:
+				included_count, excluded_count = 0, 0
+				for row in reader:
+					if where(row):
+						writer.writerow(xform(row))
+						included_count += 1
+					else: excluded_count += 1
+				info("where clause {} included {} rows and excluded {} rows".format(where, included_count, excluded_count))
+			else:
+				writer.writerows(xform(row) for row in reader)
 	if backup_suffix and replace:
 		filein_backup = filein+backup_suffix
 		try:
