@@ -6,6 +6,10 @@ The most common varieties of CSV are tested.
 
 import collections
 import csv
+import os
+import os.path
+import sys
+from tempfile import mkstemp
 
 from logging import debug, info, warning, error, critical
 
@@ -81,7 +85,104 @@ def gen_csv(iterable,
 		for line_num, row in linenum_reader:
 			debug("load_csv line {}: '{}'".format(line_num, row))
 			yield row
-		
+#
+dialect_lookup_by_ext = { 'CSV': 'excel', 'TAB': 'excel-tab', 'TSV': 'excel-tab' }
+
+def fix_dialect(dialect):
+	if not dialect.quoting:
+		dialect.quoting = csv.QUOTE_MINIMAL
+		info("quoting set to QUOTE_MINIMAL")
+	if not dialect.escapechar:
+		dialect.escapechar = "'"
+		info("escapechar set to '")
+def dialect_to_str(dialect):
+	parts = [ ('delimiter',			dialect.delimiter.encode('unicode-escape')),
+			  ('doublequote',		dialect.doublequote),
+			  ('escapechar',		dialect.escapechar),
+			  ('lineterminator',	dialect.lineterminator.encode('unicode-escape')),
+			  ('quotechar',			dialect.quotechar),
+			  ('quoting',			dialect.quoting),
+			  ('skipinitialspace',	dialect.skipinitialspace)]
+	try:
+		parts.append(('strict', dialect.strict)) # Python 3 only?
+	except: pass
+	return os.linesep.join('{:>16}: {}'.format(name, value) for name, value in parts)
+
+def passthrough(filein,
+				xform,
+				column=0,
+				header_rows=0,
+				header_xform=None,
+				strip_header=False,
+				fileout=None,
+				fileout_mode='wb',
+				replace=True,
+				dialect=None,
+				backup_suffix='.bak' if sys.platform.startswith('win') else '~'
+				):
+	if isinstance(xform, basestring):
+		def xform(row, text=xform):
+			row.insert(column, text)
+			return row
+	if isinstance(header_xform, basestring):
+		def header_xform(row, text=header_xform):
+			row.insert(column, text)
+			return row
+	
+	dirname, basename = os.path.split(filein)
+	filepart, ext = os.path.splitext(basename)
+	
+	if not dialect:
+		dialect = dialect_lookup_by_ext.get(ext.upper(), None)
+
+	with open(filein, 'rb') as fi:
+		if not dialect:
+			tip = fi.read(1000)
+			dialect = csv.Sniffer().sniff(tip)
+			fi.seek(0)
+		debug('Using dialect {}:'.format(dialect))
+		fix_dialect(dialect)
+		[ debug(line) for line in dialect_to_str(dialect).split(os.linesep) ]
+		reader = csv.reader(fi, dialect=dialect)
+		#
+		fileout_obj = None
+		if fileout in (None, ''):
+			try:
+				fh, fileout = mkstemp(dir=dirname)
+				fileout_obj = os.fdopen(fh, fileout_mode or 'wb')
+			except:
+				fileout = filein+'.tmp'
+		else:
+			fileout = str(fileout)
+		if not fileout_obj:
+			fileout_obj = open(fileout, fileout_mode or 'wb')
+		info('Writing '+fileout)
+		#
+		with fileout_obj as fo:
+			writer = csv.writer(fo, dialect=dialect)
+			if strip_header:
+				[ next(reader) for hr in range(header_rows) ]
+			else:
+				[ writer.writerow(header_xform(next(reader))) for hr in range(header_rows) ]
+			writer.writerows(xform(row) for row in reader)
+	if backup_suffix and replace:
+		filein_backup = filein+backup_suffix
+		try:
+			debug('Saving '+filein+' to '+filein_backup)
+			if sys.platform.startswith('win'): # Windows only, UNIX will silently replace
+				if os.path.exists(filein_backup): os.unlink(filein_backup)
+			os.rename(filein, filein_backup)
+		except Exception as e:
+			error('File rename error: {}'.format(e))
+			if os.path.exists(filein_backup) and not os.path.exists(filein):
+				debug('Restoring '+filein_backup+' to '+filein)
+				os.rename(filein_backup, filein)
+		else:
+			debug('Saving '+fileout+' to '+filein)
+			os.rename(fileout, filein)
+			return filein
+	return fileout
+#
 if __name__=='__main__':
 	import os.path
 	import sys
