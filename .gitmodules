@@ -4,3 +4,6 @@
 [submodule "TraceWizard5"]
 	path = TraceWizard5
 	url = c:/Users/Matt/Dropbox/Aquacraft/pyTraceWizard5.git
+[submodule "ProjectsSolutions"]
+	path = ProjectsSolutions
+	url = git://github.com/thekarangoel/Projects-Solutions.git
