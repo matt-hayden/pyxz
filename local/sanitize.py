@@ -8,6 +8,10 @@ import os.path
 import stat
 import string
 
+def shell_sanitize(text):
+	if ' ' in text:
+		return '"'+text+'"'
+	return text
 def namedtuple_field_sanitize(text, valid_characters=string.letters+string.digits+'_', sub='_'):
 	"""Transform a string for collections.namedtuple.
 	
