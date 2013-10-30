@@ -69,5 +69,5 @@ def MP4Box_cutter(*args, **kwargs):
 		print ' '.join(shell_sanitize(t) for t in line)
 if __name__ == '__main__':
 	import sys
-	args = sys.argv[1:]
+	args = sys.argv[1:] or glob('*.cutlist')
 	for arg in args: MP4Box_cutter(arg)

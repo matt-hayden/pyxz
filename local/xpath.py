@@ -31,7 +31,7 @@ def guess_fileset(filename, exclude_files=[], include_pattern='*'):
 	basepath, ext = os.path.splitext(filename)
 	poss = set(glob(basepath+include_pattern))
 	poss -= exclude_files
-	while not poss:
+	while basepath and not poss:
 		for sep in ['+', ' ', '.', '_']:
 			if sep in basepath:
 				basepath, ext2 = basepath.rsplit(sep, 1)
@@ -39,4 +39,4 @@ def guess_fileset(filename, exclude_files=[], include_pattern='*'):
 				break
 		poss = set(glob(basepath+'*'))
 		poss -= exclude_files
-	return poss
+	return poss or filename
