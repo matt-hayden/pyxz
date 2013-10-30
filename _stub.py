@@ -47,12 +47,12 @@ def my_hourglass(filename, **kwargs):
 	
 	logging.shutdown()
 	return (datetime.now()-started, filename, "done", size)
-def my_callback(result, **kwargs):
+def my_callback(result, stderr=sys.stderr, **kwargs):
 	duration, filename, state, size = result
 	if state == 'done':
 		print duration, "{} = {} bytes".format(filename, size)
 	else:
-		print >> sys.stderr, "Problem with {}: {}".format(filename, state)
+		print >> stderr, "Problem with {}: {}".format(filename, state)
 ###
 # END Example
 ###

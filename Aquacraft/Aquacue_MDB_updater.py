@@ -5,6 +5,7 @@ logging.basicConfig(level=logging.DEBUG) # , filename='aquacue_test.log')
 
 from datetime import datetime, timedelta
 from logging import debug, info, warning, error, critical
+import os.path
 
 from MDB.database_file import MDB_File
 
@@ -41,12 +42,21 @@ def Aquacue_MDB_updater(db_filename,
 		hourly_writer.next() # initialize
 		daily_writer.next()
 		aquacue_response = get_Aquacue_update(params=params, last_day=last_day)
-		for row in aquacue_response.itertuples():
-			hourly_writer.send(row)
-		for row in aquacue_response.resample('1D', how='sum').itertuples():
-			daily_writer.send(row)
-if __name__ == '__main__':
-	import sys
+		if aquacue_response:
+			for row in aquacue_response.itertuples():
+				hourly_writer.send(row)
+			for row in aquacue_response.resample('1D', how='sum').itertuples():
+				daily_writer.send(row)
+		else:
+			warning("get_Aquacue_update(params={}, last_day={}) returned None".format(params, last_day))
+def main(filename='proto.mdb', newparams={}):
+	# defaults:
 	params = { 'service_uuid':	2616903987244451787,
 			   'aggregate':		'hourly' }
-	Aquacue_MDB_updater('proto.mdb', params=params)
+	if isinstance(newparams, basestring): newparams = eval(newparams)
+	params.update(newparams)
+	Aquacue_MDB_updater(filename, params=params)
+if __name__ == '__main__':
+	import sys
+	args = sys.argv[1:]
+	sys.exit(main(*args))

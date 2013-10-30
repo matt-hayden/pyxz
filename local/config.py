@@ -14,10 +14,16 @@ def search_for_configfilename(filename):
 	if 'HOME' in os.environ: yield os.path.join(os.getenv('HOME'), dotfilename)
 	yield os.path.join(os.path.expanduser('~'), dotfilename)
 	if 'APPDATA' in os.environ: yield os.path.join(os.getenv('APPDATA'), filename)
-	try: dirname, basename = os.path.split(__file__)
-	else: yield os.path.join(dirname, filename)
+#	try: dirname, basename = os.path.split(__file__)
+#	else: yield os.path.join(dirname, filename)
+#	yield os.path.join('/etc', filename)
+	try:
+		dirname, basename = os.path.split(__file__)
+		yield os.path.join(dirname, filename)
+	except:
+		pass
 	yield os.path.join('/etc', filename)
-	
+
 def load_config(filename = None,
 				search_files = None,
 				module_name = __package__+"_config"):

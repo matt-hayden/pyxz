@@ -5,6 +5,8 @@ Command-line utilities to work with SPSS files outside of SPSS
 __author__ = 'Aquacraft, Inc.'
 __version__ = '0'
 
+import os.path
+
 from file import *
 
 from local.console import condense_string
@@ -137,29 +139,24 @@ def spss_print_colliding_variables(*args, **kwargs):
 			rhs = indent
 		print
 #
+def main(input_filenames, columns=None):
+	if len(input_filenames) > 1:
+		if all(os.path.exists(_) for _ in args):
+			spss_print_common_variable_coverage(args)
+		else:
+			for f in args:
+				print f, "Found" if os.path.exists(f) else "Not Found!"
+	else:
+		spss_print_variables(args.pop(), line_width=columns-1 if columns else None)
+#
 if __name__ == '__main__':
-	from glob import glob
-	import os.path
 	import sys
-	#
+	
 	from local.console.size import get_terminal_size
+	from local.xglob import glob
 	#
 	args = sys.argv[1:] or glob('*.SAV')
-	if sys.stdout.isatty():
-		rows, columns = get_terminal_size()
-	else:
-		rows, columns = None, None
-	#
-	if args:
-		if len(args) == 1:
-			spss_print_variables(args.pop(), line_width=columns-1 if columns else None)
-		else:
-			if all(os.path.exists(_) for _ in args):
-				spss_print_common_variable_coverage(args)
-#				spss_print_common_variables(args)
-			else:
-				for f in args:
-					print f, "Found" if os.path.exists(f) else "Not Found!"
-	else:
-		print "No .SAV files given"
-		sys.exit(-1)
+	if sys.stdout.isatty(): rows, columns = get_terminal_size()
+	else: rows, columns = None, None
+	sys.exit(main(args, columns=columns))
+	

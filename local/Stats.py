@@ -4,6 +4,8 @@ Rolling parametric statistics
 
 The values comprising a distribution can be discarded after updating a Stats()
 object. 
+
+Note: Some other scripts rely on the n member being writable!
 """
 import collections
 from itertools import izip
@@ -33,8 +35,7 @@ class StatsBase(Interval.IntervalBase):
 		else: return "Empty distribution"
 	def __len__(self):
 		try: return self.n
-		except AttributeError:
-			raise StatsError("Uninitialized")
+		except AttributeError: raise StatsError("Uninitialized")
 	def __nonzero__(self):
 		try: return self.n > 0
 		except: return False
@@ -237,6 +238,7 @@ class Distribution(Stats):
 			self.edges[0] = other.edges[0]
 		if self.edges[-1] < other.edges[-1]:
 			self.edges[-1] = other.edges[-1]
+#		self.min, self.max = self.edges[0], self.edges[-1]
 #
 class RatioStats(StatsBase):
 	"""
@@ -263,29 +265,30 @@ class RatioStats(StatsBase):
 		else:
 			self.numerator = Distribution()
 			self.denominator = Distribution()
-			self.ratio_stats = Distribution()
+			self.ratio = Distribution()
 	def from_num_denom(self, num, denom, **kwargs):
-		bins = kwargs.pop('bins',([], [], []))
-		assert len(bins) == 3
 		if isinstance(num, Stats):
 			raise StatsError("Can only be a scalar or array")
-		elif hasattr(num, '__iter__'):
+#		elif hasattr(num, '__iter__'):
+		elif isinstance(num, collections.Iterable):
 			my_num = np.fromiter(num, dtype=self.dtype, **kwargs)
-			nbins = kwargs.pop('nbins', bins[0])
+			nbins = kwargs.pop('nbins',[])
 			self.numerator = Distribution(my_num, bins=nbins)
 		else:
 			self.numerator = my_num = float(num)
 		#
 		if isinstance(denom, Stats):
 			raise StatsError("Can only be a scalar or array")
-		elif hasattr(denom, '__iter__'):
+#		elif hasattr(denom, '__iter__'):
+		elif isinstance(denom, collections.Iterable):
 			my_denom = np.fromiter(denom, dtype=self.dtype, **kwargs)
-			dbins = kwargs.pop('dbins', bins[1])
+			dbins = kwargs.pop('dbins', [])
 			self.denominator = Distribution(my_denom, bins=dbins)
 		else:
 			self.denominator = my_denom = float(denom)
-		rbins = kwargs.pop('rbins', bins[2])
-		self.ratio_stats = Distribution(my_num/my_denom, bins=rbins)
+		rbins = kwargs.pop('rbins', [])
+		self.ratio = Distribution(my_num/my_denom, bins=rbins)
+		self.n = self.ratio.n
 	def update(self, *args, **kwargs):
 		"""
 		Unlike Stats() and Distribution(), this takes only one pair of arrays
@@ -294,7 +297,7 @@ class RatioStats(StatsBase):
 		>>> r = RatioStats()
 		>>> r
 		Empty distribution
-		>>> r = RatioStats([1,2,3],[4,5,6])
+		>>> r.update([1,2,3],[4,5,6])
 		>>> for l, s in zip('numerator denominator ratio weighted_mean'.split(), r.get_results()):
 		... 	print l, s
 		numerator StatsResult(n=3, min=1.0, mean=2.0, max=3.0, stdev=0.81649658092772626, total=6.0)
@@ -306,37 +309,36 @@ class RatioStats(StatsBase):
 			self = RatioStats(*args, **kwargs)
 			return
 		if len(args) == 2:
-			num, denom = np.array(args[0]), np.array(args[1])
+			num, denom = np.array(args[0]), np.array(args[1]) # a pair of numerator, denominator arrays
 			assert len(num) == len(denom)
 			self.numerator.update(num)
 			self.denominator.update(denom)
-			self.ratio_stats.update(num/denom) # array division
+			self.ratio.update(num/denom) # array division
+			self.n = self.ratio.n
 		elif len(args) == 1:
 			other, = args
-			if isinstance(other, RatioStats): self._merge(other) # calls an error
-			else: self.update(other[0], other[1])
+			if isinstance(other, RatioStats): self._merge(other) # right now, calls an error
+			else: self.update(other[0], other[1]) # itself a pair of numerator, denominator arrays
 		else:
 			raise StatsError("RatioStats.update() expects a numerator and denominator array")
 	def _merge(self, other):
 		raise StatsError("Cannot join two ratio distributions; you'll need the numerator and denominator as arrays.")
 	@property
-	def n(self): return self.ratio_stats.n
+	def min(self): return self.ratio.min
 	@property
-	def min(self): return self.ratio_stats.min
+	def max(self): return self.ratio.max
 	@property
-	def max(self): return self.ratio_stats.max
-	@property
-	def range(self): return self.ratio_stats.range
+	def range(self): return self.ratio.range
 	@property
 	def prd(self):
 		"""
 		Price-related differential
 		"""
-		return self.ratio_stats.mean/self.weighted_mean
+		return self.ratio.mean/self.weighted_mean
 	@property
 	def weighted_mean(self):
 		try:
-			return self.numerator.mean/self.denominator.mean
+			return self.numerator.sum/self.denominator.sum
 #		except TypeError:
 #			return None
 		except ZeroDivisionError:
@@ -353,7 +355,7 @@ class RatioStats(StatsBase):
 	def get_results(self):
 		return self.RatioStatsResults(self.numerator.get_results(),
 									  self.denominator.get_results(),
-									  self.ratio_stats.get_results(),
+									  self.ratio.get_results(),
 									  self.weighted_mean)
 #
 def get_table_stats(*args, **kwargs):
