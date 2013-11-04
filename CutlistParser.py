@@ -1,5 +1,5 @@
 #!env python
-import ConfigParser
+#import ConfigParser
 import glob
 import os.path
 import sys
@@ -7,6 +7,7 @@ import sys
 from local.sanitize import shell_sanitize
 from local.xcollections import Namespace
 from local.xglob import glob
+from local.xini import IniParser
 from local.xpath import guess_fileset
 
 def guess_input_filename(cutlist_filename, exclude_files=glob('*.bak', '*.cutlist')):
@@ -16,12 +17,18 @@ def guess_input_filename(cutlist_filename, exclude_files=glob('*.bak', '*.cutlis
 
 class Cut(Namespace):
 	@property
+	def start(self):
+		self.get('start', self.end-self.duration)
+	@property
 	def end(self):
-		return self.start+self.duration
+		self.get('end', self.start+self.duration)
+	@property
+	def duration(self):
+		self.get('duration', self.end-self.start)
 	def to_MP4Box_split(self):
 		return '{}:{}'.format(self.start, self.end)
 
-class CutListParser(ConfigParser.SafeConfigParser):
+class CutListParser(IniParser):
 	cut_factory = Cut
 	@property
 	def version(self):
