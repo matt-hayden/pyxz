@@ -25,13 +25,26 @@ def find_repository_top(cwd=os.getcwd(), stopnames=['.git']):
 		for stopname in stopnames:
 			if os.path.exists(os.path.join(root, stopname)): return root
 #
-def guess_fileset(filename, exclude_files=[], include_pattern='*'):
+def guess_fileset(filename, exclude_files=[], include_pattern='*', exclude_numerals=True, min_length=4):
+	"""
+	May return '' if the filename is numerical
+	"""
 	exclude_files = set(exclude_files)
 	exclude_files.add(filename)
 	basepath, ext = os.path.splitext(filename)
+	if len(basepath) < min_length: return basepath
 	poss = set(glob(basepath+include_pattern))
 	poss -= exclude_files
 	while basepath and not poss:
+		# if all that's left-wise is a number
+		if exclude_numerals and basepath.isdigit(): return ['']
+		# unwind brackets:
+		if basepath[-1] in '()[]{}':
+			basepath = basepath[:-1]
+			continue
+		if basepath and exclude_numerals and basepath[-1].isdigit():
+			basepath = basepath[:-1]
+			continue
 		for sep in ['+', ' ', '.', '_']:
 			if sep in basepath:
 				basepath, ext2 = basepath.rsplit(sep, 1)
@@ -39,4 +52,4 @@ def guess_fileset(filename, exclude_files=[], include_pattern='*'):
 				break
 		poss = set(glob(basepath+'*'))
 		poss -= exclude_files
-	return poss or filename
+	return poss or [basepath]

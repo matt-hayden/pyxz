@@ -1,6 +1,8 @@
 #!env python
 """Working with strings between applications.
 
+For Unicode to ASCII, try something like .decode('ascii', 'ignore')
+
 SQL and dispatch strings sometimes need to be massaged when passed between
 applications.
 """
@@ -8,6 +10,12 @@ import os.path
 import stat
 import string
 
+def Excel_sheet_name_sanitize(text, sub=''):
+	if not isinstance(text, basestring): text=str(text)
+	text = text.decode('ascii', 'ignore')
+	for c in ':\\/?*[]':
+		if c in text: text = text.replace(c, sub)
+	return text[:31]
 def shell_sanitize(text):
 	if ' ' in text:
 		return '"'+text+'"'
