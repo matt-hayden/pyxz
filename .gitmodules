@@ -7,3 +7,6 @@
 [submodule "ProjectsSolutions"]
 	path = ProjectsSolutions
 	url = git://github.com/thekarangoel/Projects-Solutions.git
+[submodule "video-cli"]
+	path = video-cli
+	url = c:/Users/Matt/Dropbox/repos/video-cli.git/
