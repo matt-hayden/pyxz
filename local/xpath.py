@@ -3,6 +3,9 @@ import re
 
 from xglob import glob
 
+def nz(*args):
+    try: return os.path.getsize(*args)
+    except OSError: return None
 def separate_paths_at_component(paths, component='', splitter=None):
 	seps = set()
 	#
@@ -53,3 +56,4 @@ def guess_fileset(filename, exclude_files=[], include_pattern='*', exclude_numer
 		poss = set(glob(basepath+'*'))
 		poss -= exclude_files
 	return poss or [basepath]
+
