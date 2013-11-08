@@ -18,7 +18,8 @@ except ImportError:
 		from database_file import *
 		debug("Using pure Python implementation")
 
-def is_sql(text, tokens=['SELECT ', 'INSERT ', 'CREATE ', 'DROP ', 'UPDATE '], strict=None):
+def is_sql(text, tokens=['SELECT ', 'INSERT ', 'CREATE ', 'DROP ', 'UPDATE '], allow_invalid=False, strict=None):
+	if allow_invalid: tokens.append('TRANSFORM ')
 	text = text.upper()
 	for token in tokens:
 		if text.startswith(token): return (text.endswith(';') if strict else True)

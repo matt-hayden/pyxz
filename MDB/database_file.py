@@ -10,8 +10,8 @@ Note that there are at least four maintained database drivers:
 * odbc			(untested) 
 * pyodbc		Wraps the ODBC facility on Windows.
 """
+import MDB
 from MDB import debug, info, warning, error, critical
-#from MDB import is_sql, sanitize_table_name
 
 from collections import namedtuple
 from contextlib import closing
@@ -166,10 +166,10 @@ class MDB_Base(object):
 			sql or SQL: syntax to execute
 		"""
 		if 'sql' in kwargs: sql = kwargs.pop('sql')
-		elif is_sql(args[0]): sql, args = args[0], args[1:]
+		elif MDB.is_sql(args[0]): sql, args = args[0], args[1:]
 		else: sql = 'select * from {table_name};' # see below
 		
-		table_names = [sanitize_table_name(arg) for arg in args]
+		table_names = [MDB.sanitize_table_name(arg) for arg in args]
 		
 		if table_names: sqls = [sql.format(table_name=tn) for tn in table_names]
 		else: sqls = [sql]
