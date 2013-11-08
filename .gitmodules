@@ -10,3 +10,6 @@
 [submodule "video-cli"]
 	path = video-cli
 	url = c:/Users/Matt/Dropbox/repos/video-cli.git/
+[submodule "TraceWizardX"]
+	path = TraceWizardX
+	url = c:/Users/Matt/Dropbox/Aquacraft/pyTraceWizardX.git/
