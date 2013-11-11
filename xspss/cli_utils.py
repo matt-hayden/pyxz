@@ -13,11 +13,16 @@ from local.console import condense_string
 #
 def variable_description_string(vdtuple, widths = [0]*6, line_width = None):
 	"""
-	Formats (order, label, name, level, missing, flags) into a sensible
+	Formats (order, label, name, type, level, missing, flags) into a sensible
 	fixed-width string. The display widths can be controlled by widths[], 
 	which is ordered like above.	
 	"""
-	order, label, name, level, missing, flags = vdtuple
+	assert vdtuple
+	if len(vdtuple) == 7:
+		order, label, name, vtype, level, missing, flags = vdtuple
+	elif len(vdtuple) == 6:
+		order, label, name, level, missing, flags = vdtuple
+		vtype = ''
 	text = ' '.join((str(order).rjust(widths[0] or 4)+flags.ljust(widths[5] or 3),
 					 name.ljust(widths[2] or 20),
 					 level.ljust(widths[3] or 10),
