@@ -48,6 +48,32 @@ def is_range(iterable, if_empty=False):
 			if i not in intset: return False
 		return True
 
+# Neat trick to make simple trees:
+# https://gist.github.com/hrldcpr/2012250
+def tree():
+	"""
+	Returns a dict of dicts, where assignment and node creation are 
+	automagically supported:
+	>>> t=tree()
+	>>> len(t['branch'])
+	0
+	>>> t['branch']='leaf'
+	>>> len(t['branch'])
+	4
+	>>> t['branches']['b1']
+	...
+	>>> t['branches']['b2']
+	...
+	>>> len(t['branches'])
+	2
+	
+	"""
+	return defaultdict(tree)
+def tree_to_dicts(t):
+	return {k: tree_to_dicts(t[k]) for k in t}
+def tree_add_path(t, keys):
+	for key in keys: t = t[key]
+
 # Neat trick to make simple namespaces:
 # http://stackoverflow.com/questions/4984647/accessing-dict-keys-like-an-attribute-in-python
 class Namespace(dict):
