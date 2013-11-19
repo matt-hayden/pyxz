@@ -9,6 +9,7 @@ applications.
 import os.path
 import stat
 import string
+import shlex
 
 def Excel_sheet_name_sanitize(text, sub=''):
 	if not isinstance(text, basestring): text=str(text)
@@ -16,43 +17,43 @@ def Excel_sheet_name_sanitize(text, sub=''):
 	for c in ':\\/?*[]':
 		if c in text: text = text.replace(c, sub)
 	return text[:31]
-def shell_sanitize(text):
-	if ' ' in text:
-		return '"'+text+'"'
-	return text
+def shell_quote(text):
+	if text is None or len(text) == 0: return ''
+	elif len(shlex.split(text, posix=False)) == 1: return text
+	else: return "'{}'".format(text)
 def namedtuple_field_sanitize(text, valid_characters=string.letters+string.digits+'_', sub='_'):
 	"""Transform a string for collections.namedtuple.
 	
-	Since 2.7, namedtuple also takes a rename keyword for safely handling
+	Since python 2.7, namedtuple also takes a rename keyword for safely handling
 	invalid fields.
 	"""
-	stext = ''.join(_ if _ in valid_characters else sub for _ in text)
+	stext = ''.join(c if c in valid_characters else sub for c in text)
 	while stext.startswith('_'):
 		stext = stext[1:]
 	return stext
 def path_sanitize(arg,
-				  sep='_',
-				  valid_characters='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-._',
+				  sub='_',
+				  valid_characters=string.letters+string.digits+'-._@',
 				  mode=0):
-	"""Transform a string 
+	"""
+	Transform text so that without any special characters to sh. {}[] are considered special.
 	"""
 	if mode:
 		if stat.s_ISDIR(mode): return arg
 	elif os.path.isdir(arg):
 		return arg
 	dirname, basename = os.path.split(arg)
-	newname = ''.join(c if c in valid_characters else sep for c in basename)
-	if dirname: return os.path.join(dirname, newname)
-	else: return newname
+	newname = ''.join(c if c in valid_characters else sub for c in basename)
+	return os.path.join(dirname, newname) if dirname else newname
 def sql_field_sanitize(arg,
-					   sep='',
+					   sub='',
 					   pass_brackets_through=True,
-					   valid_characters='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&/:@_`{|}~',
+					   valid_characters=string.letters+string.digits+'#$%&/:@_`{|}~',
 					   pass_string_parts_through=None):
 	"""Transform a string into a valid SQL field name.
 	
-	Some programs, like SPSS, treat sep='', whereas some database exports treat
-	sep='_'. Use pass_string_parts_through=lambda s:s.title() to send words
+	Some programs, like SPSS, treat sub='', whereas some database exports treat
+	sub='_'. Use pass_string_parts_through=lambda s:s.title() to send words
 	through that function before joining.
 	"""
 	name = arg.strip()
@@ -61,12 +62,12 @@ def sql_field_sanitize(arg,
 		name = name[1:-1]
 	if name[0] in string.digits:
 		name = '@'+name # SPSS-like
-	if sep:
-		newname = ''.join(c if c in valid_characters else sep for c in name)
+	if sub:
+		newname = ''.join(c if c in valid_characters else sub for c in name)
 	else:
 		d = ''.join(c if c in valid_characters else '_' for c in name)
 		if hasattr(pass_string_parts_through, '__call__'):
-			newname = sep.join(pass_string_parts_through(p) for p in d.split('_'))
+			newname = sub.join(pass_string_parts_through(p) for p in d.split('_'))
 		else:
 			newname = d.replace('_','')
 	if bracketed and pass_brackets_through: return '['+newname+']'
@@ -80,3 +81,10 @@ def is_comment(line):
 	if line.startswith('#'): return True
 	if line.startswith(';'): return True
 	return None
+if __name__ == '__main__':
+	import os
+	import sys
+	stderr, args = sys.stderr, sys.argv[1:]
+	for pn in args or os.listdir('.'):
+		if pn != path_sanitize(pn): print "mv -i", shell_quote(pn), path_sanitize(pn)
+#
