@@ -68,7 +68,7 @@ def tree():
 	2
 	
 	"""
-	return defaultdict(tree)
+	return collections.defaultdict(tree)
 def tree_to_dicts(t):
 	return {k: tree_to_dicts(t[k]) for k in t}
 def tree_add_path(t, keys):
