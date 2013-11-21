@@ -1,5 +1,6 @@
 #!env python
-"""Working with strings between applications.
+"""
+Working with strings between applications.
 
 For Unicode to ASCII, try something like .decode('ascii', 'ignore')
 
@@ -7,6 +8,7 @@ SQL and dispatch strings sometimes need to be massaged when passed between
 applications.
 """
 import os.path
+import re
 import stat
 import string
 import shlex
@@ -17,10 +19,20 @@ def Excel_sheet_name_sanitize(text, sub=''):
 	for c in ':\\/?*[]':
 		if c in text: text = text.replace(c, sub)
 	return text[:31]
-def shell_quote(text):
+def shell_quote(text, veto_chars='&'):
+	"""
+	The argument veto_chars are characters that shlex.split passes, but are fatal to splitting
+	when they're unescaped.
+	"""
 	if text is None or len(text) == 0: return ''
-	elif len(shlex.split(text, posix=False)) == 1: return text
-	else: return "'{}'".format(text)
+	if set(text) & set(veto_chars):
+		pass
+	else:
+		broken = shlex.split(text, posix=False)
+		if len(broken) == 1: return text
+	if "'" in text:
+		text = text.replace("'", """'"'"'""") # whoa, nelly!
+	return "'{}'".format(text)
 def namedtuple_field_sanitize(text, valid_characters=string.letters+string.digits+'_', sub='_'):
 	"""Transform a string for collections.namedtuple.
 	
