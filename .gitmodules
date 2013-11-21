@@ -1,15 +1,15 @@
 [submodule "TraceWizard4"]
 	path = TraceWizard4
-	url = c:/Users/Matt/Dropbox/Aquacraft/pyTraceWizard4.git
+	url = /Users/hayden/Dropbox/Aquacraft/pyTraceWizard4.git
 [submodule "TraceWizard5"]
 	path = TraceWizard5
-	url = c:/Users/Matt/Dropbox/Aquacraft/pyTraceWizard5.git
+	url = /Users/hayden/Dropbox/Aquacraft/pyTraceWizard5.git
 [submodule "ProjectsSolutions"]
 	path = ProjectsSolutions
 	url = git://github.com/thekarangoel/Projects-Solutions.git
 [submodule "video-cli"]
 	path = video-cli
-	url = c:/Users/Matt/Dropbox/repos/video-cli.git/
+	url = /Users/hayden/Dropbox/repos/video-cli.git/
 [submodule "TraceWizardX"]
 	path = TraceWizardX
-	url = c:/Users/Matt/Dropbox/Aquacraft/pyTraceWizardX.git/
+	url = /Users/hayden/Dropbox/Aquacraft/pyTraceWizardX.git/

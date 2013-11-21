@@ -79,7 +79,7 @@ def tree():
     2
 
     """
-    return defaultdict(tree)
+    return collections.defaultdict(tree)
 def tree_to_dicts(t):
     return {k: tree_to_dicts(t[k]) for k in t}
 def tree_add_path(t, keys):
@@ -127,5 +127,10 @@ class CollapsibleNamespace(Namespace, Collapsible):
 #               else: # format's doin just fine
         return self._tuple(*[self[_] for _ in format])
 if __name__ == '__main__':
+<<<<<<< HEAD
     import doctest
     results = doctest.testmod()
+=======
+	import doctest
+	results = doctest.testmod()
+>>>>>>> aeaeddd6b9f48f7a95b07a4bf3d0d0223c6d7f6d

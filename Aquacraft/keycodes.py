@@ -1,11 +1,14 @@
-#! env python
-"""Since 2009, Aquacraft keycodes are unique identifiers between 6 and 7 
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Since 2009, Aquacraft keycodes are unique identifiers between 6 and 7 
 characters long. Before this, identifiers are only unique within certain
 studies.
 
 See also: KeycodeTypes, which can identify project and geography by keycode,
 and also recognize invalid keycodes.
 """
+__license__ = '© 2013 Aquacraft Inc.'
 
 import collections
 from functools import total_ordering
@@ -114,7 +117,7 @@ class AquacraftSimpleKeycode(collections.Hashable, Aquacraft2YearKeycode):
 		m=self.keycode_re.match(text)
 		if m:
 			g = m.groupdict()
-			self.suffix = g.pop('suffix',"")
+			self.suffix = g.pop('suffix','')
 			self.year2, self.site_type_code, self.year_count = int(g['year_code']), g['site_type_code'].upper(), int(g['year_count'])
 			#
 			self.year4 = 2000+self.year2 if (self.year2 <= self.max_year_for_two_digits-2000) else 1900+self.year2
@@ -183,7 +186,7 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 	>>> Keycode('14A345') > Keycode('12X346')
 	Traceback (most recent call last):
 		...
-	KeycodeError: Cannot compare 14A345 and 12X346
+	KeycodeError: Cannot compare 12X346 and 14A345
 	
 	Use AquacraftMultiKeycode to allow formal suffixes A1, A2, B1, B2 
 	(and so on) to formally differentiate sites:
@@ -242,31 +245,26 @@ class AquacraftMultiKeycode(AquacraftSimpleKeycode):
 	allow_hot=True # turn this off to make 'H' nonsignificant at the beginning of the suffix
 	suffix_re=re.compile('\s*[a-zA-Z]\d{1,2}\s*') # follow patterns like A2
 	#
-	def decode_suffix(self, suffix=None):
+	def decode_suffix(self, suffix=''):
 		p = []
-		if not suffix:
-			suffix=self.suffix
-		if not suffix:
-			return []
+		y = p.append
+		suffix = suffix or self.suffix
+		if not suffix: return ()
+		#
 		suffix=suffix.strip().upper()
 		m=self.suffix_re.match(suffix)
-		if m:
-			p.append('subsite')
-		"""
-		Modify the logic of this function for human-added filename
-		customizations.
-		"""
+		if m:	y('subsite')
+		# begin custom
 		if self.allow_hot and suffix.startswith('H'):
-			p.append('hot')
+			y('hot')
 		if 'RE' in suffix:
-			p.append('relog')
-		return set(p)
+			y('relog')
+		# end custom
+		return tuple(p)
 	def normalized(self, **kwargs):
 		p = self.decode_suffix()
-		if p:
-			return AquacraftSimpleKeycode.normalized(self, keep_suffix = True)
-		else:
-			return AquacraftSimpleKeycode.normalized(self, keep_suffix = False)
+		keep_suffix = kwargs.pop('keep_suffix', not not p)
+		return AquacraftSimpleKeycode.normalized(self, keep_suffix=keep_suffix)
 	def __eq__(self, other):
 		return hash(self) == hash(other)
 	def __hash__(self):
@@ -288,7 +286,7 @@ def Keycode(*args, **kwargs):
 	Both Keycode(12,AGRICULTURAL,345) and Keycode(12,SINGLEFAMILY,345,'H') each
 	return one keycode, possibly with a suffix.
 	"""
-	factory=kwargs.pop('factory', AquacraftSimpleKeycode)
+	factory=kwargs.pop('factory', AquacraftMultiKeycode)
 	if len(args) == 1:
 		return factory(args[0], **kwargs)
 	elif len(args) == 2:
@@ -330,7 +328,7 @@ def splitext(filepath, **kwargs):
 	"""
 	filepart, ext = os.path.splitext(filepath)
 	try:
-		return Keycode(filepart), ext
+		return Keycode(filepart, **kwargs), ext
 	except:
 		return filepart, ext
 #
