@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import re
 
 def mul_timedelta(*args):
 	product = 1.0
@@ -16,8 +17,8 @@ def div_timedelta(num, den):
 
 def round_timedelta(td, **kwargs):
 	num, denom = td.total_seconds(), timedelta(**kwargs).total_seconds()
-    m, rem = divmod(num, denom)
-    return timedelta(denom*m if 2*rem < denom else (denom+1)*m)
+	m, rem = divmod(num, denom)
+	return timedelta(denom*m if 2*rem < denom else (denom+1)*m)
 #
 def seconds_from_arg(arg, factory=float):
 	"""
@@ -46,4 +47,4 @@ def seconds_from_arg(arg, factory=float):
 					seconds += 60*factory(m.group('minutes') or 0)
 					seconds += factory(m.group('seconds') or 0)
 					return seconds
-	raise ValueError("{} not recognized".format(arg))
+	raise ValueError("'{}' not recognized".format(arg))
