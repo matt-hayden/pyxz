@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import re
 
 def mul_timedelta(*args):
     product = 1.0
@@ -23,13 +24,13 @@ def seconds_from_arg(arg, factory=float):
     """
     >>> seconds_from_arg(timedelta(seconds=123)) == 123.0
     True
-
+    
     >>> seconds_from_arg(123.0) == 123.0
     True
-
+    
     >>> seconds_from_arg('2:03') == 123.0
     True
-
+    
     >>> seconds_from_arg('01:02:03') == 3723.0
     True
     """
@@ -47,3 +48,4 @@ def seconds_from_arg(arg, factory=float):
                     seconds += factory(m.group('seconds') or 0)
                     return seconds
     raise ValueError("{} not recognized".format(arg))
+#
