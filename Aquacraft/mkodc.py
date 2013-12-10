@@ -45,6 +45,7 @@ def make_odc(datasource, odc_filename, **kwargs):
         dest_st = ()
     with open(odc_filename, 'w') as fo:
         fo.write(get_odc(**options))
+    return odc_filename
 #
 if __name__ == '__main__':
     import docopt
