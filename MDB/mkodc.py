@@ -1,4 +1,4 @@
-#! /usr/bin/env
+#! /usr/bin/env python
 """mkodc - create an Excel ODC for an Access database
 
 Usage:

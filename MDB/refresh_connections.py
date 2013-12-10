@@ -1,10 +1,17 @@
-#
+#! /usr/bin/env python
+"""refresh_connections - change custom configuration of Excel external data
+connections
+
+Usage:
+    refresh_connections.py [options] [--] <spreadsheet> <database>
+
+"""
 import os.path
 import time
 
 from win32com.client import Dispatch
 
-from Aquacraft.mkodc import *
+from MDB.mkodc import *
 
 table_name_by_label = { 'Access_tblSummary': 'tblSummary',
                         'Access_tblFaucetDurationHistogram': 'tblFaucetDurationHistogram',
@@ -48,5 +55,6 @@ def update_Excel_connections(spreadsheet, database, table_name_by_label=table_na
     if quit: excel.Quit()
     del excel
 if __name__ == '__main__':
-#    update_Excel_connections(r'foo.xlsx', r'Z:\Projects\Abu Dhabi\Monitoring Period 2\TW Files_MP2\stats\AbuDhabi MP2 stats.mdb')
-    update_Excel_connections(r'foo.xlsx', r'Z:\Projects\Abu Dhabi\Monitoring Period 1\TW Files_MP1\stats\AbuDhabi MP1 stats (update 2013-12-06).mdb')
+    import docopt
+    args = docopt.docopt(__doc__)
+    update_Excel_connections(args['<spreadsheet>'], args['<database>'])
