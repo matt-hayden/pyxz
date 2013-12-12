@@ -23,28 +23,34 @@ connection_string_template_file = 'ConnectionString.template'
 odc_template_file = 'ODC.template'
 #
 def get_odc(**params):
+    """Form the content of a MS Office ODC file, which is an XML wrapper around
+    a usual connection string.
+    """
     with open(connection_string_template_file) as fi:
         t = string.Template(fi.read())
-    params['ConnectionString'] = ''.join(line.strip() for line in t.substitute(params))
+    params['ConnectionString'] = t.substitute(params)
     with open(odc_template_file) as fi:
         t = string.Template(fi.read())
     return t.substitute(params)
 #
 def make_odc(datasource, odc_filename, **kwargs):
+    """Create a MS Office ODC file
+    """
     options = { 'Now': datetime.now(),
                 'PWD': os.path.abspath(os.curdir),
                 'DataSource': os.path.abspath(datasource) }
+    """Table is used for both tables and views (queries).
+    """
     table = kwargs.pop('table', '')
     if table:
         options['CommandType'] = 'Table'
         options['CommandText'] = table
+    else:
+        raise NotImplementedError("Command for {} not understood".format(datasource))
     name = kwargs.pop('name', '')
     dirname, basename = os.path.split(datasource)
-    if not name:
-        name, ext = os.path.splitext(basename)
-    else:
-        _, ext = os.path.splitext(basename)
-    ext = ext.upper()
+    name, ext = os.path.splitext(basename)
+    name, ext = kwargs.pop('name', name), ext.upper()
     options['Name'] = name
     if ext in ('.MDB'):
         options['Jet_Engine_Type'] = 5
