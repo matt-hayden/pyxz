@@ -5,6 +5,7 @@ connections
 Usage:
     refresh_connections.py [options] [--] <spreadsheet> <database>
 
+This only works on Windows.
 """
 import os.path
 import time
@@ -35,7 +36,7 @@ def update_Excel_connections(spreadsheet, database, table_name_by_label=table_na
     print "Loading", spreadsheet_filename
     excel.Workbooks.Open(spreadsheet_filename)
 
-    labels = [ conn.Name for conn in excel.ActiveWorkbook.Connections ]
+    labels = [ conn.Name for conn in excel.ActiveWorkbook.Connections if conn.Name ]
     for label in labels:
         if label in table_name_by_label:
             tn = table_name_by_label[label]
@@ -52,8 +53,11 @@ def update_Excel_connections(spreadsheet, database, table_name_by_label=table_na
         excel.ActiveWorkbook.Save()
         time.sleep(5)
         print spreadsheet_filename, "saved"
-    if quit: excel.Quit()
-    del excel
+    else:
+        print "No connections found in", spreadsheet_filename
+    if quit:
+        excel.Quit()
+        del excel
 if __name__ == '__main__':
     import docopt
     args = docopt.docopt(__doc__)
