@@ -22,14 +22,20 @@ def parents(pathspec):
 		seen.append(root)
 		root, basename = os.path.split(root)
 	return seen
+def xcommonprefix(*args):
+	while args:
+		cp = set(parents(args.pop()))
+	return sorted(cp, key=len)[-1]
 def find_repository_top(cwd=os.getcwd(), stopnames=['.git']):
+	"""Search parent folders to see if we're in version control
+	"""
 #	stopnames = set(_.lower() for _ in stopnames)
 	for root in parents(cwd):
 		for stopname in stopnames:
 			if os.path.exists(os.path.join(root, stopname)): return root
 #
 def guess_fileset(filename, exclude_files=[], include_pattern='*', exclude_numerals=True, min_length=4):
-	"""
+	"""Search within a folder for a set of files with a similar name pattern, or ''
 	May return '' if the filename is numerical
 	"""
 	exclude_files = set(exclude_files)
