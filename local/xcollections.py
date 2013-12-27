@@ -127,10 +127,6 @@ class CollapsibleNamespace(Namespace, Collapsible):
 #               else: # format's doin just fine
         return self._tuple(*[self[_] for _ in format])
 if __name__ == '__main__':
-<<<<<<< HEAD
     import doctest
     results = doctest.testmod()
-=======
-	import doctest
-	results = doctest.testmod()
->>>>>>> aeaeddd6b9f48f7a95b07a4bf3d0d0223c6d7f6d
+

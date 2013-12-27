@@ -19,7 +19,7 @@ def Excel_sheet_name_sanitize(text, sub=''):
 	for c in ':\\/?*[]':
 		if c in text: text = text.replace(c, sub)
 	return text[:31]
-def shell_quote(text, veto_chars='&', split=shlex.split, strong_quote="'"):
+def shell_quote(text, veto_chars="&'", split=shlex.split, strong_quote="'"):
 	"""
 	The argument veto_chars are characters that shlex.split passes, but are fatal to splitting
 	when they're unescaped.
@@ -30,7 +30,7 @@ def shell_quote(text, veto_chars='&', split=shlex.split, strong_quote="'"):
 		pass
 	elif len(split(text, posix=False)) == 1: return text
 	if strong_quote in text:
-		text = text.replace("'", """'"'"'""") # whoa, nelly!
+		text = text.replace(strong_quote, """'"'"'""") # whoa, nelly!
 	return strong_quote+text+strong_quote
 def namedtuple_field_sanitize(text, valid_characters=string.letters+string.digits+'_', sub='_'):
 	"""Transform a string for collections.namedtuple.
