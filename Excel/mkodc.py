@@ -47,7 +47,6 @@ def make_odc(datasource, odc_filename, **kwargs):
         options['CommandText'] = table
     else:
         raise NotImplementedError("Command for {} not understood".format(datasource))
-    name = kwargs.pop('name', '')
     dirname, basename = os.path.split(datasource)
     name, ext = os.path.splitext(basename)
     name, ext = kwargs.pop('name', name), ext.upper()

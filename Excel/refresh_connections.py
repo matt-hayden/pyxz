@@ -12,14 +12,26 @@ import time
 
 from win32com.client import Dispatch
 
-from MDB.mkodc import *
+from mkodc import *
 
 table_name_by_label = { 'Access_tblSummary': 'tblSummary',
+                        'Access_qryFixtureReport': 'qryFixtureReport',
+                        'Access_qryTraceReport': 'qryTraceReport',
+                        'Access_tblDailyReport': 'tblDailyReport',
+                        'Access_tblEventAverageReport': 'tblEventAverageReport',
+                        'Access_tblFixtureStandardCountReport': 'tblFixtureStandardCountReport',
+                        'Access_tblTotalsReport': 'tblTotalsReport',
+                        'Access_tblWholeStudyDiurnal': 'tblWholeStudyDiurnal',                        
                         'Access_tblFaucetDurationHistogram': 'tblFaucetDurationHistogram',
-                        'Access_tblFaucetVolumeHistogram': 'tblFaucetVolumeHistogram',
+                        'Access_tblFaucetModeHistogram': 'tblFaucetModeHistogram',
+                        'Access_tblFaucetPeakHistogram': 'tblFaucetPeakHistogram',
+                        'Access_tblFaucetVolumeHistogram': 'tblFaucetVolumeHistogram',                        
                         'Access_tblShowerDurationHistogram': 'tblShowerDurationHistogram',
                         'Access_tblShowerVolumeHistogram': 'tblShowerVolumeHistogram',
-                        'Access_tblToiletFlushVolume': 'tblToiletFlushVolume'
+                        'Access_tblToiletFlushHistogram': 'tblToiletFlushHistogram',
+                        'Access_tblToiletFlushVolume': 'tblToiletFlushVolume',
+                        'Access_tblShowerStats': 'tblShowerStats',
+                        'Access_tblToiletStats': 'tblToiletStats'
                         }
 
 def update_Excel_connections(spreadsheet, database, table_name_by_label=table_name_by_label, quit=True, excel=None):
@@ -37,6 +49,7 @@ def update_Excel_connections(spreadsheet, database, table_name_by_label=table_na
     excel.Workbooks.Open(spreadsheet_filename)
 
     labels = [ conn.Name for conn in excel.ActiveWorkbook.Connections if conn.Name ]
+    successes, ignored, failures = 0, 0, 0
     for label in labels:
         if label in table_name_by_label:
             tn = table_name_by_label[label]
@@ -46,15 +59,16 @@ def update_Excel_connections(spreadsheet, database, table_name_by_label=table_na
             print make_odc(database_filename, odc_path, name=label, table=tn), "written"
             excel.ActiveWorkbook.Connections[label].Delete()
             excel.ActiveWorkbook.Connections.AddFromFile(odc_path)
-    if labels:
+            successes += 1
+        else: ignored += 1
+    if successes:
+        print spreadsheet_filename, ":", successes, "connections (re)defined, please wait a minute"
         excel.ActiveWorkbook.RefreshAll()
-        time.sleep(len(labels))
-        print spreadsheet_filename, "updated"
+        time.sleep(5*successes)
+        print spreadsheet_filename, "connections updated"
         excel.ActiveWorkbook.Save()
-        time.sleep(5)
+        time.sleep(10)
         print spreadsheet_filename, "saved"
-    else:
-        print "No connections found in", spreadsheet_filename
     if quit:
         excel.Quit()
         del excel
