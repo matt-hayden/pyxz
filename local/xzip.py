@@ -1,7 +1,10 @@
-#!env python
+#! /usr/bin/env python
 from datetime import datetime
 import io
+import os.path
 from zipfile import ZipFile
+
+from local.xmimetypes import types_map
 
 def parse_zipinfo_date(zi, earliest=datetime(1980, 1, 1, 0, 0)):
 	"""
@@ -49,3 +52,19 @@ def zip_fetchone(filepath, default_extensions = [], **kwargs):
 				info("%d candidate members in %s: %s" %(len(possible_valid_entries), filename, listing))
 				bi = zi.open(filelist[0])
 		return io.TextIOWrapper(bi, newline=None)
+#
+def typer(pathname):
+	if pathname.endswith('/'):
+		return 'directory'
+	_, ext = os.path.splitext(pathname)
+	t = types_map.get(ext.lower(), ext)
+	if t.startswith('text') or t in [ 'application/x-javascript' ]:
+		return 'text'
+	else:
+		return 'binary'
+def iter_files(zipfilename, **kwargs):
+	with ZipFile(zipfilename, 'r') as zipi:
+		for i in zipi.infolist():
+			label = '/'.join((zipfilename, i.filename))
+			file_type = typer(i.filename)
+			yield (label, file_type, zipi.read(i))
