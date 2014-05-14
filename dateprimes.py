@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import calendar
 from datetime import date
-#import time
+import time
 
 try:
 	import primesieve as Primes
@@ -54,8 +54,14 @@ def _checker((n,p), extra_places=2):
 		tp, _ = divmod(tp, 10)
 #
 if __name__ == '__main__':
+	from collections import Counter
 	#import multiprocessing.dummy as mp
 	import multiprocessing as mp
+	import sys
+	args = sys.argv[1:]
+	stdout, stderr = sys.stdout, sys.stderr
+	started = time.clock()
+	
 	pool = mp.Pool()
 	
 	#it = pool.map(_checker, pi(stop=20141231)) # 14 s
@@ -63,6 +69,15 @@ if __name__ == '__main__':
 	#it = pool.imap(_checker, pi(stop=20141231), chunksize=50) # 12.1 s
 	#it = pool.imap(_checker, pi(stop=20141231), chunksize=1<<9) # 10.6 s
 	#it = pool.imap_unordered(_checker, pi(stop=20141231), chunksize=1<<9) # 10.6 s
-	it = pool.imap(_checker, pi(), chunksize=1<<9)
+	it = pool.imap(_checker, pi(*args), chunksize=1<<9)
+	lineno, counter, frequency = 0, 1<<8, Counter()
 	for results in it:
-		if results: print ' '.join(results)
+		if results:
+			lineno += 1
+			frequency[results[0]] += 1
+			print ' '.join(results)
+			#
+			if (counter <= lineno):
+				sec = time.clock()-started
+				print >> stderr, lineno, "found at {:.1f} per second,".format(lineno/sec), len(frequency), "unique"
+				counter <<= 2
