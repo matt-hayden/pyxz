@@ -34,8 +34,10 @@ def np_dtype_from_ODBC_desc(desc, sanitize=sql_field_sanitize):
 			dtype = np.float32
 		elif internal_size <= 10:
 			dtype = np.float16
-	elif type_code in (str, unicode):
+	elif isinstance(type_code, basestring):
 		dtype = ('S', internal_size)
+	elif type_code == unicode:
+		dtype = ('U', internal_size)
 	elif type_code == datetime.datetime:
 		dtype = 'datetime64[s]' # the subtype is important
 	elif type_code == decimal.Decimal:
