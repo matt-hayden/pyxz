@@ -26,3 +26,6 @@ types_map['.mk3d']='video/x-matroska=3d'
 
 types_map['.psd']='image/vnd.adobe.photoshop'
 types_map['.jps']='image/x-jps'
+
+types_map['.bash']='application/x-bash'
+

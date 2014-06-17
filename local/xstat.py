@@ -7,18 +7,23 @@ import stat
 
 from xcollections import Namespace
 
+stat_fields = 'st_mode st_ino st_dev st_nlink st_uid st_gid st_size st_atime st_mtime st_ctime'.split()
+
 class xstat(Namespace):
-	stat_fields = 'st_mode st_ino st_dev st_nlink st_uid st_gid st_size st_atime st_mtime st_ctime'.split()
 	@staticmethod
 	def from_stat(statresult):
-		s = xstat(zip(xstat.stat_fields, statresult))
+		s = xstat(zip(stat_fields, statresult))
 		s.is_dir	=	stat.S_ISDIR(s.st_mode)
 		s.is_file	=	stat.S_ISREG(s.st_mode)
 		s.is_link	=	stat.S_ISLNK(s.st_mode)
-		for key in 'st_atime st_mtime st_ctime'.split():
-			_, label = key.split('_', 1)
-			s[label] = datetime.fromtimestamp(s[key])
 		return s
+	@property
+	def atime(self): return datetime.fromtimestamp(self.st_atime)
+	@property
+	def ctime(self): return datetime.fromtimestamp(self.st_ctime)
+	@property
+	def mtime(self): return datetime.fromtimestamp(self.st_mtime)
+	
 
 class xst_mode(list):
 	def __init__(self, data):
@@ -122,3 +127,4 @@ def get_stat_type(mode):
 def get_ls_type(mode):
 	c = get_stat_type(mode)
 	return 'U' if c == '?' else c
+

@@ -4,6 +4,7 @@ import string
 def guess_delimiters(iterable, skip=0, exclude=string.letters+string.digits):
     iterable = list(iterable)[skip:]
     line = iterable.pop(0)
+    # equal frequencies of characters:
     delims = set(Counter(line).items())
     for line in iterable:
         delims &= set(Counter(line).items())
