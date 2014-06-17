@@ -7,6 +7,19 @@ import stat
 
 from xcollections import Namespace
 
+class xstat(Namespace):
+	stat_fields = 'st_mode st_ino st_dev st_nlink st_uid st_gid st_size st_atime st_mtime st_ctime'.split()
+	@staticmethod
+	def from_stat(statresult):
+		s = xstat(zip(xstat.stat_fields, statresult))
+		s.is_dir	=	stat.S_ISDIR(s.st_mode)
+		s.is_file	=	stat.S_ISREG(s.st_mode)
+		s.is_link	=	stat.S_ISLNK(s.st_mode)
+		for key in 'st_atime st_mtime st_ctime'.split():
+			_, label = key.split('_', 1)
+			s[label] = datetime.fromtimestamp(s[key])
+		return s
+
 class xst_mode(list):
 	def __init__(self, data):
 		if isinstance(data, basestring):
@@ -23,7 +36,9 @@ class xst_mode(list):
 		self.from_string(oct(mode_int))
 	def from_string(self, mode_text):
 		super(xst_mode, self).__init__(int(c, base=8) for c in mode_text)
-
+#
+### WRONG:
+'''
 def stat(*args, **kwargs):
 	"""Wrapper around os.stat() that returns python datetimes and indexable 
 	modes.
@@ -56,6 +71,7 @@ def stat(*args, **kwargs):
 						 st_atime=atime,
 						 st_mtime=mtime,
 						 st_ctime=ctime)
+'''
 def convert_mode(format, mode):
 	if format=='ls':
 		text = bytearray('-'*10)
