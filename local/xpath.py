@@ -41,7 +41,7 @@ def guess_fileset(filename, exclude_files=[], include_pattern='*', exclude_numer
 	exclude_files = set(exclude_files)
 	exclude_files.add(filename)
 	basepath, ext = os.path.splitext(filename)
-	if len(basepath) < min_length: return basepath
+	if len(basepath) < min_length: return [basepath]
 	poss = set(glob(basepath+include_pattern))
 	poss -= exclude_files
 	while basepath and not poss:
