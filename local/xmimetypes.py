@@ -22,10 +22,14 @@ types_map['.flv']='video/x-flv'
 
 types_map['.mka']='audio/x-matroska'
 types_map['.mkv']='video/x-matroska'
-types_map['.mk3d']='video/x-matroska=3d'
+types_map['.mk3d']='video/x-matroska-3d'
 
 types_map['.psd']='image/vnd.adobe.photoshop'
 types_map['.jps']='image/x-jps'
 
 types_map['.bash']='application/x-bash'
 
+# guesses:
+types_map['.avs']='text/x-avisynth'
+types_map['.json']='text/json'
+types_map['.m3u']='text'

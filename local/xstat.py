@@ -9,10 +9,10 @@ from xcollections import Namespace
 
 stat_fields = 'st_mode st_ino st_dev st_nlink st_uid st_gid st_size st_atime st_mtime st_ctime'.split()
 
-class xstat(Namespace):
+class XStat(Namespace):
 	@staticmethod
 	def from_stat(statresult):
-		s = xstat(zip(stat_fields, statresult))
+		s = XStat(zip(stat_fields, statresult))
 		s.is_dir	=	stat.S_ISDIR(s.st_mode)
 		s.is_file	=	stat.S_ISREG(s.st_mode)
 		s.is_link	=	stat.S_ISLNK(s.st_mode)
@@ -23,7 +23,8 @@ class xstat(Namespace):
 	def ctime(self): return datetime.fromtimestamp(self.st_ctime)
 	@property
 	def mtime(self): return datetime.fromtimestamp(self.st_mtime)
-	
+def xstat(*args, **kwargs):
+	return XStat.from_stat(os.stat(*args, **kwargs))
 
 class xst_mode(list):
 	def __init__(self, data):
@@ -42,41 +43,6 @@ class xst_mode(list):
 	def from_string(self, mode_text):
 		super(xst_mode, self).__init__(int(c, base=8) for c in mode_text)
 #
-### WRONG:
-'''
-def stat(*args, **kwargs):
-	"""Wrapper around os.stat() that returns python datetimes and indexable 
-	modes.
-	
-	Arguments:
-		mode=True will return an object of decoded mode. For example, mode
-		511 base 10, 0777 base 8, will be returned as [0,7,7,7].
-	"""
-	strict = kwargs.pop('strict', True)
-	stat = os.stat(*args)
-	if strict:
-		mymode = xst_mode(stat.st_mode)
-	else:
-		mymode = stat.st_mode
-	atime = datetime.fromtimestamp(stat.st_atime)
-	mtime = datetime.fromtimestamp(stat.st_mtime)
-	ctime = datetime.fromtimestamp(stat.st_ctime)
-	if strict:
-		return os.stat_result((mymode, stat.st_ino, stat.st_dev, stat.st_nlink,
-							   stat.st_uid, stat.st_gid, stat.st_size, atime, mtime,
-							   ctime))
-	else:
-		return Namespace(st_mode=mymode,
-						 st_ino=stat.st_ino or None,
-						 st_dev=stat.st_dev or None,
-						 st_nlink=stat.st_nlink,
-						 st_uid=stat.st_uid,
-						 st_gid=stat.st_gid,
-						 st_size=stat.st_size,
-						 st_atime=atime,
-						 st_mtime=mtime,
-						 st_ctime=ctime)
-'''
 def convert_mode(format, mode):
 	if format=='ls':
 		text = bytearray('-'*10)
@@ -100,12 +66,6 @@ def convert_mode(format, mode):
 		m >>= 1
 		if m: text[0] = get_stat_type(mode)
 		return text
-#def isdir(*args):
-#	st = stat(*args)
-#	return st if st.st_mode[-5] & 4 else False
-#def isfile(*args):
-#	st = stat(*args)
-#	return st if st.st_mode[-5] & 1 else False
 
 def get_stat_type(mode):
 	"""
