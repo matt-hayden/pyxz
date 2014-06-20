@@ -27,7 +27,10 @@ def findutils_printf_lookup_term1(token, mystat, time_converter=datetime.fromtim
 	else:					return token
 def walk_printf(parent,
 				printf_spec,
-				printf_splitter=re.compile('(?<!%)(%[a-zA-Z]|%#m)'),
+				select_files=None,
+				select_dirs=None,
+				prune_dirs=False,
+				printf_splitter=re.compile('(?<!%)(%[a-zA-Z]|%#m)').split,
 				allow_file_args=True,
 				no_join=False):
 	"""
@@ -53,7 +56,7 @@ def walk_printf(parent,
 							True returns a tuple of parsed values
 	"""
 	if isinstance(printf_spec, basestring):
-		terms = [token for token in printf_splitter.split(printf_spec) if token != ''] # bug in splitting on the above regex: empty matches exist between matches of (%[a-zA-Z]|%#m)
+		terms = [token for token in printf_splitter(printf_spec) if token != ''] # bug in splitting on the above regex: empty matches exist between matches of (%[a-zA-Z]|%#m)
 	else:
 		terms = [str(t) for t in flatten(printf_spec)]
 		no_join = True
@@ -63,7 +66,11 @@ def walk_printf(parent,
 		"""
 		if token == '%f':		return subpath
 		elif token == '%h':		return '.' if root == '' else root
-		elif token == '%P':		return os.path.join(root, subpath)
+		elif token == '%P':
+			if not root:					return subpath
+			if root == '.':					return subpath
+			elif root[:2] in ('./', '.\\'):	return os.path.join(root[2:], subpath)
+			else:			return os.path.join(root, subpath)
 		elif token == '%p':		return os.path.join(parent, root, subpath)
 		else:					return token
 	def findutils_printf_lookup(root, subpath, myterms=terms[:]):
@@ -72,10 +79,16 @@ def walk_printf(parent,
 		return myterms
 	if os.path.isdir(parent):
 		for root, dirs, files in os.walk(parent):
-			# could exclude dirs here
-			rootp	= findutils_printf_lookup('', root)
-			dirsp	= (findutils_printf_lookup(root, d) for d in dirs)
-			filesp	= (findutils_printf_lookup(root, f) for f in files)
+			if select_dirs and prune_dirs:
+				dirs = [ d for d in dirs if select_dirs(d) ]
+			if select_files:
+				files = [ f for f in files if select_files(f) ]
+			rootp = findutils_printf_lookup('', root)
+			if select_dirs and not prune_dirs:
+				dirsp = (findutils_printf_lookup(root, d) for d in dirs if select_dirs(d))
+			else:
+				dirsp = (findutils_printf_lookup(root, d) for d in dirs)
+			filesp = (findutils_printf_lookup(root, f) for f in files)
 			if not no_join:
 				rootp	= ''.join(str(p) for p in rootp)
 				dirsp	= (''.join(str(p) for p in flatten(sp)) for sp in dirsp)
