@@ -9,7 +9,13 @@ def flatten(args):
 		elif isinstance(el, collections.Iterable):
 			for _ in flatten(el): yield _
 		else: yield el
-def groupby_diff(iterable, key):
+def group_by_comparator(iterable, key):
+	'''This is a complement to groupby(), and not intended to replicate its
+	functionality.
+	Output from an iterable will look like [a, b, c], [d], [e, f], [g], ...
+	key(x,y) takes two arguments and returns non-False if those elements share
+	the same group.
+	'''
 	if not hasattr(iterable, '__next__'):
 		iterable = iter(iterable)
 	prev = next(iterable)

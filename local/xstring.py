@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import itertools
+from operator import mul
 import string
 
 def get_character_class_map(case_sensitive=False, numbers_are_hex=False):
@@ -37,7 +38,7 @@ def custom_character_distance(c1, c2):
 		return 0.5
 	return 1
 #
-def _string_difference(s1, s2, ignore_prefix=string.punctuation+string.whitespace, ignore_suffix='', distance=custom_character_distance, fillvalue='0'):
+def _string_differences(s1, s2, ignore_prefix=string.punctuation+string.whitespace, ignore_suffix='', distance=custom_character_distance, fillvalue='0'):
 	if not ignore_suffix:
 		ignore_suffix = ignore_prefix
 	if ignore_prefix:
@@ -64,10 +65,16 @@ def _string_difference(s1, s2, ignore_prefix=string.punctuation+string.whitespac
 		for c1, c2 in itertools.izip(shorter_fill, longer[-offset:]):
 			yield distance(c1, c2)
 #
-def string_difference(*args, **kwargs):
-	return list(_string_difference(*args, **kwargs))
+def string_differences(*args, **kwargs):
+	return list(_string_differences(*args, **kwargs))
+def strings_differ(s1, s2, threshold=1.0/3, difference=string_differences):
+	d = difference(s1, s2)
+	if not d: return 0
+	func = range(len(d), 0, -1)
+	denom = sum(func)
+	return sum(map(mul, func, d))/denom > threshold
 #
-def get_all_string_differences(strings, difference=string_difference):
+def get_all_string_differences(strings, difference=string_differences):
 	def key((s1, s2, d)):
 		return d, s1, s2
 	results = []
