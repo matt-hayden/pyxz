@@ -97,16 +97,16 @@ class SCounter(collections.Counter):
             cfreq += freq
             yield key, freq/NR, cfreq/NR
     @property
-    def mean_stdev(self, population=True, quick=False):
+    def mean_stdev(self, population=True, quick=False, sum=math.fsum):
         n = len(self)
         denom = n if population else (n-1)
         assert n
-        s = math.fsum(x*f for (x, f) in self.iteritems())
+        s = sum(x*f for (x, f) in self.iteritems())
         m = s/n if s else 0.
         #
         if quick:
             return m, None
-        ss = math.fsum((x-m)**2*f for (x, f) in self.iteritems())
+        ss = sum((x-m)**2*f for (x, f) in self.iteritems())
         v = (ss - m**2/n)/denom if ss else 0.
         return m, math.sqrt(v) if (v > 0) else 0
 #
