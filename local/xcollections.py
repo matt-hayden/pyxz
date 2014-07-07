@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import collections
+import math
 
 def is_range(iterable, if_empty=False):
     """
@@ -81,6 +82,35 @@ class Namespace(dict):
     def __init__(self, *args, **kwargs):
         super(Namespace, self).__init__(*args, **kwargs)
         self.__dict__ = self
+#
+class SCounter(collections.Counter):
+    """Drop-in replacement for Counter with statistics functions.
+    """
+    def dist(self, *args, **kwargs):
+        '''GENERATOR
+        '''
+        cfreq = 0.
+        NR = sum(self.values())
+        #for key, freq in self.most_common(*args, **kwargs):
+        for key, freq in sorted(self.iteritems()):
+            freq = float(freq)
+            cfreq += freq
+            yield key, freq/NR, cfreq/NR
+    @property
+    def mean_stdev(self, population=True):
+        s, ss, n = 0., 0., len(self)
+        denom = n if population else (n-1)
+        assert n
+        for x, f in self.iteritems():
+            s += f*x
+            ss += f*x**2
+        m = s/n if s else 0.
+        v = (ss - m**2/n)/denom if ss else 0.
+        return m, math.sqrt(v) if (v > 0) else 0
+
+#
+#
+#
 class Collapsible(object):
     # subclasses should define to_tuple()
     def __repr__(self):
