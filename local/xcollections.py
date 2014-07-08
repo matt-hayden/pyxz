@@ -2,6 +2,8 @@
 import collections
 import math
 
+from local.xmath import weighted_median
+
 def is_range(iterable, if_empty=False):
     """
     True if the argument is equivalent to an integer interval. Behaviour for
@@ -86,29 +88,41 @@ class Namespace(dict):
 class SCounter(collections.Counter):
     """Drop-in replacement for Counter with statistics functions.
     """
-    def dist(self, *args, **kwargs):
+    _sum = math.fsum # the function for real numbers
+    @property
+    def n(self):
+        return sum(self.values()) if self else 0
+    @property
+    def sum(self):
+        return self._sum(x*f for (x,f) in self.iteritems()) if self else 0
+    def get_psum(self, condition, **kwargs):
+        return self._sum(x*f for (x,f) in self.iteritems() if condition(x, **kwargs)) if self else 0
+    @property
+    def mean(self):
+        return self.sum/self.n
+    def get_pmean(self, *args, **kwargs):
+        return self.psum(*args, **kwargs)/self.n
+    def get_median(self, **kwargs):
+        return weighted_median(self.items(), **kwargs)
+    def get_dist(self):
         '''GENERATOR
         '''
-        cfreq = 0.
-        NR = sum(self.values())
-        #for key, freq in self.most_common(*args, **kwargs):
-        for key, freq in sorted(self.iteritems()):
-            freq = float(freq)
+        cfreq = 0
+        n = float(self.n)
+        for key, freq in self.iteritems():
             cfreq += freq
-            yield key, freq/NR, cfreq/NR
+            yield key, freq/n, cfreq/n
+    def get_percentiles(self, *args, **kwargs):
+        return weighted_percentiles(self.items(), *args, **kwargs)
     @property
-    def mean_stdev(self, population=True, quick=False, sum=math.fsum):
+    def mean(self):
         n = len(self)
-        denom = n if population else (n-1)
-        assert n
-        s = sum(x*f for (x, f) in self.iteritems())
-        m = s/n if s else 0.
-        #
-        if quick:
-            return m, None
-        ss = sum((x-m)**2*f for (x, f) in self.iteritems())
-        v = (ss - m**2/n)/denom if ss else 0.
-        return m, math.sqrt(v) if (v > 0) else 0
+        return self.sum/n if n else None
+    def get_stdev(self, population=False):
+        m, denom = self.mean, self.n if population else (self.n-1)
+        ss = self._sum((x-m)*(x-m)*f for (x, f) in self.iteritems())
+        v = ss/denom
+        return math.sqrt(v) if (v > 0) else 0
 #
 #
 #
