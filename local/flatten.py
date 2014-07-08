@@ -1,1 +1,1 @@
-from xiter import flatten
+from xitertools import flatten

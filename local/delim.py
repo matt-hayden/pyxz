@@ -1,9 +1,11 @@
-from collections import Counter
+from local.xcollections import SCounter as Counter
 import string
 
 def guess_delimiters(iterable, skip=0, exclude=string.letters+string.digits):
-    iterable = list(iterable)[skip:]
-    line = iterable.pop(0)
+    if hasattr(iterable, 'next'):
+        iterable = list(iterable)
+    for i in range(skip):
+        line = iterable.pop(0)
     # equal frequencies of characters:
     delims = set(Counter(line).items())
     for line in iterable:
