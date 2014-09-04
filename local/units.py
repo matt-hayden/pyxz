@@ -44,7 +44,7 @@ def human_readable_bytes(size, base=1000, isexp=False):
 	if not (base % 10):
 		base = 10**3
 		divisors, prefixes = metric_divisors, metric_prefixes
-	elif not (base % 16): # note that 1000 % 8 == 0
+	elif not (base % 16):
 		base = 2**10
 		divisors, prefixes = binary_divisors, binary_prefixes
 	if isexp:
