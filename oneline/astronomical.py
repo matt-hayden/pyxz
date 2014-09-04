@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 import time
 
@@ -40,7 +40,8 @@ def get_astronomy(observ=home, only_visible=False):
 
 		n['moon']['full'] = ephem.localtime(ephem.next_full_moon(utcnow))
 		n['moon']['new'] = ephem.localtime(ephem.next_new_moon(utcnow))
-
+	if True:
+		observ.date = n.sun.set+timedelta(hours=3)
 	if True:
 		n['bodies'] = Namespace()
 		for name, body in [ ('mercury',		ephem.Mercury()),
