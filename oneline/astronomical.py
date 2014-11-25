@@ -81,10 +81,10 @@ def print_events((events, bodies), now=None, relative=False):
 			if 'sun' in e.lower():
 				display_tuples.append( (ts.strftime("%b %d"), ts.strftime("%X"), e) )
 			else:
-				display_tuples.append( (ts.strftime("%b %d"), ts.strftime("%Hh"), e) )
+				display_tuples.append( (ts.strftime("%b %d"), ts.strftime("%X"), e) )
 	for g, et in groupby(display_tuples, key=lambda t: t[0]):
-		lines.append(g+": "+", ".join(h+" "+e for _, h, e in et))
-	print " :".join(lines)[:160]
+		lines.append(g+"> "+", ".join(h+" "+e for _, h, e in et))
+	print " <".join(lines)[:160]
 #
 # TODO:
 #
