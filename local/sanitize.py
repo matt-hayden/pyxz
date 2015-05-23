@@ -25,7 +25,7 @@ def shell_quote(text, veto_chars="&'", split=shlex.split, strong_quote="'"):
 	when they're unescaped.
 	"""
 	if text is None or len(text) == 0: return ''
-	if set(text) & set(veto_chars):
+	if (set(text) & set(veto_chars+'()')):
 		# leave for quoting
 		pass
 	elif len(split(text, posix=False)) == 1: return text
