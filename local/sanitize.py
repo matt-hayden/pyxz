@@ -19,7 +19,7 @@ def Excel_sheet_name_sanitize(text, sub=''):
 	for c in ':\\/?*[]':
 		if c in text: text = text.replace(c, sub)
 	return text[:31]
-def shell_quote(text, veto_chars="&'", split=shlex.split, strong_quote="'"):
+def shell_quote(text, veto_chars="&'()[]", split=shlex.split, strong_quote="'"):
 	"""
 	The argument veto_chars are characters that shlex.split passes, but are fatal to splitting
 	when they're unescaped.
