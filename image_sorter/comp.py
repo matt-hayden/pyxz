@@ -5,7 +5,7 @@ import fastcluster
 from PIL import Image
 import numpy as np
 
-from imghash import container
+from imghash import ImgHash as Instance
 
 def compare(lhs, rhs):
 	'''returns a single number, reflexive for each lhs, rhs pair
@@ -31,11 +31,10 @@ def get_distance_matrix(instances, norm=compare):
 		m[a,b] = m[b,a] = r
 	return m
 #
-if __name__ == '__main__':
-	import sys
+def get_cluster(files):
+	hashes = [ Instance.load(f) for f in files ]
 	results = []
 	a = results.append
-	hashes = [ container.load(f) for f in sys.argv[1:] ]
 	print("Cases:")
 	for id, c in enumerate(hashes):
 		print(id, c.filename)
@@ -45,4 +44,7 @@ if __name__ == '__main__':
 	clustering = fastcluster.linkage(np.sqrt(m), method='complete')
 	for pn, (c1, c2, d, n) in enumerate(clustering, start=len(m)):
 		print("{:1.0f}+{:1.0f}={:1.0f} with {:1.0f} children at distance {}".format(c1, c2, pn, n, d))
-	
+#
+if __name__ == '__main__':
+	import sys
+	get_cluster(sys.argv[1:])

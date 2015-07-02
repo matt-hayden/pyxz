@@ -1,8 +1,6 @@
-
-from PIL import Image
+#!/usr/bin/env python3
+from . import image_sizes
 
 import sys
-for arg in sys.argv[1:]:
-	i = Image.open(arg)
-	s = i.size
+for arg, s in image_sizes(sys.argv[1:]):
 	print(arg, s)
