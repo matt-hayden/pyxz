@@ -1,66 +1,54 @@
-#!/usr/bin/env python3
-import os, os.path
+#!/usr/bin/env python
+import base64
 
-from PIL import Image, ImageStat
+#import cv2
 import numpy as np
 
-from tools import *
+from edge_density import edge_density_by_axis
+from histogram import dominant_plane
 
-
-def get_means(filename):
-	with Image.open(grayscale(filename)) as fi:
-		W, H = fi.size
-		stat = ImageStat.Stat(fi)
-		#mean, stdev = stat.mean[0], stat.stdev[0]
-		mean = stat.mean[0]
-		#sumX, sumY = [0]*W, [0]*H
-		sumX, sumY = np.zeros(W), np.zeros(H)
-		image = fi.load()
-		for x in range(W):
-			for y in range(H):
-				pv = image[x, y]
-				sumX[x] += pv
-				sumY[y] += pv
-	return mean, [(x/H-mean) for x in sumX], [(y/W-mean) for y in sumY]
-class ImgHash:
+class ImgHashBase:
 	def __init__(self, filename=None):
-		if filename and os.path.isfile(filename):
-			self.from_image(filename)
-	def from_image(self, filename):
+		if filename is not None:
+			self.from_file(filename)
+		return self
+	def from_file(self, filename):
 		self.filename = filename
-		self.mean, my_x, my_y = get_means(filename)
-		self.x = np.array(my_x, dtype=np.int8)
-		self.y = np.array(my_y, dtype=np.int8)
+		image, self.dominant_plane = dominant_plane(filename)
+		self.edges, self.median = edge_density_by_axis(image)
+	def astuple(self):
+		return [self.edges, self.dominant_plane, self.median]
 	@property
 	def width(self):
-		return len(self.x)
+		return len(self.edges[0])
 	@property
 	def height(self):
-		return len(self.y)
-	@property
-	def size(self):
-		return len(self.x), len(self.y)
-	def to_visual(self, filename):
-		image_out = Image.new('L', self.size, self.mean)
-		for x in range(self.width):
-			for y in range(self.height):
-				value = (self.x[x]+self.y[y])/2 + self.mean
-				image_out.putpixel((x,y), value)
-		image_out.save(filename)
-	def save(self, filename, mode='wb'):
-		np.savez(filename, x=self.x, y=self.y, mean=self.mean)
+		return len(self.edges[1])
+	
+class ImgHash(ImgHashBase):
+	def pack(self, sep='/', encoder=base64.b64encode):
+		t = self.astuple()
+		try:
+			s = [encoder(a.tobytes()) for a in t] # numpy 1.9
+		except:
+			s = [encoder(a.tostring()) for a in t] # numpy 1.7
+		return sep.join(s)
 	@staticmethod
-	def load(filename, mode='rb'):
-		n = ImgHash()
-		_, basename = os.path.split(filename)
-		n.filename, _ = os.path.splitext(basename)
-		members = np.load(filename)
-		n.x, n.y, n.mean = members['x'], members['y'], members['mean']
-		return n
+	def unpack(text, sep='/', decoder=base64.b64decodestring, dtype=np.uint8):
+		return ImgHash.from_tuple([ np.frombuffer(base64.decodestring(s), dtype=dtype) for s in text.split(sep) ])
+	@staticmethod
+	def from_tuple(tuple):
+		r = ImgHash()
+		r.edges, r.dominant_plane, r.median = tuple
+		return r
+	def __str__(self):
+		return "ImgHash.unpack('{}')".format(self.pack())
+	def __repr__(self):
+		return "ImgHash('{}')".format(self.filename)
 #
 if __name__ == '__main__':
 	import sys
 	for arg in sys.argv[1:]:
-		obj = ImgHash(arg)
-		obj.save(arg+'.npz')
-		obj.to_visual(arg+'.png')
+		h = ImgHash(arg)
+		print h, h.pack()
+		print
