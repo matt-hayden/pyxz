@@ -13,3 +13,15 @@
 [submodule "TraceWizardX"]
 	path = TraceWizardX
 	url = /Users/hayden/Dropbox/Aquacraft/pyTraceWizardX.git/
+[submodule "Splitter"]
+	path = Splitter
+	url = git@github.com:matt-hayden/video-clip-splitter.git
+[submodule "Screencap"]
+	path = Screencap
+	url = git@github.com:matt-hayden/screencap.git
+[submodule "Sorter"]
+	path = Sorter
+	url = git@github.com:matt-hayden/tagxon.git
+[submodule "at"]
+	path = at
+	url = git@github.com:matt-hayden/py-at.git
