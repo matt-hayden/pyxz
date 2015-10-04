@@ -1,4 +1,4 @@
-#!env python
+#! /usr/bin/env python2
 from collections import Counter
 import os
 import os.path
@@ -96,5 +96,3 @@ def main(args, assume_owndirs=False, stderr=sys.stderr):
 if __name__ == '__main__':
 	args = sys.argv[1:] or ['.']
 	main(args)
-#	for fn in [r'11\pictures.zip', r'..\dreambabes\Anetta_Keys\katrinshower.zip']:
-#		print fn, get_zipdirs(fn)
