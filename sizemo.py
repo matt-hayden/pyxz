@@ -1,4 +1,4 @@
-#!env python
+#!/usr/bin/env python2
 """Find likely-duplicate files as fast as Python is able.
 
 A listing of files and their sizes is kept in tab-separated format. This format

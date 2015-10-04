@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 """
 Walks through a list of PDFs, combining PDFs with similar names. Processed parts
 are then collected into a seperate directory.

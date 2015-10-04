@@ -1,4 +1,4 @@
-#! env python
+#! /usr/bin/env python2
 """
 http://msdn.microsoft.com/en-us/library/windows/desktop/ms646360%28v=vs.85%29.aspx
 """
@@ -11,4 +11,5 @@ def ChangeMonitorPower(state = "OFF"):
 						 win32con.WM_SYSCOMMAND, 
 						 win32con.SC_MONITORPOWER, 
 						 MonitorPower_param[state.upper()])
-ChangeMonitorPower("off")
+if __name__ == '__main__':
+	ChangeMonitorPower("off")

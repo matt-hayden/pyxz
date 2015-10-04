@@ -1,4 +1,4 @@
-#! /usr/env/python
+#! /usr/bin/env python2
 
 """
 Very simple Windows clipboard. The Windows clip command can only copy. This

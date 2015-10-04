@@ -1,4 +1,4 @@
-#!env python
+#! /usr/bin/env python2
 import imp
 import os
 import os.path

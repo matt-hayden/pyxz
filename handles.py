@@ -1,4 +1,4 @@
-#!env python
+#! /usr/bin/env python2
 """
 Use Sysinternals to find open file handles
 """

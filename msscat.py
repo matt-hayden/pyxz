@@ -1,8 +1,11 @@
+#!/usr/bin/env python2
 import ctypes
 import os.path
 
 Wintrust = ctypes.WinDLL('Wintrust.DLL')
+
 _IsCatalogFile = Wintrust['IsCatalogFile']
+
 def IsCatalogFile(handle = None, filename = None):
 	return _IsCatalogFile(handle, filename)
 if __name__ == '__main__':

@@ -1,4 +1,4 @@
-#!env python
+#! /usr/bin/env python2
 from collections import Counter
 import os.path
 import sys

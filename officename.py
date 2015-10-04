@@ -1,3 +1,4 @@
+#! /usr/bin/env python2
 import argparse, sys
 try:
 	from _winreg import *
