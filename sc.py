@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """ Very simple spell checker
 
-	Usage:
-		sc [-q] <word>
-		sc (-h | --help)
+Usage:
+  sc [-q] <word>
+  sc (-h | --help)
 
-	Options:
-		-h, --help		Show this help
-		-q, --quiet		Exit status indicates whether arg is misspelled
+Options:
+    -h, --help		Show this help
+    -q, --quiet		Exit status indicates whether arg is misspelled
 """
 from collections import Counter
 import subprocess
 import sys
 
-from docopt import docopt
+import logging
+logger = logging.getLogger(__name__)
+debug, info, warning, error, panic = logging.debug, logging.info, logging.warning, logging.error, logging.critical
+
 import enchant
 
 def define(word):
@@ -22,18 +25,10 @@ def define(word):
 	"""
 	return
 
-###
-if sys.stderr.isatty():
-	def DEBUG(*args, **kwargs):
-		pass
-else:
-	def DEBUG(*args, **kwargs):
-		print("DEBUG:", *args, file=sys.stderr)
-###
-
 speller = enchant.Dict()
-DEBUG("Locale", speller.tag)
-DEBUG("Provider", speller.provider)
+debug("Locale", speller.tag)
+debug("Provider", speller.provider)
+
 def suggest(*args, speller=speller, isunique=None):
 	if not isunique:
 		def isunique(word, forms):
@@ -43,16 +38,33 @@ def suggest(*args, speller=speller, isunique=None):
 			return True
 	s = speller.suggest(*args)
 	return [f for f in s if isunique(f, s)]
-###
-if __name__ == '__main__':
-	args = docopt(__doc__, version='sc 0.1')
-	word = args['<word>']
+#
+def get_sayer(phrase):
+	def say(phrase):
+		(yield)
+		speak_process = subprocess.Popen(['say', phrase])
+		(yield)
+		speak_process.wait()
+	next(say)
+	return say
+#
+def check(word, quiet=False, sound=True, **kwargs):
 	if speller.check(word):
-		DEBUG(word, "correct")
+		debug("{}: correct".format(word))
+		return True
 	else:
-		if args['-q']:	sys.exit(1)
-		else:
+		if not quiet:
 			s = suggest(word)
-			speak_process = subprocess.Popen(['say', s[0]])
-			print(s)
-			speak_process.wait()
+			if sound:
+				say=get_sayer(s[0])()
+				print(s)
+				say.send()
+			else:
+				print(s)
+if __name__ == '__main__':
+	from docopt import docopt
+
+	kwargs = docopt(__doc__, version='sc 0.11')
+	word = kwargs.pop('<word>')
+	options = { 'quiet': kwargs.pop('--quiet') }
+	sys.exit(not check(word, **options))
