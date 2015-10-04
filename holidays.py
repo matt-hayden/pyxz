@@ -1,4 +1,4 @@
-#!env python
+#! /usr/bin/env python2
 import csv
 from datetime import date, datetime
 import os.path

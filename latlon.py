@@ -1,4 +1,4 @@
-#! env python
+#! /usr/bin/env python2
 """
 Resolve latitude/longitude from simple placenames. In the case of multiple
 points returned from the web geocoder, the median is taken. It seems to work
