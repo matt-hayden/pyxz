@@ -1,12 +1,6 @@
-[submodule "TraceWizard5"]
-	path = TraceWizard5
-	url = /Users/hayden/Dropbox/Aquacraft/pyTraceWizard5.git
 [submodule "video-cli"]
 	path = video-cli
 	url = /Users/hayden/Dropbox/repos/video-cli.git/
-[submodule "TraceWizardX"]
-	path = TraceWizardX
-	url = /Users/hayden/Dropbox/Aquacraft/pyTraceWizardX.git/
 [submodule "Splitter"]
 	path = Splitter
 	url = git@github.com:matt-hayden/video-clip-splitter.git
@@ -19,3 +13,6 @@
 [submodule "at"]
 	path = at
 	url = git@github.com:matt-hayden/py-at.git
+[submodule "faceswap"]
+	path = faceswap
+	url = git@github.com:matt-hayden/faceswap.git
