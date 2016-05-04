@@ -1,10 +1,12 @@
-# /usr/bin/env python3
+#! /usr/bin/env python3
+
 
 import base64
 import collections
+import hashlib
+import logging
 import re
 
-import logging
 
 logger = logging.getLogger(__name__)
 debug, info, warning, error, fatal = logger.debug, logger.info, logger.warning, logger.error, logger.critical
@@ -22,7 +24,7 @@ class Tag(collections.namedtuple('Tag', 'prefix, label, suffix')):
 			if label.upper() in ignores:
 				return
 			if prefix != suffix[::-1]:
-				warning("Possibly malformed '{}'".format(arg))
+				info("Possibly malformed '{}'".format(arg))
 			return Tag(prefix, m.group(2), suffix)
 	def __str__(self):
 		return ''.join(self)
@@ -60,7 +62,7 @@ class DataSection(collections.namedtuple('DataSection', 'begin, text, end')):
 		yield self.end
 	def __repr__(self):
 		_, parts = self.begin.get_type()
-		return "<Base64 {} len={:,} B, hash={:X}>".format(" ".join(parts), len(self.decode()), hash(self))
+		return "<Base64 {} len={:,} B, hash={}>".format(" ".join(parts), len(self.decode()), self.sha256())
 	def get_data(self, encoding='latin-1'):
 		return b''.join(line.encode(encoding) for line in self.text)
 	def decode(self, **kwargs):
@@ -74,6 +76,8 @@ class DataSection(collections.namedtuple('DataSection', 'begin, text, end')):
 	def save(self, filename, mode='wb'):
 		with open(filename, mode) as fo:
 			fo.write(self.decode())
+	def sha256(self):
+		return hashlib.sha256(self.decode()).hexdigest()
 		
 class AttribsBeforeEncoding(DataSection):
 	@staticmethod
@@ -103,11 +107,11 @@ class AttribsBeforeEncoding(DataSection):
 class PgpSection(AttribsBeforeEncoding):
 	def __repr__(self):
 		_, parts = self.begin.get_type()
-		return "<{} len={:,} B, hash={:X}>".format(" ".join(parts), len(self.decode()), hash(self))
+		return "<{} len={:,} B, hash={}>".format(" ".join(parts), len(self.decode()), self.sha256())
 class RsaSection(AttribsBeforeEncoding):
 	def __repr__(self):
 		_, parts = self.begin.get_type()
-		return "<{} len={:,} B, hash={:X}>".format(" ".join(parts), len(self.decode()), hash(self))
+		return "<{} len={:,} B, hash={}>".format(" ".join(parts), len(self.decode()), self.sha256())
 
 
 class FormatError(Exception):
