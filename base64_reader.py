@@ -74,6 +74,7 @@ class DataSection(collections.namedtuple('DataSection', 'begin, text, end')):
 	def __hash__(self):
 		return hash(self.decode())
 	def save(self, filename, mode='wb'):
+		debug("Saving to {}".format(filename))
 		with open(filename, mode) as fo:
 			fo.write(self.decode())
 	def sha256(self):
@@ -128,6 +129,7 @@ def parse(arg, default_factory=DataSection.from_lines):
 	for lineno, line in enumerate(plines, start=1):
 		factory = default_factory
 		if isinstance(line, Tag):
+			# customize here for nonstandard styles
 			if 'PGP' in line.label.upper():
 				factory = PgpSection.from_lines
 			elif 'RSA PRIVATE KEY' in line.label.upper():
@@ -167,37 +169,3 @@ def split(lines, **kwargs):
 		else: # part is a string
 			nlines.append( (lineno, part) )
 	return binaries, nlines
-
-
-def print_file(filename, number_lines=True):
-	with open(filename, 'r') as fi:
-		lines = [ line.rstrip() for line in fi ]
-	if number_lines:
-		spaces = len(str(len(lines)))
-		def nprint(*args, **kwargs):
-			lineno, args = args[0], args[1:]
-			print("{:{}d}".format(lineno, spaces), *args, **kwargs)
-	else:
-		def nprint(*args, **kwargs):
-			args = args[1:]
-			print(*args, **kwargs)
-	for lineno, part in parse(lines):
-		if isinstance(part, DataSection): # part is multiple strings
-			try:
-				yield part.decode()
-				nprint(lineno, repr(part))
-				if 2 < len(part):
-					nprint(lineno+len(part)-1, '...')
-			except Exception as e:
-				nprint(lineno, "<Malformed base64 data: {}>".format(e))
-				for lineno, line in enumerate(part, start=lineno):
-					nprint(lineno, line)
-		else: # part is a string
-			nprint(lineno, part)
-if __name__ == '__main__':
-	import sys
-	for fn in sys.argv[1:]:
-		b = list(print_file(fn))
-		if b:
-			print()
-			print("{} valid".format(len(b)), "binary" if len(b) == 1 else "binaries")
