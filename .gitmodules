@@ -1,18 +1,15 @@
-[submodule "video-cli"]
-	path = video-cli
-	url = /Users/hayden/Dropbox/repos/video-cli.git/
 [submodule "Splitter"]
-	path = Splitter
+	path = python/Splitter
 	url = git@github.com:matt-hayden/video-clip-splitter.git
 [submodule "Screencap"]
-	path = Screencap
+	path = python/Screencap
 	url = git@github.com:matt-hayden/screencap.git
 [submodule "Sorter"]
-	path = Sorter
+	path = python/Sorter
 	url = git@github.com:matt-hayden/tagxon.git
 [submodule "at"]
 	path = at
 	url = git@github.com:matt-hayden/py-at.git
 [submodule "faceswap"]
-	path = faceswap
+	path = python/faceswap
 	url = git@github.com:matt-hayden/faceswap.git
