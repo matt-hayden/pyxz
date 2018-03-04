@@ -1,4 +1,0 @@
-
-echo "parallel -k 'openssl enc -d -aes-256-cbc -pass file:pass32 -in {}' << EOF | xz -d"
-pxz.py --files -- "$@" | move_to_hash_filenames
-echo EOF

@@ -1,8 +1,0 @@
-#! /bin/bash
-# keep the input args in order!
-parallel -k 'sha256sum -b' | while read -r hash sfilename
-do
-  filename="${sfilename#\*}"
-  mv "$filename" "$hash"
-  echo "$hash"
-done

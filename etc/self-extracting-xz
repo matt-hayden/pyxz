@@ -1,0 +1,6 @@
+#! /bin/bash
+# example using parallel xz script
+
+echo "base64 -d << 'EOF' | xz -d"
+python/pxz.py --files "$@" | parallel -k base64
+echo EOF
