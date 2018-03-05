@@ -1,4 +1,1 @@
-python-utilities
-================
-
-Directory suitable for ~/python
+xz wrapper for GNU parallel
